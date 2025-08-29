@@ -35,7 +35,7 @@ export interface ImageUploadRef {
 const ImageUpload = forwardRef<ImageUploadRef, ImageUploadProps>(({
   maxFiles = 10,
   maxSize = 2 * 1024 * 1024, // 2MB
-  accept = 'image/png,image/jpeg,image/webp', // Restrict to allowed formats
+  accept = '.png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp', // Restrict to allowed formats
   className,
   onImagesChange,
   onUploadComplete,
@@ -61,6 +61,11 @@ const ImageUpload = forwardRef<ImageUploadRef, ImageUploadProps>(({
   }), [images]);
 
   const validateFile = (file: File): string | null => {
+    // Check if it's actually a file (not a directory)
+    if (file.size === 0 && file.type === '') {
+      return 'Folders are not supported. Please select image files only.';
+    }
+
     // First check file type validation using ImageProcessor
     const typeValidation = ImageProcessor.validateImageFile(file);
     if (!typeValidation.isValid) {
@@ -232,7 +237,17 @@ const ImageUpload = forwardRef<ImageUploadRef, ImageUploadProps>(({
 
       const files = e.dataTransfer.files;
       if (files.length > 0) {
-        addImages(files);
+        // Filter out directories and non-files
+        const validFiles = Array.from(files).filter(file => {
+          // Check if it's actually a file (not a directory)
+          return file.size > 0 || file.type !== '';
+        });
+
+        if (validFiles.length > 0) {
+          addImages(validFiles);
+        } else {
+          setErrors(prev => [...prev, 'Please drop image files, not folders.']);
+        }
       }
     },
     [addImages],
@@ -309,9 +324,9 @@ const ImageUpload = forwardRef<ImageUploadRef, ImageUploadProps>(({
           <div className="flex items-center justify-center size-[32px] rounded-full border border-border mx-auto mb-3">
             <CloudUpload className="size-4" />
           </div>
-          <h3 className="text-2sm text-foreground font-semibold mb-0.5">Choose a file or drag & drop here.</h3>
+          <h3 className="text-2sm text-foreground font-semibold mb-0.5">Choose image files or drag & drop here.</h3>
           <span className="text-xs text-secondary-foreground font-normal block mb-3">
-            PNG, WebP, JPEG/JPG only, up to {formatBytes(maxSize)}.
+            Only PNG, WebP, JPEG/JPG files, up to {formatBytes(maxSize)}.
           </span>
           <div className="flex items-center justify-center">
             <Button variant="primary" size="lg" onClick={openFileDialog}>

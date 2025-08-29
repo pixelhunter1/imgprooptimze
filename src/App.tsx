@@ -7,9 +7,11 @@ import ZipDownloadDialog from '@/components/dialogs/ZipDownloadDialog';
 import BatchRenameDialog, { type BatchRenamePattern } from '@/components/dialogs/BatchRenameDialog';
 import ResetProjectDialog from '@/components/dialogs/ResetProjectDialog';
 import InstallButton from '@/components/pwa/InstallButton';
+import BrowserCompatibilityAlert, { useBrowserCompatibility } from '@/components/browser/BrowserCompatibilityAlert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ImageProcessor, type OptimizationOptions, type ProcessedImage, type FileValidationResult } from '@/lib/imageProcessor';
+import { detectBrowser, getBrowserCapabilities } from '@/lib/browserDetection';
 import { Package, Edit3, Trash2 } from 'lucide-react';
 
 interface UploadedImage {
@@ -30,11 +32,20 @@ function App() {
   const [showResetProjectDialog, setShowResetProjectDialog] = useState(false);
   const imageUploadRef = useRef<ImageUploadRef>(null);
 
-  const [optimizationOptions, setOptimizationOptions] = useState<OptimizationOptions>({
-    format: 'webp',
-    quality: 0.8, // Higher default quality for better results
-    maxWidthOrHeight: 1920,
-    preserveQuality: false, // Allow users to toggle this
+  // Browser compatibility detection
+  const { } = useBrowserCompatibility();
+
+  const [optimizationOptions, setOptimizationOptions] = useState<OptimizationOptions>(() => {
+    // Set initial options based on browser capabilities
+    const browser = detectBrowser();
+    const caps = getBrowserCapabilities(browser);
+
+    return {
+      format: caps.canUseWebP ? 'webp' : caps.recommendedFormat,
+      quality: caps.maxQualityRecommended,
+      maxWidthOrHeight: browser.isIOS ? 1600 : 1920, // Lower for iOS
+      preserveQuality: false,
+    };
   });
 
   const handleImagesUploaded = useCallback((images: UploadedImage[]) => {
@@ -126,7 +137,11 @@ function App() {
 
   return (
     <div className="min-h-screen bg-background py-8 px-4">
-      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 lg:items-start">
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Browser Compatibility Alert */}
+        <BrowserCompatibilityAlert />
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:items-start">
         {/* Left Column: Upload + Settings stacked */}
         <div className="space-y-6 lg:sticky lg:top-8 self-start">
           <Card className="bg-card border border-border rounded-lg">
@@ -140,7 +155,7 @@ function App() {
                 onValidationError={handleValidationError}
                 maxFiles={10}
                 maxSize={50 * 1024 * 1024} // 50MB
-                accept="image/png,image/jpeg,image/webp"
+                accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"
               />
             </CardContent>
           </Card>
@@ -234,31 +249,32 @@ function App() {
             <ImagePreviewSkeletons count={4} />
           )}
         </div>
+        </div>
+
+        {/* Dialogs */}
+        <ZipDownloadDialog
+          isOpen={showZipDialog}
+          onClose={() => setShowZipDialog(false)}
+          onDownload={handleZipDownload}
+          fileCount={processedImages.length}
+        />
+
+        <BatchRenameDialog
+          isOpen={showBatchRenameDialog}
+          onClose={() => setShowBatchRenameDialog(false)}
+          onApply={handleBatchRename}
+          images={processedImages}
+        />
+
+        <ResetProjectDialog
+          isOpen={showResetProjectDialog}
+          onClose={() => setShowResetProjectDialog(false)}
+          onConfirm={handleResetProject}
+        />
+
+        {/* PWA Install Button */}
+        <InstallButton />
       </div>
-
-      {/* Dialogs */}
-      <ZipDownloadDialog
-        isOpen={showZipDialog}
-        onClose={() => setShowZipDialog(false)}
-        onDownload={handleZipDownload}
-        fileCount={processedImages.length}
-      />
-
-      <BatchRenameDialog
-        isOpen={showBatchRenameDialog}
-        onClose={() => setShowBatchRenameDialog(false)}
-        onApply={handleBatchRename}
-        images={processedImages}
-      />
-
-      <ResetProjectDialog
-        isOpen={showResetProjectDialog}
-        onClose={() => setShowResetProjectDialog(false)}
-        onConfirm={handleResetProject}
-      />
-
-      {/* PWA Install Button */}
-      <InstallButton />
     </div>
   );
 }

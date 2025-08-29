@@ -2,8 +2,9 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Slider, SliderThumb } from '@/components/ui/slider';
-import { Settings, Zap } from 'lucide-react';
+import { Settings, Zap, AlertTriangle } from 'lucide-react';
 import { type OptimizationOptions } from '@/lib/imageProcessor';
+import { detectBrowser, getBrowserCapabilities } from '@/lib/browserDetection';
 
 interface OptimizationControlsProps {
   options: OptimizationOptions;
@@ -24,10 +25,26 @@ export default function OptimizationControls({
   processedCount,
   totalImages,
 }: OptimizationControlsProps) {
+  // Browser compatibility detection
+  const browserInfo = detectBrowser();
+  const capabilities = getBrowserCapabilities(browserInfo);
+
   const formatOptions = [
-    { value: 'webp', label: 'WebP' },
-    { value: 'jpeg', label: 'JPEG' },
-    { value: 'png', label: 'PNG' },
+    {
+      value: 'webp',
+      label: 'WebP',
+      supported: capabilities.canUseWebP
+    },
+    {
+      value: 'jpeg',
+      label: 'JPEG',
+      supported: true
+    },
+    {
+      value: 'png',
+      label: 'PNG',
+      supported: true
+    },
   ] as const;
 
   const qualityPresets = [
@@ -56,12 +73,23 @@ export default function OptimizationControls({
                 variant={options.format === format.value ? "primary" : "outline"}
                 size="md"
                 onClick={() => onOptionsChange({ ...options, format: format.value })}
-                className="flex-1"
+                className={`flex-1 relative ${!format.supported ? 'opacity-50' : ''}`}
+                disabled={!format.supported}
               >
-                {format.label}
+                <span className="flex items-center gap-1">
+                  {format.label}
+                  {!format.supported && (
+                    <AlertTriangle className="h-3 w-3 text-red-500" />
+                  )}
+                </span>
               </Button>
             ))}
           </div>
+          {!capabilities.canUseWebP && options.format === 'webp' && (
+            <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded border border-amber-200">
+              WebP not supported in {browserInfo.name}. JPEG will be used instead.
+            </p>
+          )}
         </div>
 
         {/* Quality Control */}
@@ -133,6 +161,26 @@ export default function OptimizationControls({
             />
           </button>
         </div>
+
+        {/* Browser Compatibility Info */}
+        {capabilities.showCompatibilityWarning && (
+          <div className="pt-4 border-t border-border">
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertTriangle className="h-4 w-4 text-amber-600" />
+                <span className="text-sm font-medium text-amber-800">
+                  Limited Browser Support
+                </span>
+              </div>
+              <p className="text-xs text-amber-700 mb-2">
+                {browserInfo.name} has reduced performance. For best results, use Chrome, Firefox, or Edge.
+              </p>
+              <div className="text-xs text-amber-600">
+                Quality limited to {Math.round(capabilities.maxQualityRecommended * 100)}%
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Action Button */}
         <div className="pt-6 border-t border-border">

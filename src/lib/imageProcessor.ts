@@ -1,5 +1,6 @@
 import imageCompression from 'browser-image-compression';
 import JSZip from 'jszip';
+import { detectBrowser, getBrowserCapabilities } from './browserDetection';
 
 export interface OptimizationOptions {
   format: 'webp' | 'jpeg' | 'png';
@@ -48,6 +49,109 @@ export interface ProcessedImage {
 }
 
 export class ImageProcessor {
+  /**
+   * Applies browser-specific optimizations to options
+   */
+  static applyBrowserOptimizations(options: OptimizationOptions, capabilities: ReturnType<typeof getBrowserCapabilities>): OptimizationOptions {
+    const optimized = { ...options };
+
+    // Adjust quality for Safari
+    if (capabilities.showCompatibilityWarning) {
+      optimized.quality = Math.min(optimized.quality, capabilities.maxQualityRecommended);
+    }
+
+    // Force format change if WebP not supported
+    if (!capabilities.canUseWebP && optimized.format === 'webp') {
+      optimized.format = capabilities.recommendedFormat;
+    }
+
+    // Limit dimensions for mobile Safari
+    const browserInfo = detectBrowser();
+    if (browserInfo.isIOS && browserInfo.isMobile) {
+      optimized.maxWidthOrHeight = Math.min(optimized.maxWidthOrHeight || 1920, 1600);
+    }
+
+    return optimized;
+  }
+
+  /**
+   * Safari-optimized compression method
+   * Uses canvas-only approach to avoid Safari-specific issues
+   */
+  static async safariOptimizedCompression(
+    file: File,
+    options: OptimizationOptions,
+    onProgress?: (progress: number) => void
+  ): Promise<File> {
+    if (onProgress) onProgress(10);
+
+    return new Promise((resolve, reject) => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const img = new Image();
+
+      if (!ctx) {
+        reject(new Error('Canvas context not available'));
+        return;
+      }
+
+      img.onload = () => {
+        try {
+          if (onProgress) onProgress(30);
+
+          // Calculate dimensions with Safari-safe limits
+          const maxDimension = options.maxWidthOrHeight || 1600; // Lower for Safari
+          let { width, height } = img;
+
+          if (width > maxDimension || height > maxDimension) {
+            const ratio = Math.min(maxDimension / width, maxDimension / height);
+            width = Math.floor(width * ratio);
+            height = Math.floor(height * ratio);
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+
+          if (onProgress) onProgress(50);
+
+          // Use Safari-optimized canvas settings
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'medium'; // Use medium instead of high for Safari
+          ctx.drawImage(img, 0, 0, width, height);
+
+          if (onProgress) onProgress(80);
+
+          // Use lower quality for Safari to prevent issues
+          const safariQuality = Math.min(options.quality, 0.85);
+
+          canvas.toBlob(
+            (blob) => {
+              if (!blob) {
+                reject(new Error('Failed to compress image'));
+                return;
+              }
+
+              const fileName = this.generateFileName(file.name, options.format);
+              const compressedFile = new File([blob], fileName, {
+                type: this.getFileType(options.format),
+              });
+
+              if (onProgress) onProgress(100);
+              resolve(compressedFile);
+            },
+            this.getFileType(options.format),
+            safariQuality
+          );
+        } catch (error) {
+          reject(error);
+        }
+      };
+
+      img.onerror = () => reject(new Error('Failed to load image'));
+      img.src = URL.createObjectURL(file);
+    });
+  }
+
   /**
    * Validates a single file for allowed image formats
    * Checks both MIME type and file extension for security
@@ -150,14 +254,23 @@ export class ImageProcessor {
     onProgress?: (progress: number) => void
   ): Promise<ProcessedImage> {
     try {
+      // Apply browser-specific optimizations
+      const browserInfo = detectBrowser();
+      const capabilities = getBrowserCapabilities(browserInfo);
+      const optimizedOptions = this.applyBrowserOptimizations(options, capabilities);
+
+      if (onProgress) onProgress(5);
+
       let finalFile: File;
 
-      // For maximum quality (>= 0.9) or when preserveQuality is true, use direct Canvas conversion
-      if (options.preserveQuality || options.quality >= 0.9) {
-        finalFile = await this.highQualityOptimization(file, options, onProgress);
+      // Choose optimization method based on browser capabilities and settings
+      if (capabilities.compressionMethod === 'canvas' || optimizedOptions.preserveQuality || optimizedOptions.quality >= 0.9) {
+        finalFile = await this.highQualityOptimization(file, optimizedOptions, onProgress);
+      } else if (capabilities.compressionMethod === 'library' && capabilities.canUseWebWorkers) {
+        finalFile = await this.standardOptimization(file, optimizedOptions, onProgress);
       } else {
-        // Use browser-image-compression for lower quality settings
-        finalFile = await this.standardOptimization(file, options, onProgress);
+        // Hybrid approach - use canvas for Safari and problematic browsers
+        finalFile = await this.safariOptimizedCompression(file, optimizedOptions, onProgress);
       }
 
       // Calculate compression ratio
@@ -267,10 +380,13 @@ export class ImageProcessor {
     options: OptimizationOptions,
     onProgress?: (progress: number) => void
   ): Promise<File> {
+    // Check browser capabilities for web worker support
+    const capabilities = getBrowserCapabilities();
+
     // Configure compression options - prioritize quality over file size for better results
     const compressionOptions: any = {
       maxWidthOrHeight: options.maxWidthOrHeight || 1920,
-      useWebWorker: true,
+      useWebWorker: capabilities.canUseWebWorkers, // Disable for Safari
       fileType: this.getFileType(options.format),
       initialQuality: options.quality,
       onProgress: onProgress,
