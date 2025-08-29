@@ -8,6 +8,8 @@ import BatchRenameDialog, { type BatchRenamePattern } from '@/components/dialogs
 import ResetProjectDialog from '@/components/dialogs/ResetProjectDialog';
 import InstallButton from '@/components/pwa/InstallButton';
 import BrowserCompatibilityAlert, { useBrowserCompatibility } from '@/components/browser/BrowserCompatibilityAlert';
+import MobileBlocker from '@/components/MobileBlocker';
+import { useMobileDetection } from '@/hooks/useMobileDetection';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ImageProcessor, type OptimizationOptions, type ProcessedImage, type FileValidationResult } from '@/lib/imageProcessor';
@@ -34,6 +36,10 @@ function App() {
 
   // Browser compatibility detection
   const { } = useBrowserCompatibility();
+
+  // Mobile device detection
+  const { isMobile, isTablet } = useMobileDetection();
+  const shouldBlockMobile = isMobile || isTablet;
 
   const [optimizationOptions, setOptimizationOptions] = useState<OptimizationOptions>(() => {
     // Set initial options based on browser capabilities
@@ -144,6 +150,11 @@ function App() {
       return `${ratio.toFixed(1)}% reduction`;
     }
   };
+
+  // Block mobile devices
+  if (shouldBlockMobile) {
+    return <MobileBlocker />;
+  }
 
   return (
     <div className="min-h-screen bg-background py-8 px-4">
