@@ -206,8 +206,13 @@ export class ImageProcessor {
         return;
       }
 
+      const imageUrl = URL.createObjectURL(file);
+
       img.onload = () => {
         try {
+          // Clean up the temporary URL
+          URL.revokeObjectURL(imageUrl);
+
           if (onProgress) onProgress(30);
 
           // Calculate dimensions with Safari-safe limits
@@ -258,8 +263,11 @@ export class ImageProcessor {
         }
       };
 
-      img.onerror = () => reject(new Error('Failed to load image'));
-      img.src = URL.createObjectURL(file);
+      img.onerror = () => {
+        URL.revokeObjectURL(imageUrl);
+        reject(new Error('Failed to load image'));
+      };
+      img.src = imageUrl;
     });
   }
 
@@ -470,8 +478,13 @@ export class ImageProcessor {
       const ctx = canvas.getContext('2d');
       const img = new Image();
 
+      const imageUrl = URL.createObjectURL(file);
+
       img.onload = () => {
         try {
+          // Clean up the temporary URL
+          URL.revokeObjectURL(imageUrl);
+
           // Calculate dimensions respecting maxWidthOrHeight
           let { width, height } = img;
           if (options.maxWidthOrHeight) {
@@ -538,8 +551,11 @@ export class ImageProcessor {
         }
       };
 
-      img.onerror = () => reject(new Error('Failed to load image'));
-      img.src = URL.createObjectURL(file);
+      img.onerror = () => {
+        URL.revokeObjectURL(imageUrl);
+        reject(new Error('Failed to load image'));
+      };
+      img.src = imageUrl;
     });
   }
 
@@ -607,7 +623,12 @@ export class ImageProcessor {
       const ctx = canvas.getContext('2d');
       const img = new Image();
 
+      const imageUrl = URL.createObjectURL(file);
+
       img.onload = () => {
+        // Clean up the temporary URL
+        URL.revokeObjectURL(imageUrl);
+
         canvas.width = img.width;
         canvas.height = img.height;
 
@@ -657,8 +678,11 @@ export class ImageProcessor {
         );
       };
 
-      img.onerror = () => reject(new Error('Failed to load image'));
-      img.src = URL.createObjectURL(file);
+      img.onerror = () => {
+        URL.revokeObjectURL(imageUrl);
+        reject(new Error('Failed to load image'));
+      };
+      img.src = imageUrl;
     });
   }
 
@@ -788,6 +812,34 @@ export class ImageProcessor {
       png: '.png',
     };
     return extensions[format];
+  }
+
+  /**
+   * Cleans up blob URLs from processed images to prevent memory leaks
+   * @param processedImages Array of processed images to clean up
+   */
+  static cleanupProcessedImages(processedImages: ProcessedImage[]): void {
+    processedImages.forEach(img => {
+      if (img.originalUrl) {
+        URL.revokeObjectURL(img.originalUrl);
+      }
+      if (img.optimizedUrl && img.optimizedUrl !== img.originalUrl) {
+        URL.revokeObjectURL(img.optimizedUrl);
+      }
+    });
+  }
+
+  /**
+   * Cleans up a single processed image's blob URLs
+   * @param processedImage The processed image to clean up
+   */
+  static cleanupProcessedImage(processedImage: ProcessedImage): void {
+    if (processedImage.originalUrl) {
+      URL.revokeObjectURL(processedImage.originalUrl);
+    }
+    if (processedImage.optimizedUrl && processedImage.optimizedUrl !== processedImage.originalUrl) {
+      URL.revokeObjectURL(processedImage.optimizedUrl);
+    }
   }
 
   /**

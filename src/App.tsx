@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import ImageUpload, { type ImageUploadRef } from '@/components/file-upload/image-upload';
 import OptimizationControls from '@/components/optimization/OptimizationControls';
 import ImagePreview from '@/components/optimization/ImagePreview';
@@ -41,6 +41,21 @@ function App() {
   // Mobile device detection
   const { isMobile, isTablet } = useMobileDetection();
   const shouldBlockMobile = isMobile || isTablet;
+
+  // Cleanup blob URLs when component unmounts to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      // Clean up processed images
+      ImageProcessor.cleanupProcessedImages(processedImages);
+
+      // Clean up uploaded images
+      uploadedImages.forEach(img => {
+        if (img.preview) {
+          URL.revokeObjectURL(img.preview);
+        }
+      });
+    };
+  }, [processedImages, uploadedImages]);
 
   const [optimizationOptions, setOptimizationOptions] = useState<OptimizationOptions>(() => {
     // Set initial options based on browser capabilities
@@ -123,14 +138,24 @@ function App() {
   }, [processedImages]);
 
   const handleResetProject = useCallback(() => {
+    // Clean up blob URLs from processed images to prevent memory leaks
+    ImageProcessor.cleanupProcessedImages(processedImages);
+
+    // Revoke blob URLs from uploaded images to prevent memory leaks
+    uploadedImages.forEach(img => {
+      if (img.preview) {
+        URL.revokeObjectURL(img.preview);
+      }
+    });
+
     // Clear all uploaded and processed images
     setUploadedImages([]);
     setProcessedImages([]);
     setIsProcessing(false);
-    // Reset the ImageUpload component
+    // Reset the ImageUpload component (this will handle its own blob URL cleanup)
     imageUploadRef.current?.resetUpload();
     // Keep optimization settings unchanged
-  }, []);
+  }, [processedImages, uploadedImages]);
 
   // Summary stats for results
   const totalSavings = processedImages.reduce(
