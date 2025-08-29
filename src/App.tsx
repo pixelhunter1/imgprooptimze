@@ -195,9 +195,9 @@ function App() {
                     variant="destructive"
                     onClick={() => setShowResetProjectDialog(true)}
                     className="flex items-center justify-center gap-2"
-                    size="sm"
+                    size="lg"
                   >
-                    <Trash2 className="h-3 w-3" />
+                    <Trash2 className="h-4 w-4" />
                     Reset Project
                   </Button>
                 </div>

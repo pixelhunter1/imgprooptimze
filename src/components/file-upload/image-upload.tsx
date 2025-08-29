@@ -255,7 +255,7 @@ const ImageUpload = forwardRef<ImageUploadRef, ImageUploadProps>(({
             JPEG, PNG, up to {formatBytes(maxSize)}.
           </span>
           <div className="flex items-center justify-center">
-            <Button variant="primary" size="md" onClick={openFileDialog}>
+            <Button variant="primary" size="lg" onClick={openFileDialog}>
               Browse File
             </Button>
           </div>

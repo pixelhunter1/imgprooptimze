@@ -160,7 +160,7 @@ export default function ImagePreview({
                     <div className="flex gap-2">
                       <Button
                         variant="primary"
-                        size="md"
+                        size="lg"
                         onClick={handleSaveEdit}
                         disabled={!editedFilename.trim()}
                         className="flex-1"
@@ -169,7 +169,7 @@ export default function ImagePreview({
                       </Button>
                       <Button
                         variant="outline"
-                        size="md"
+                        size="lg"
                         onClick={handleCancelEdit}
                         className="flex-1"
                       >

@@ -54,9 +54,9 @@ export default function OptimizationControls({
               <Button
                 key={format.value}
                 variant={options.format === format.value ? "primary" : "outline"}
-                size="sm"
+                size="md"
                 onClick={() => onOptionsChange({ ...options, format: format.value })}
-                className="flex-1 text-xs"
+                className="flex-1"
               >
                 {format.label}
               </Button>
@@ -94,13 +94,13 @@ export default function OptimizationControls({
               <Button
                 key={preset.value}
                 variant={Math.abs(options.quality - preset.value) < 0.05 ? "secondary" : "outline"}
-                size="sm"
+                size="md"
                 onClick={() => onOptionsChange({
                   ...options,
                   quality: preset.value,
                   preserveQuality: preset.value >= 0.9 // Auto-enable preserve quality for high settings
                 })}
-                className="flex-1 text-xs py-1.5"
+                className="flex-1"
               >
                 {preset.label}
               </Button>
