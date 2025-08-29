@@ -53,30 +53,26 @@ export default function ResetProjectDialog({
 
           {/* Content */}
           <div className="space-y-6">
-            <div className="space-y-3">
-              <p className="text-foreground">
-                Are you sure you want to remove all images and reset the project?
-              </p>
-              <p className="text-sm text-muted-foreground">
-                This action cannot be undone. All uploaded and processed images will be permanently removed.
-              </p>
-            </div>
+            <p className="text-foreground">
+              Are you sure you want to remove all images and reset the project?
+            </p>
 
             {/* Action Buttons */}
-            <div className="flex gap-3">
+            <div className="flex gap-3 pt-6 border-t border-border">
               <Button
                 variant="outline"
                 onClick={onClose}
-                className="flex-1"
                 disabled={isResetting}
+                className="flex-1"
               >
                 Cancel
               </Button>
               <Button
                 variant="destructive"
                 onClick={handleConfirm}
-                className="flex-1 flex items-center gap-2"
                 disabled={isResetting}
+                className="flex-1 flex items-center gap-2"
+                size="sm"
               >
                 {isResetting ? (
                   <>

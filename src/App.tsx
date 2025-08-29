@@ -197,9 +197,9 @@ function App() {
                   </div>
                   {/* Reset Project button - only show when there are processed images */}
                   <Button
-                    variant="outline"
+                    variant="destructive"
                     onClick={() => setShowResetProjectDialog(true)}
-                    className="flex items-center justify-center gap-2 text-muted-foreground hover:text-destructive border-muted-foreground/20 hover:border-destructive/50"
+                    className="flex items-center justify-center gap-2"
                     size="sm"
                   >
                     <Trash2 className="h-3 w-3" />
