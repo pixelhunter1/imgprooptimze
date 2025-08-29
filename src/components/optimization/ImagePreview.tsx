@@ -2,14 +2,13 @@ import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Download, Zap, X, Edit2 } from 'lucide-react';
+import { Download, Zap, Edit2 } from 'lucide-react';
 import { Badge } from '@/components/ui/base-badge';
 import { type ProcessedImage, ImageProcessor } from '@/lib/imageProcessor';
 
 interface ImagePreviewProps {
   processedImage: ProcessedImage;
   onDownload: (image: ProcessedImage) => void;
-  onRemove: (id: string) => void;
   onRename: (id: string, newFilename: string) => void;
   isProcessing?: boolean;
   processingProgress?: number;
@@ -18,7 +17,6 @@ interface ImagePreviewProps {
 export default function ImagePreview({
   processedImage,
   onDownload,
-  onRemove,
   onRename,
   isProcessing = false,
   processingProgress = 0,
@@ -82,16 +80,6 @@ export default function ImagePreview({
   return (
     <Card className="bg-card border border-border rounded-xl w-full overflow-hidden">
       <CardContent className="p-0">
-        {/* Remove Button - Positioned absolutely */}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => onRemove(processedImage.id)}
-          className="absolute top-3 right-3 z-10 h-8 w-8 p-0 bg-background/80 backdrop-blur-sm hover:bg-background border border-border/50 rounded-full"
-          title="Remove image"
-        >
-          <X className="h-4 w-4" />
-        </Button>
 
         {/* Processing State */}
         {isProcessing && (

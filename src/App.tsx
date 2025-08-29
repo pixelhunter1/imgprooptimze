@@ -219,8 +219,10 @@ function App() {
                 <ImagePreview
                   key={img.id}
                   processedImage={img}
-                  onDownload={(image) => ImageProcessor.downloadFile(image.optimizedFile)}
-                  onRemove={(id) => setProcessedImages((prev) => prev.filter((p) => p.id !== id))}
+                  onDownload={(image) => {
+                    const finalFilename = ImageProcessor.getFinalFilename(image);
+                    ImageProcessor.downloadFile(image.optimizedFile, finalFilename);
+                  }}
                   onRename={handleRenameImage}
                 />
               ))}
