@@ -1,13 +1,15 @@
-import { useState, useCallback } from 'react';
-import ImageUpload from '@/components/file-upload/image-upload';
+import { useState, useCallback, useRef } from 'react';
+import ImageUpload, { type ImageUploadRef } from '@/components/file-upload/image-upload';
 import OptimizationControls from '@/components/optimization/OptimizationControls';
 import ImagePreview from '@/components/optimization/ImagePreview';
+import { ImagePreviewSkeletons } from '@/components/optimization/ImagePreviewSkeleton';
 import ZipDownloadDialog from '@/components/dialogs/ZipDownloadDialog';
 import BatchRenameDialog, { type BatchRenamePattern } from '@/components/dialogs/BatchRenameDialog';
+import ResetProjectDialog from '@/components/dialogs/ResetProjectDialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ImageProcessor, type OptimizationOptions, type ProcessedImage } from '@/lib/imageProcessor';
-import { Package, Edit3 } from 'lucide-react';
+import { Package, Edit3, Trash2 } from 'lucide-react';
 
 interface UploadedImage {
   id: string;
@@ -24,6 +26,8 @@ function App() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [showZipDialog, setShowZipDialog] = useState(false);
   const [showBatchRenameDialog, setShowBatchRenameDialog] = useState(false);
+  const [showResetProjectDialog, setShowResetProjectDialog] = useState(false);
+  const imageUploadRef = useRef<ImageUploadRef>(null);
 
   const [optimizationOptions, setOptimizationOptions] = useState<OptimizationOptions>({
     format: 'webp',
@@ -95,6 +99,16 @@ function App() {
     setProcessedImages(renamedImages);
   }, [processedImages]);
 
+  const handleResetProject = useCallback(() => {
+    // Clear all uploaded and processed images
+    setUploadedImages([]);
+    setProcessedImages([]);
+    setIsProcessing(false);
+    // Reset the ImageUpload component
+    imageUploadRef.current?.resetUpload();
+    // Keep optimization settings unchanged
+  }, []);
+
   // Summary stats for results
   const totalSavings = processedImages.reduce(
     (acc, img) => acc + (img.originalSize - img.optimizedSize),
@@ -114,6 +128,7 @@ function App() {
               <h2 className="text-xl font-semibold text-foreground">Upload Images</h2>
               <p className="text-sm text-muted-foreground">Drag and drop or click to select images.</p>
               <ImageUpload
+                ref={imageUploadRef}
                 onImagesChange={handleImagesUploaded}
                 onUploadComplete={() => {}}
                 maxFiles={10}
@@ -159,24 +174,36 @@ function App() {
 
               {/* Action Buttons - Moved below text */}
               {processedImages.length > 0 && (
-                <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                <div className="flex flex-col gap-3 pt-2">
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowBatchRenameDialog(true)}
+                      className="flex items-center justify-center gap-2 flex-1"
+                      size="lg"
+                    >
+                      <Edit3 className="h-4 w-4" />
+                      Rename All
+                    </Button>
+                    <Button
+                      variant="primary"
+                      onClick={handleDownloadAll}
+                      className="flex items-center justify-center gap-2 flex-1"
+                      size="lg"
+                    >
+                      <Package className="h-4 w-4" />
+                      Download ZIP ({processedImages.length})
+                    </Button>
+                  </div>
+                  {/* Reset Project button - only show when there are processed images */}
                   <Button
                     variant="outline"
-                    onClick={() => setShowBatchRenameDialog(true)}
-                    className="flex items-center justify-center gap-2 flex-1"
-                    size="lg"
+                    onClick={() => setShowResetProjectDialog(true)}
+                    className="flex items-center justify-center gap-2 text-muted-foreground hover:text-destructive border-muted-foreground/20 hover:border-destructive/50"
+                    size="sm"
                   >
-                    <Edit3 className="h-4 w-4" />
-                    Rename All
-                  </Button>
-                  <Button
-                    variant="primary"
-                    onClick={handleDownloadAll}
-                    className="flex items-center justify-center gap-2 flex-1"
-                    size="lg"
-                  >
-                    <Package className="h-4 w-4" />
-                    Download ZIP ({processedImages.length})
+                    <Trash2 className="h-3 w-3" />
+                    Reset Project
                   </Button>
                 </div>
               )}
@@ -185,17 +212,23 @@ function App() {
 
 
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {processedImages.map((img) => (
-              <ImagePreview
-                key={img.id}
-                processedImage={img}
-                onDownload={(image) => ImageProcessor.downloadFile(image.optimizedFile)}
-                onRemove={(id) => setProcessedImages((prev) => prev.filter((p) => p.id !== id))}
-                onRename={handleRenameImage}
-              />
-            ))}
-          </div>
+          {/* Show processed images or skeleton loading as default empty state */}
+          {processedImages.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {processedImages.map((img) => (
+                <ImagePreview
+                  key={img.id}
+                  processedImage={img}
+                  onDownload={(image) => ImageProcessor.downloadFile(image.optimizedFile)}
+                  onRemove={(id) => setProcessedImages((prev) => prev.filter((p) => p.id !== id))}
+                  onRename={handleRenameImage}
+                />
+              ))}
+            </div>
+          ) : (
+            /* Show skeleton loading as default empty state */
+            <ImagePreviewSkeletons count={4} />
+          )}
         </div>
       </div>
 
@@ -212,6 +245,12 @@ function App() {
         onClose={() => setShowBatchRenameDialog(false)}
         onApply={handleBatchRename}
         images={processedImages}
+      />
+
+      <ResetProjectDialog
+        isOpen={showResetProjectDialog}
+        onClose={() => setShowResetProjectDialog(false)}
+        onConfirm={handleResetProject}
       />
     </div>
   );

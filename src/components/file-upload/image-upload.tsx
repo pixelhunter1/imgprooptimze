@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useState, forwardRef, useImperativeHandle } from 'react';
 import { Alert, AlertContent, AlertDescription, AlertIcon, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -26,17 +26,34 @@ interface ImageUploadProps {
   onUploadComplete?: (images: ImageFile[]) => void;
 }
 
-export default function ImageUpload({
+export interface ImageUploadRef {
+  resetUpload: () => void;
+}
+
+const ImageUpload = forwardRef<ImageUploadRef, ImageUploadProps>(({
   maxFiles = 10,
   maxSize = 2 * 1024 * 1024, // 2MB
   accept = 'image/*',
   className,
   onImagesChange,
   onUploadComplete,
-}: ImageUploadProps) {
+}, ref) => {
   const [images, setImages] = useState<ImageFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
+
+  // Expose reset function via ref
+  useImperativeHandle(ref, () => ({
+    resetUpload: () => {
+      // Clear all images and revoke object URLs
+      images.forEach(image => {
+        URL.revokeObjectURL(image.preview);
+      });
+      setImages([]);
+      setErrors([]);
+      setIsDragging(false);
+    }
+  }), [images]);
 
   const validateFile = (file: File): string | null => {
     if (!file.type.startsWith('image/')) {
@@ -300,4 +317,8 @@ export default function ImageUpload({
       )}
     </div>
   );
-}
+});
+
+ImageUpload.displayName = 'ImageUpload';
+
+export default ImageUpload;
