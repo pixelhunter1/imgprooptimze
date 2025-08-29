@@ -33,9 +33,10 @@ export default function OptimizationControls({
   ] as const;
 
   const qualityPresets = [
-    { value: 0.35, label: 'Smallest', description: 'Max compression' },
-    { value: 0.6, label: 'Balanced', description: 'Best trade-off' },
-    { value: 0.8, label: 'Sharp', description: 'Higher quality' },
+    { value: 0.4, label: 'Small', description: 'High compression' },
+    { value: 0.7, label: 'Balanced', description: 'Good trade-off' },
+    { value: 0.9, label: 'High', description: 'Sharp & clear' },
+    { value: 1.0, label: 'Maximum', description: 'Best quality' },
   ];
 
   return (
@@ -72,7 +73,14 @@ export default function OptimizationControls({
         <div className="space-y-3">
           <div className="flex justify-between items-center">
             <label className="text-sm font-medium">Quality</label>
-            <span className="text-sm text-gray-500">{Math.round(options.quality * 100)}%</span>
+            <div className="flex items-center gap-2">
+              {options.preserveQuality && (
+                <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
+                  Max Quality
+                </span>
+              )}
+              <span className="text-sm text-gray-500">{Math.round(options.quality * 100)}%</span>
+            </div>
           </div>
           
           <Slider
@@ -86,11 +94,15 @@ export default function OptimizationControls({
             <SliderThumb />
           </Slider>
           
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             {qualityPresets.map((preset) => (
               <button
                 key={preset.value}
-                onClick={() => onOptionsChange({ ...options, quality: preset.value })}
+                onClick={() => onOptionsChange({
+                  ...options,
+                  quality: preset.value,
+                  preserveQuality: preset.value >= 0.9 // Auto-enable preserve quality for high settings
+                })}
                 className={`p-2 text-xs border rounded transition-colors ${
                   Math.abs(options.quality - preset.value) < 0.05
                     ? 'border-primary bg-primary/5'
@@ -104,7 +116,33 @@ export default function OptimizationControls({
           </div>
         </div>
 
-
+        {/* Maximum Quality Toggle */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <label className="text-sm font-medium">Maximum Quality Mode</label>
+              <p className="text-xs text-muted-foreground">
+                Prioritizes image sharpness over file size
+              </p>
+            </div>
+            <button
+              onClick={() => onOptionsChange({
+                ...options,
+                preserveQuality: !options.preserveQuality,
+                quality: !options.preserveQuality ? 1.0 : options.quality
+              })}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                options.preserveQuality ? 'bg-primary' : 'bg-gray-200'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  options.preserveQuality ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
+        </div>
 
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t">

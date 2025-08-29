@@ -22,9 +22,9 @@ function App() {
 
   const [optimizationOptions, setOptimizationOptions] = useState<OptimizationOptions>({
     format: 'webp',
-    quality: 0.6,
-    maxSizeMB: 0.1, // 100KB default
+    quality: 0.8, // Higher default quality for better results
     maxWidthOrHeight: 1920,
+    preserveQuality: false, // Allow users to toggle this
   });
 
   const handleImagesUploaded = useCallback((images: UploadedImage[]) => {
