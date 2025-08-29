@@ -49,6 +49,19 @@ export interface ProcessedImage {
 
 export class ImageProcessor {
   /**
+   * Maps user-facing quality to internal processing quality
+   * This prevents file size increases at 100% quality by using 90% internally
+   */
+  static mapQualityForProcessing(userQuality: number): number {
+    // If user selects 100% (1.0), use 90% (0.9) internally for better results
+    if (userQuality >= 1.0) {
+      return 0.9;
+    }
+    // For all other quality levels, use as-is
+    return userQuality;
+  }
+
+  /**
    * Determines if processing can be skipped (no compression needed)
    */
   static shouldSkipProcessing(file: File, options: OptimizationOptions): boolean {
@@ -362,8 +375,20 @@ export class ImageProcessor {
         return this.createUnprocessedResult(file, options);
       }
 
+      // Map quality for internal processing (100% -> 90% to prevent size increases)
+      const mappedQuality = this.mapQualityForProcessing(options.quality);
+      const processingOptions = {
+        ...options,
+        quality: mappedQuality
+      };
+
+      // Log quality mapping for debugging
+      if (options.quality !== mappedQuality) {
+        console.log(`🎯 QUALITY MAPPING: User selected ${Math.round(options.quality * 100)}% → Processing with ${Math.round(mappedQuality * 100)}%`);
+      }
+
       // Apply browser-specific optimizations for actual processing
-      const optimizedOptions = this.applyBrowserOptimizations(options, capabilities);
+      const optimizedOptions = this.applyBrowserOptimizations(processingOptions, capabilities);
 
       if (onProgress) onProgress(5);
 
@@ -402,7 +427,7 @@ export class ImageProcessor {
         originalUrl,
         optimizedUrl,
         format: options.format,
-        quality: options.quality,
+        quality: options.quality, // Show original user-selected quality, not mapped quality
       };
     } catch (error) {
       console.error('Image optimization failed:', error);
