@@ -14,15 +14,15 @@ const buttonVariants = cva(
         mono: 'bg-zinc-950 text-white dark:bg-zinc-300 dark:text-black hover:bg-zinc-950/90 dark:hover:bg-zinc-300/90 data-[state=open]:bg-zinc-950/90 dark:data-[state=open]:bg-zinc-300/90',
         destructive:
           'bg-destructive text-destructive-foreground hover:bg-destructive/90 data-[state=open]:bg-destructive/90',
-        secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/90 data-[state=open]:bg-secondary/90',
-        outline: 'bg-background text-accent-foreground border border-input hover:bg-accent data-[state=open]:bg-accent',
+        secondary: 'bg-secondary text-secondary-foreground border border-border hover:bg-accent hover:text-accent-foreground data-[state=open]:bg-accent data-[state=open]:text-accent-foreground',
+        outline: 'bg-background text-foreground border border-border hover:bg-accent hover:text-accent-foreground data-[state=open]:bg-accent data-[state=open]:text-accent-foreground',
         dashed:
           'text-accent-foreground border border-input border-dashed bg-background hover:bg-accent hover:text-accent-foreground data-[state=open]:text-accent-foreground',
         ghost:
-          'text-accent-foreground hover:bg-accent hover:text-accent-foreground data-[state=open]:bg-accent data-[state=open]:text-accent-foreground',
-        dim: 'text-muted-foreground hover:text-foreground data-[state=open]:text-foreground',
-        foreground: '',
-        inverse: '',
+          'text-foreground hover:bg-accent hover:text-accent-foreground data-[state=open]:bg-accent data-[state=open]:text-accent-foreground border border-transparent hover:border-border',
+        dim: 'text-muted-foreground hover:bg-muted hover:text-foreground data-[state=open]:bg-muted data-[state=open]:text-foreground border border-border/50',
+        foreground: 'text-foreground hover:bg-accent hover:text-accent-foreground border border-border/30',
+        inverse: 'bg-foreground text-background hover:bg-foreground/90 border border-foreground',
       },
       appearance: {
         default: '',
@@ -226,7 +226,7 @@ const buttonVariants = cva(
       {
         variant: 'ghost',
         mode: 'icon',
-        className: 'text-muted-foreground',
+        className: 'text-foreground hover:bg-accent',
       },
 
       // Size

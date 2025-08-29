@@ -48,35 +48,33 @@ export default function OptimizationControls({
 
         {/* Format Selection */}
         <div className="space-y-3">
-          <label className="text-sm font-medium">Output Format</label>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+          <label className="text-sm font-medium text-foreground">Output Format</label>
+          <div className="flex gap-2">
             {formatOptions.map((format) => (
-              <button
+              <Button
                 key={format.value}
+                variant={options.format === format.value ? "primary" : "outline"}
+                size="sm"
                 onClick={() => onOptionsChange({ ...options, format: format.value })}
-                className={`p-3 text-left border rounded-lg transition-colors ${
-                  options.format === format.value
-                    ? 'border-primary bg-primary/5 text-primary'
-                    : 'border-border hover:bg-muted'
-                }`}
+                className="flex-1 text-xs"
               >
-                <div className="font-medium">{format.label}</div>
-              </button>
+                {format.label}
+              </Button>
             ))}
           </div>
         </div>
 
         {/* Quality Control */}
-        <div className="space-y-3">
+        <div className="space-y-4">
           <div className="flex justify-between items-center">
-            <label className="text-sm font-medium">Quality</label>
+            <label className="text-sm font-medium text-foreground">Quality</label>
             <div className="flex items-center gap-2">
               {options.preserveQuality && (
-                <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
+                <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-md border border-primary/20">
                   Max Quality
                 </span>
               )}
-              <span className="text-sm text-gray-500">{Math.round(options.quality * 100)}%</span>
+              <span className="text-sm font-medium text-foreground">{Math.round(options.quality * 100)}%</span>
             </div>
           </div>
           
@@ -91,55 +89,53 @@ export default function OptimizationControls({
             <SliderThumb />
           </Slider>
           
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          <div className="flex gap-2">
             {qualityPresets.map((preset) => (
               <Button
                 key={preset.value}
-                variant={Math.abs(options.quality - preset.value) < 0.05 ? "primary" : "outline"}
+                variant={Math.abs(options.quality - preset.value) < 0.05 ? "secondary" : "outline"}
                 size="sm"
                 onClick={() => onOptionsChange({
                   ...options,
                   quality: preset.value,
                   preserveQuality: preset.value >= 0.9 // Auto-enable preserve quality for high settings
                 })}
-                className="h-auto py-2"
+                className="flex-1 text-xs py-1.5"
               >
-                <div className="font-medium">{preset.label}</div>
+                {preset.label}
               </Button>
             ))}
           </div>
         </div>
 
         {/* Maximum Quality Toggle */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <label className="text-sm font-medium">Maximum Quality Mode</label>
-              <p className="text-xs text-muted-foreground">
-                Prioritizes image sharpness over file size
-              </p>
-            </div>
-            <button
-              onClick={() => onOptionsChange({
-                ...options,
-                preserveQuality: !options.preserveQuality,
-                quality: !options.preserveQuality ? 1.0 : options.quality
-              })}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                options.preserveQuality ? 'bg-primary' : 'bg-gray-200'
-              }`}
-            >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  options.preserveQuality ? 'translate-x-6' : 'translate-x-1'
-                }`}
-              />
-            </button>
+        <div className="flex items-center justify-between py-3 border-t border-border">
+          <div className="flex-1">
+            <label className="text-sm font-medium text-foreground">Maximum Quality Mode</label>
+            <p className="text-xs text-muted-foreground mt-1">
+              Prioritizes image sharpness over file size
+            </p>
           </div>
+          <button
+            onClick={() => onOptionsChange({
+              ...options,
+              preserveQuality: !options.preserveQuality,
+              quality: !options.preserveQuality ? 1.0 : options.quality
+            })}
+            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+              options.preserveQuality ? 'bg-primary' : 'bg-muted'
+            }`}
+          >
+            <span
+              className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform shadow-sm ${
+                options.preserveQuality ? 'translate-x-5' : 'translate-x-1'
+              }`}
+            />
+          </button>
         </div>
 
         {/* Action Button */}
-        <div className="pt-4 border-t">
+        <div className="pt-6 border-t border-border">
           <Button
             onClick={onOptimize}
             disabled={!hasImages || isProcessing}
@@ -154,13 +150,6 @@ export default function OptimizationControls({
             }
           </Button>
         </div>
-
-        {/* Progress Info */}
-        {isProcessing && (
-          <div className="text-center text-sm text-gray-600">
-            Processing {processedCount} of {totalImages} images...
-          </div>
-        )}
       </CardContent>
     </Card>
   );

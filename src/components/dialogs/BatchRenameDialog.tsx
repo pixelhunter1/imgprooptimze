@@ -329,7 +329,7 @@ export default function BatchRenameDialog({
           </div>
 
           {/* Actions - Moved to bottom */}
-          <div className="flex gap-4 pt-8 mt-8 border-t border-border">
+          <div className="flex gap-3 pt-6 border-t border-border">
             <Button
               variant="outline"
               onClick={onClose}
