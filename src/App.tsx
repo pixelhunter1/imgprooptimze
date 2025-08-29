@@ -10,6 +10,8 @@ import InstallButton from '@/components/pwa/InstallButton';
 import BrowserCompatibilityAlert, { useBrowserCompatibility } from '@/components/browser/BrowserCompatibilityAlert';
 import MobileBlocker from '@/components/MobileBlocker';
 import FloatingSupport from '@/components/support/FloatingSupport';
+import UpdateNotification from '@/components/updates/UpdateNotification';
+import VersionDisplay from '@/components/updates/VersionDisplay';
 import { useMobileDetection } from '@/hooks/useMobileDetection';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -322,8 +324,16 @@ function App() {
         {/* PWA Install Button */}
         <InstallButton />
 
+        {/* Update Notification */}
+        <UpdateNotification />
+
         {/* Floating Support Button */}
         <FloatingSupport />
+
+        {/* Version Display (bottom right corner) */}
+        <div className="fixed bottom-4 right-4 z-40">
+          <VersionDisplay showUpdateButton />
+        </div>
       </div>
     </div>
   );

@@ -1,5 +1,8 @@
-const CACHE_NAME = 'image-optimizer-v1.0.0';
-const STATIC_CACHE_NAME = 'image-optimizer-static-v1.0.0';
+// Version will be injected at build time
+const APP_VERSION = '1.0.0'; // This will be replaced during build
+const BUILD_HASH = 'a551120f'; // This will be replaced during build
+const CACHE_NAME = `image-optimizer-v${APP_VERSION}-${BUILD_HASH}`;
+const STATIC_CACHE_NAME = `image-optimizer-static-v${APP_VERSION}-${BUILD_HASH}`;
 
 // Assets to cache immediately
 const STATIC_ASSETS = [
@@ -7,12 +10,13 @@ const STATIC_ASSETS = [
   '/index.html',
   '/manifest.json',
   '/app-icon.svg',
-  // Add your main CSS and JS files here when built
+  '/version.json',
+  // Dynamic assets will be cached as they're requested
 ];
 
 // Install event - cache static assets
 self.addEventListener('install', (event) => {
-  console.log('Service Worker installing...');
+  console.log(`Service Worker installing... Version: ${APP_VERSION}, Hash: ${BUILD_HASH}`);
   event.waitUntil(
     caches.open(STATIC_CACHE_NAME)
       .then((cache) => {
@@ -21,6 +25,7 @@ self.addEventListener('install', (event) => {
       })
       .then(() => {
         console.log('Static assets cached successfully');
+        // Skip waiting to activate immediately for updates
         return self.skipWaiting();
       })
       .catch((error) => {
@@ -31,12 +36,13 @@ self.addEventListener('install', (event) => {
 
 // Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
-  console.log('Service Worker activating...');
+  console.log(`Service Worker activating... Version: ${APP_VERSION}, Hash: ${BUILD_HASH}`);
   event.waitUntil(
     caches.keys()
       .then((cacheNames) => {
         return Promise.all(
           cacheNames.map((cacheName) => {
+            // Delete all caches that don't match current version
             if (cacheName !== CACHE_NAME && cacheName !== STATIC_CACHE_NAME) {
               console.log('Deleting old cache:', cacheName);
               return caches.delete(cacheName);
@@ -45,8 +51,21 @@ self.addEventListener('activate', (event) => {
         );
       })
       .then(() => {
-        console.log('Service Worker activated');
+        console.log('Service Worker activated and old caches cleared');
+        // Take control of all clients immediately
         return self.clients.claim();
+      })
+      .then(() => {
+        // Notify all clients about the update
+        return self.clients.matchAll().then(clients => {
+          clients.forEach(client => {
+            client.postMessage({
+              type: 'SW_UPDATED',
+              version: APP_VERSION,
+              buildHash: BUILD_HASH
+            });
+          });
+        });
       })
   );
 });
@@ -63,15 +82,52 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Special handling for version.json - always fetch fresh
+  if (event.request.url.includes('/version.json')) {
+    event.respondWith(
+      fetch(event.request, {
+        cache: 'no-cache',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      }).catch(() => {
+        // Fallback to cached version if network fails
+        return caches.match(event.request);
+      })
+    );
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request)
       .then((cachedResponse) => {
+        // For HTML requests, always try network first to get updates
+        if (event.request.mode === 'navigate' || event.request.destination === 'document') {
+          return fetch(event.request)
+            .then((response) => {
+              if (response && response.status === 200) {
+                // Cache the new version
+                const responseToCache = response.clone();
+                caches.open(STATIC_CACHE_NAME).then((cache) => {
+                  cache.put(event.request, responseToCache);
+                });
+                return response;
+              }
+              return cachedResponse || response;
+            })
+            .catch(() => {
+              // Network failed, serve from cache
+              return cachedResponse || caches.match('/');
+            });
+        }
+
+        // For other resources, serve from cache first
         if (cachedResponse) {
-          console.log('Serving from cache:', event.request.url);
           return cachedResponse;
         }
 
-        console.log('Fetching from network:', event.request.url);
         return fetch(event.request)
           .then((response) => {
             // Don't cache non-successful responses
@@ -92,16 +148,32 @@ self.addEventListener('fetch', (event) => {
           })
           .catch((error) => {
             console.error('Fetch failed:', error);
-            
+
             // Return offline page for navigation requests
             if (event.request.mode === 'navigate') {
               return caches.match('/');
             }
-            
+
             throw error;
           });
       })
   );
+});
+
+// Message handling for update commands
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    console.log('Received SKIP_WAITING message');
+    self.skipWaiting();
+  }
+
+  if (event.data && event.data.type === 'GET_VERSION') {
+    event.ports[0].postMessage({
+      version: APP_VERSION,
+      buildHash: BUILD_HASH,
+      cacheName: CACHE_NAME
+    });
+  }
 });
 
 // Background sync for offline functionality
