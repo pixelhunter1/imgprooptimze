@@ -1,34 +1,31 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import ImageUpload from '@/components/file-upload/image-upload'
 
 function App() {
-  const [count, setCount] = useState(0)
+  const handleUpload = (images: any[]) => {
+    // Esta função é chamada quando o upload está completo
+    console.log('Upload completed:', images)
+
+    // Aqui pode processar as imagens carregadas
+    images.forEach(image => {
+      console.log('Image uploaded:', image.file.name)
+    })
+  }
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
+    <div style={{ minHeight: '100vh', padding: '2rem', backgroundColor: '#ffffff' }}>
+      <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+        <h1 style={{ fontSize: '2rem', fontWeight: 'bold', textAlign: 'center', marginBottom: '2rem' }}>
+          Image Upload Demo
+        </h1>
+
+        <ImageUpload
+          onUploadComplete={handleUpload}
+          maxFiles={5}
+          maxSize={5 * 1024 * 1024} // 5MB
+          accept="image/*"
+        />
       </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
+    </div>
   )
 }
 
