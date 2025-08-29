@@ -42,7 +42,7 @@ function App() {
 
     return {
       format: caps.canUseWebP ? 'webp' : caps.recommendedFormat,
-      quality: caps.maxQualityRecommended,
+      quality: 0.8, // Default to 80% quality for good balance of size and quality
       maxWidthOrHeight: browser.isIOS ? 1600 : 1920, // Lower for iOS
       preserveQuality: false,
     };
@@ -135,6 +135,17 @@ function App() {
     ? processedImages.reduce((acc, img) => acc + img.compressionRatio, 0) / processedImages.length
     : 0;
 
+  // Format average compression display
+  const getAverageCompressionDisplay = (ratio: number) => {
+    if (ratio < 0) {
+      return `+${Math.abs(ratio).toFixed(1)}% increase`;
+    } else if (ratio === 0) {
+      return '0% (no compression)';
+    } else {
+      return `${ratio.toFixed(1)}% reduction`;
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background py-8 px-4">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -184,7 +195,7 @@ function App() {
                   <div className="text-sm text-muted-foreground">
                     <span>Total saved: {ImageProcessor.formatFileSize(totalSavings)}</span>
                     <span className="mx-2">•</span>
-                    <span>Average compression: {averageCompression.toFixed(1)}%</span>
+                    <span>Average compression: {getAverageCompressionDisplay(averageCompression)}</span>
                   </div>
                 )}
               </div>

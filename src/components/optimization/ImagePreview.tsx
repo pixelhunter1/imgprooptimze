@@ -68,10 +68,24 @@ export default function ImagePreview({
   };
 
   const getCompressionColor = (ratio: number) => {
+    if (ratio < 0) return 'text-red-600 dark:text-red-400'; // File size increased
     if (ratio >= 80) return 'text-green-600 dark:text-green-400';
     if (ratio >= 60) return 'text-blue-600 dark:text-blue-400';
     if (ratio >= 40) return 'text-yellow-600 dark:text-yellow-400';
     return 'text-red-600 dark:text-red-400';
+  };
+
+  const getCompressionDisplay = (ratio: number) => {
+    if (ratio < 0) {
+      // File size increased
+      return `+${Math.abs(ratio).toFixed(0)}%`;
+    } else if (ratio === 0) {
+      // No compression
+      return '0%';
+    } else {
+      // Normal compression
+      return `-${ratio.toFixed(0)}%`;
+    }
   };
 
 
@@ -134,7 +148,7 @@ export default function ImagePreview({
                 <div className="flex items-center justify-between text-sm text-muted-foreground">
                   <span>{ImageProcessor.formatFileSize(originalSize)} → {ImageProcessor.formatFileSize(optimizedSize)}</span>
                   <span className={`font-medium ${getCompressionColor(compressionRatio)}`}>
-                    -{compressionRatio.toFixed(0)}%
+                    {getCompressionDisplay(compressionRatio)}
                   </span>
                 </div>
               </div>

@@ -50,6 +50,105 @@ export interface ProcessedImage {
 
 export class ImageProcessor {
   /**
+   * Determines if processing can be skipped (no compression needed)
+   */
+  static shouldSkipProcessing(file: File, options: OptimizationOptions): boolean {
+    const inputFormat = this.getFormatFromMimeType(file.type);
+    const outputFormat = options.format;
+
+    // Skip if same format and maximum quality (100%)
+    if (inputFormat === outputFormat && options.quality >= 1.0) {
+      return true;
+    }
+
+    // Skip if no dimension constraints and same format with very high quality
+    if (inputFormat === outputFormat &&
+        options.quality >= 0.95 &&
+        !options.maxWidthOrHeight &&
+        !options.maxSizeMB) {
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Creates a processed image result without actual processing
+   */
+  static createUnprocessedResult(file: File, options: OptimizationOptions): ProcessedImage {
+    const originalUrl = URL.createObjectURL(file);
+
+    return {
+      id: crypto.randomUUID(),
+      originalFile: file,
+      optimizedFile: file, // Same file, no processing
+      originalSize: file.size,
+      optimizedSize: file.size,
+      compressionRatio: 0, // No compression applied
+      originalUrl,
+      optimizedUrl: originalUrl, // Same URL since no processing
+      format: options.format,
+      quality: options.quality,
+    };
+  }
+
+  /**
+   * Checks if an image needs to be resized based on maxWidthOrHeight constraint
+   */
+  static async checkIfResizeNeeded(file: File, maxWidthOrHeight?: number): Promise<boolean> {
+    if (!maxWidthOrHeight) {
+      return false;
+    }
+
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const needsResize = img.width > maxWidthOrHeight || img.height > maxWidthOrHeight;
+        URL.revokeObjectURL(img.src);
+        resolve(needsResize);
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(img.src);
+        resolve(false); // If we can't load the image, assume no resize needed
+      };
+      img.src = URL.createObjectURL(file);
+    });
+  }
+
+  /**
+   * Selects the best optimization method based on format, quality, and browser capabilities
+   */
+  static async selectOptimizationMethod(
+    file: File,
+    options: OptimizationOptions,
+    capabilities: ReturnType<typeof getBrowserCapabilities>,
+    onProgress?: (progress: number) => void
+  ): Promise<File> {
+    const outputFormat = options.format;
+    const isHighQuality = options.quality >= 0.9;
+    const isPngOutput = outputFormat === 'png';
+
+    // Format-specific optimization strategy
+    if (isPngOutput) {
+      return await this.highQualityOptimization(file, options, onProgress);
+    }
+
+    if (isHighQuality || options.preserveQuality) {
+      return await this.highQualityOptimization(file, options, onProgress);
+    }
+
+    if (capabilities.compressionMethod === 'canvas') {
+      return await this.safariOptimizedCompression(file, options, onProgress);
+    }
+
+    if (capabilities.compressionMethod === 'library' && capabilities.canUseWebWorkers) {
+      return await this.standardOptimization(file, options, onProgress);
+    }
+
+    return await this.highQualityOptimization(file, options, onProgress);
+  }
+
+  /**
    * Applies browser-specific optimizations to options
    */
   static applyBrowserOptimizations(options: OptimizationOptions, capabilities: ReturnType<typeof getBrowserCapabilities>): OptimizationOptions {
@@ -254,29 +353,41 @@ export class ImageProcessor {
     onProgress?: (progress: number) => void
   ): Promise<ProcessedImage> {
     try {
-      // Apply browser-specific optimizations
+      // Apply browser-specific optimizations first to get capabilities
       const browserInfo = detectBrowser();
       const capabilities = getBrowserCapabilities(browserInfo);
+
+      // Check if we can skip processing entirely
+      if (this.shouldSkipProcessing(file, options)) {
+        if (onProgress) onProgress(100);
+        return this.createUnprocessedResult(file, options);
+      }
+
+      // Apply browser-specific optimizations for actual processing
       const optimizedOptions = this.applyBrowserOptimizations(options, capabilities);
 
       if (onProgress) onProgress(5);
 
       let finalFile: File;
 
-      // Choose optimization method based on browser capabilities and settings
-      if (capabilities.compressionMethod === 'canvas' || optimizedOptions.preserveQuality || optimizedOptions.quality >= 0.9) {
-        finalFile = await this.highQualityOptimization(file, optimizedOptions, onProgress);
-      } else if (capabilities.compressionMethod === 'library' && capabilities.canUseWebWorkers) {
-        finalFile = await this.standardOptimization(file, optimizedOptions, onProgress);
-      } else {
-        // Hybrid approach - use canvas for Safari and problematic browsers
-        finalFile = await this.safariOptimizedCompression(file, optimizedOptions, onProgress);
-      }
+      // Choose optimization method based on format, quality, and browser capabilities
+      finalFile = await this.selectOptimizationMethod(file, optimizedOptions, capabilities, onProgress);
 
       // Calculate compression ratio
       const originalSize = file.size;
       const optimizedSize = finalFile.size;
-      const compressionRatio = ((originalSize - optimizedSize) / originalSize) * 100;
+
+      // Fix compression ratio calculation for size increases
+      let compressionRatio: number;
+      if (optimizedSize <= originalSize) {
+        // Normal compression (file got smaller or same size)
+        compressionRatio = ((originalSize - optimizedSize) / originalSize) * 100;
+      } else {
+        // File got bigger - show as negative increase percentage
+        compressionRatio = -((optimizedSize - originalSize) / originalSize) * 100;
+      }
+
+
 
       // Create URLs for preview
       const originalUrl = URL.createObjectURL(file);
@@ -305,10 +416,30 @@ export class ImageProcessor {
     options: OptimizationOptions,
     onProgress?: (progress: number) => void
   ): Promise<File> {
-    // For high quality, use direct Canvas conversion without browser-image-compression
-    // This avoids double compression and preserves maximum quality
+    const inputFormat = this.getFormatFromMimeType(file.type);
+    const outputFormat = options.format;
 
     if (onProgress) onProgress(10);
+
+    // Check if we need to resize the image
+    const needsResize = await this.checkIfResizeNeeded(file, options.maxWidthOrHeight);
+
+    // If same format, maximum quality, and no resize needed, return original
+    if (inputFormat === outputFormat &&
+        options.quality >= 1.0 &&
+        !needsResize) {
+      if (onProgress) onProgress(100);
+      return file;
+    }
+
+    // For PNG output at high quality, be extra careful to avoid size increases
+    if (outputFormat === 'png' && options.quality >= 0.95) {
+      // If input is already PNG and no resize needed, return original
+      if (inputFormat === 'png' && !needsResize) {
+        if (onProgress) onProgress(100);
+        return file;
+      }
+    }
 
     return new Promise((resolve, reject) => {
       const canvas = document.createElement('canvas');
@@ -340,12 +471,25 @@ export class ImageProcessor {
           ctx.imageSmoothingEnabled = true;
           ctx.imageSmoothingQuality = 'high';
 
+          // Format-specific background handling
+          if (outputFormat === 'jpeg') {
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+          }
+
           if (onProgress) onProgress(50);
 
           // Draw image with high quality
           ctx.drawImage(img, 0, 0, width, height);
 
           if (onProgress) onProgress(80);
+
+          // Format-specific quality handling
+          let finalQuality = options.quality;
+          if (outputFormat === 'png') {
+            // PNG is lossless, use 1.0 for best compression
+            finalQuality = 1.0;
+          }
 
           canvas.toBlob(
             (blob) => {
@@ -363,7 +507,7 @@ export class ImageProcessor {
               resolve(convertedFile);
             },
             this.getFileType(options.format),
-            options.quality
+            finalQuality
           );
         } catch (error) {
           reject(error);
@@ -382,6 +526,11 @@ export class ImageProcessor {
   ): Promise<File> {
     // Check browser capabilities for web worker support
     const capabilities = getBrowserCapabilities();
+    const inputFormat = this.getFormatFromMimeType(file.type);
+
+    // For PNG format, use more conservative compression to avoid size increases
+    const isPngOutput = options.format === 'png';
+    const isPngInput = inputFormat === 'png';
 
     // Configure compression options - prioritize quality over file size for better results
     const compressionOptions: any = {
@@ -391,6 +540,21 @@ export class ImageProcessor {
       initialQuality: options.quality,
       onProgress: onProgress,
     };
+
+    // PNG-specific optimizations
+    if (isPngOutput || isPngInput) {
+      // For PNG, be more conservative with compression to avoid size increases
+      if (options.quality >= 0.9) {
+        // At high quality, skip browser-image-compression for PNG to avoid size increases
+        if (options.format === inputFormat) {
+          // Same format, just return original if high quality
+          return file;
+        } else {
+          // Different format, use direct conversion
+          return await this.convertFormat(file, options.format, options.quality);
+        }
+      }
+    }
 
     // Only add maxSizeMB if explicitly set and quality is moderate
     // This prevents aggressive compression that causes blurriness
@@ -432,13 +596,23 @@ export class ImageProcessor {
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
 
-        // For PNG, fill with white background to avoid transparency issues
+        // Format-specific background handling
         if (targetFormat === 'jpeg') {
+          // Only add white background for JPEG (which doesn't support transparency)
           ctx.fillStyle = '#FFFFFF';
           ctx.fillRect(0, 0, canvas.width, canvas.height);
         }
+        // For PNG and WebP, preserve transparency by not adding background
 
         ctx.drawImage(img, 0, 0);
+
+        // Format-specific quality handling
+        let finalQuality = quality;
+        if (targetFormat === 'png') {
+          // PNG is lossless, so quality parameter is ignored by most browsers
+          // Use 1.0 to ensure best compression without quality loss
+          finalQuality = 1.0;
+        }
 
         canvas.toBlob(
           (blob) => {
@@ -455,7 +629,7 @@ export class ImageProcessor {
             resolve(convertedFile);
           },
           this.getFileType(targetFormat),
-          quality
+          finalQuality
         );
       };
 
