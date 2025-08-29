@@ -9,6 +9,7 @@ import ResetProjectDialog from '@/components/dialogs/ResetProjectDialog';
 import InstallButton from '@/components/pwa/InstallButton';
 import BrowserCompatibilityAlert, { useBrowserCompatibility } from '@/components/browser/BrowserCompatibilityAlert';
 import MobileBlocker from '@/components/MobileBlocker';
+import FloatingSupport from '@/components/support/FloatingSupport';
 import { useMobileDetection } from '@/hooks/useMobileDetection';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -295,6 +296,9 @@ function App() {
 
         {/* PWA Install Button */}
         <InstallButton />
+
+        {/* Floating Support Button */}
+        <FloatingSupport />
       </div>
     </div>
   );
