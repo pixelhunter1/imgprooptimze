@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Download, FileImage, TrendingDown, Zap, X, Edit2 } from 'lucide-react';
+import { Download, Zap, X, Edit2 } from 'lucide-react';
 import { Badge } from '@/components/ui/base-badge';
 import { type ProcessedImage, ImageProcessor } from '@/lib/imageProcessor';
 
@@ -33,7 +33,6 @@ export default function ImagePreview({
     compressionRatio,
     optimizedUrl,
     format,
-    quality,
     customFilename,
   } = processedImage;
 
@@ -71,47 +70,49 @@ export default function ImagePreview({
   };
 
   const getCompressionColor = (ratio: number) => {
-    if (ratio >= 80) return 'text-green-600';
-    if (ratio >= 60) return 'text-blue-600';
-    if (ratio >= 40) return 'text-yellow-600';
-    return 'text-red-600';
+    if (ratio >= 80) return 'text-green-600 dark:text-green-400';
+    if (ratio >= 60) return 'text-blue-600 dark:text-blue-400';
+    if (ratio >= 40) return 'text-yellow-600 dark:text-yellow-400';
+    return 'text-red-600 dark:text-red-400';
   };
 
 
+
+
   return (
-    <Card className="bg-card border border-border rounded-lg shadow-sm w-full overflow-hidden">
+    <Card className="bg-card border border-border rounded-xl shadow-sm w-full overflow-hidden hover:shadow-md transition-shadow duration-200">
       <CardContent className="p-0">
-        {/* Header */}
-        <div className="p-4 border-b bg-muted">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 min-w-0">
-              <FileImage className="h-4 w-4 text-muted-foreground shrink-0" />
-              <span className="font-medium text-sm truncate flex-1">
-                {originalFile.name}
-              </span>
-              <Badge appearance="light" variant="info" size="sm" className="shrink-0">
-                {format.toUpperCase()}
-              </Badge>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onRemove(processedImage.id)}
-              className="h-8 w-8 p-0"
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
+        {/* Remove Button - Positioned absolutely */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onRemove(processedImage.id)}
+          className="absolute top-3 right-3 z-10 h-8 w-8 p-0 bg-background/80 backdrop-blur-sm hover:bg-background border border-border/50 rounded-full shadow-sm"
+          title="Remove image"
+        >
+          <X className="h-4 w-4" />
+        </Button>
 
         {/* Processing State */}
         {isProcessing && (
-          <div className="p-4 space-y-3">
-            <div className="flex items-center gap-2">
-              <Zap className="h-4 w-4 animate-pulse text-blue-500" />
-              <span className="text-sm">Optimizing...</span>
+          <div className="p-6 space-y-4">
+            <div className="flex flex-col items-center text-center space-y-3">
+              <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
+                <Zap className="h-8 w-8 animate-pulse text-primary" />
+              </div>
+              <div>
+                <h3 className="font-medium text-foreground">Optimizing Image</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {originalFile.name}
+                </p>
+              </div>
+              <div className="w-full space-y-2">
+                <Progress value={processingProgress} className="w-full h-2" />
+                <p className="text-xs text-muted-foreground">
+                  {processingProgress}% complete
+                </p>
+              </div>
             </div>
-            <Progress value={processingProgress} className="w-full" />
           </div>
         )}
 
@@ -120,80 +121,53 @@ export default function ImagePreview({
           <>
             {/* Image Preview */}
             <div className="relative">
-              <div className="relative aspect-video bg-muted">
+              <div className="relative aspect-video bg-muted/50">
                 <img
                   src={optimizedUrl}
                   alt="Optimized"
                   className="w-full h-full object-cover"
                 />
-              </div>
-            </div>
-
-            {/* Stats */}
-            <div className="p-4 space-y-4">
-              {/* Compression Stats */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="text-center">
-                  <div className="text-xs text-muted-foreground mb-1">Original Size</div>
-                  <div className="font-medium">
-                    {ImageProcessor.formatFileSize(originalSize)}
-                  </div>
-                </div>
-                <div className="text-center">
-                  <div className="text-xs text-muted-foreground mb-1">Optimized Size</div>
-                  <div className="font-medium">
-                    {ImageProcessor.formatFileSize(optimizedSize)}
-                  </div>
-                </div>
-              </div>
-
-              {/* Compression Ratio */}
-              <div className="text-center">
-                <div className="flex items-center justify-center gap-2 mb-2">
-                  <TrendingDown className={`h-4 w-4 ${getCompressionColor(compressionRatio)}`} />
-                  <span className={`font-bold text-lg ${getCompressionColor(compressionRatio)}`}>
-                    {compressionRatio.toFixed(1)}% smaller
-                  </span>
-                </div>
-                <div className="flex items-center justify-center">
-                  <span className="sr-only">Compression level:</span>
-                  <Badge appearance="light" variant={
-                    compressionRatio >= 80 ? 'success' :
-                    compressionRatio >= 60 ? 'primary' :
-                    compressionRatio >= 40 ? 'warning' : 'destructive'
-                  }>
-                    {compressionRatio >= 80 ? 'Excellent' :
-                     compressionRatio >= 60 ? 'Very Good' :
-                     compressionRatio >= 40 ? 'Good' : 'Moderate'}
+                {/* Simple Format Badge */}
+                <div className="absolute bottom-3 right-3">
+                  <Badge appearance="light" variant="secondary" size="sm" className="bg-background/90 backdrop-blur-sm">
+                    {format.toUpperCase()}
                   </Badge>
                 </div>
               </div>
+            </div>
 
-              {/* Format & Quality Info */}
-              <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
-                <span>Format: {format.toUpperCase()}</span>
-                <span className="mx-1">•</span>
-                <span>Quality: {Math.round(quality * 100)}%</span>
+            {/* Content */}
+            <div className="p-6 space-y-6">
+              {/* File Info */}
+              <div className="space-y-3">
+                <h3 className="font-medium text-foreground truncate" title={originalFile.name}>
+                  {originalFile.name}
+                </h3>
+                <div className="flex items-center justify-between text-sm text-muted-foreground">
+                  <span>{ImageProcessor.formatFileSize(originalSize)} → {ImageProcessor.formatFileSize(optimizedSize)}</span>
+                  <span className={`font-medium ${getCompressionColor(compressionRatio)}`}>
+                    -{compressionRatio.toFixed(0)}%
+                  </span>
+                </div>
               </div>
 
-              {/* Simplified Filename Display/Edit */}
+              {/* Filename Editing */}
               <div className="space-y-2">
-                <div className="text-xs text-muted-foreground">Save as</div>
                 {isEditing ? (
-                  <div className="space-y-2">
-                    <div className="flex gap-1">
+                  <div className="space-y-3">
+                    <div className="flex gap-2">
                       <input
                         type="text"
                         value={editedFilename}
                         onChange={(e) => setEditedFilename(e.target.value)}
                         onKeyDown={handleKeyPress}
                         className="flex-1 px-3 py-2 text-sm border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                        placeholder="Enter new filename"
+                        placeholder="Enter filename"
                         autoFocus
                       />
-                      <span className="px-2 py-2 text-sm text-muted-foreground bg-muted rounded-md">
+                      <div className="px-3 py-2 text-sm text-muted-foreground bg-muted rounded-md border border-border">
                         {ImageProcessor.getExtensionFromFormat(format as 'webp' | 'jpeg' | 'png')}
-                      </span>
+                      </div>
                     </div>
                     <div className="flex gap-2">
                       <Button
@@ -216,11 +190,11 @@ export default function ImagePreview({
                   </div>
                 ) : (
                   <div
-                    className="group flex items-center gap-2 p-2 rounded-md border border-dashed border-border hover:border-primary hover:bg-primary/5 cursor-pointer transition-colors"
+                    className="group flex items-center gap-2 p-3 rounded-md border border-dashed border-border hover:border-primary hover:bg-primary/5 cursor-pointer transition-colors"
                     onClick={handleStartEdit}
                     title="Click to rename this file"
                   >
-                    <span className="flex-1 text-sm truncate">
+                    <span className="flex-1 text-sm font-mono text-foreground truncate">
                       {getCurrentFilename()}{ImageProcessor.getExtensionFromFormat(format as 'webp' | 'jpeg' | 'png')}
                     </span>
                     <Edit2 className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
@@ -231,12 +205,12 @@ export default function ImagePreview({
               {/* Download Button */}
               <Button
                 onClick={() => onDownload(processedImage)}
-                className="w-full flex items-center gap-2"
-                size="sm"
+                className="w-full flex items-center justify-center gap-2"
+                size="md"
                 variant="primary"
               >
                 <Download className="h-4 w-4" />
-                Download Optimized
+                Download
               </Button>
             </div>
           </>
