@@ -10,4 +10,21 @@ export default defineConfig({
       "@": "/src",
     },
   },
+  build: {
+    // Generate manifest for PWA
+    manifest: true,
+    rollupOptions: {
+      // Ensure service worker is copied to dist
+      input: {
+        main: './index.html',
+        sw: './public/sw.js'
+      }
+    }
+  },
+  server: {
+    // Enable HTTPS for PWA testing (optional)
+    // https: true,
+    host: true, // Allow external connections
+    port: 3000
+  }
 })

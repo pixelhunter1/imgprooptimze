@@ -2,12 +2,71 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite + React + TS</title>
+
+    <!-- PWA Meta Tags -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#10b981" />
+    <meta name="background-color" content="#ffffff" />
+    <meta name="display" content="standalone" />
+    <meta name="orientation" content="portrait-primary" />
+
+    <!-- App Information -->
+    <title>Image Optimizer Pro - Professional Image Optimization</title>
+    <meta name="description" content="Professional image optimization tool with batch processing, format conversion, and quality controls. Optimize images for web with WebP, JPEG, and PNG formats." />
+    <meta name="keywords" content="image optimization, webp converter, image compression, batch processing, photo optimizer" />
+    <meta name="author" content="Image Optimizer Pro" />
+
+    <!-- Open Graph / Social Media -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Image Optimizer Pro" />
+    <meta property="og:description" content="Professional image optimization tool with batch processing and format conversion" />
+    <meta property="og:image" content="/app-icon.svg" />
+    <meta property="og:url" content="/" />
+    <meta property="og:site_name" content="Image Optimizer Pro" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Image Optimizer Pro" />
+    <meta name="twitter:description" content="Professional image optimization tool with batch processing and format conversion" />
+    <meta name="twitter:image" content="/app-icon.svg" />
+
+    <!-- Favicons -->
+    <link rel="icon" type="image/svg+xml" href="/app-icon.svg" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <link rel="mask-icon" href="/app-icon.svg" color="#10b981" />
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json" />
+
+    <!-- iOS Specific -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="ImgOptimizer" />
+    <link rel="apple-touch-startup-image" href="/icons/apple-touch-icon.png" />
+
+    <!-- Microsoft Tiles -->
+    <meta name="msapplication-TileColor" content="#10b981" />
+    <meta name="msapplication-TileImage" content="/app-icon.svg" />
+    <meta name="msapplication-config" content="/browserconfig.xml" />
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+
+    <!-- PWA Installation Script -->
+    <script>
+      // Register service worker
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then((registration) => {
+              console.log('SW registered: ', registration);
+            })
+            .catch((registrationError) => {
+              console.log('SW registration failed: ', registrationError);
+            });
+        });
+      }
+    </script>
   </body>
 </html>

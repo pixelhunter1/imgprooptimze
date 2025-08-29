@@ -6,6 +6,7 @@ import { ImagePreviewSkeletons } from '@/components/optimization/ImagePreviewSke
 import ZipDownloadDialog from '@/components/dialogs/ZipDownloadDialog';
 import BatchRenameDialog, { type BatchRenamePattern } from '@/components/dialogs/BatchRenameDialog';
 import ResetProjectDialog from '@/components/dialogs/ResetProjectDialog';
+import InstallButton from '@/components/pwa/InstallButton';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ImageProcessor, type OptimizationOptions, type ProcessedImage } from '@/lib/imageProcessor';
@@ -249,6 +250,9 @@ function App() {
         onClose={() => setShowResetProjectDialog(false)}
         onConfirm={handleResetProject}
       />
+
+      {/* PWA Install Button */}
+      <InstallButton />
     </div>
   );
 }
