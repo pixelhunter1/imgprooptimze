@@ -26,14 +26,10 @@ export function useMobileDetection(): MobileDetectionResult {
       
       // Screen size detection
       const screenWidth = window.innerWidth;
-      const screenHeight = window.innerHeight;
       
       // Touch capability detection
       const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-      
-      // Orientation detection
-      const isLandscape = screenWidth > screenHeight;
-      
+
       // Combined mobile detection
       const isMobileScreen = screenWidth < 768; // Less than tablet size
       const isTabletScreen = screenWidth >= 768 && screenWidth < 1024;

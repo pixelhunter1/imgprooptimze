@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { CircleX, CloudUpload, ImageIcon, TriangleAlert, XIcon, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { ImageProcessor, ALLOWED_EXTENSIONS, type FileValidationResult } from '@/lib/imageProcessor';
+import { ImageProcessor, type FileValidationResult } from '@/lib/imageProcessor';
 
 interface ImageFile {
   id: string;
