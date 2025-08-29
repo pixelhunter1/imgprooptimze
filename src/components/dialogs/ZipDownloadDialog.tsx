@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { X, Download, Package, FileArchive, Lightbulb } from 'lucide-react';
+import { X, Download, FileArchive } from 'lucide-react';
 
 interface ZipDownloadDialogProps {
   isOpen: boolean;
@@ -38,9 +38,7 @@ export default function ZipDownloadDialog({
     }
   };
 
-  const handleProgressUpdate = (newProgress: number) => {
-    setProgress(newProgress);
-  };
+
 
   if (!isOpen) return null;
 
@@ -67,18 +65,6 @@ export default function ZipDownloadDialog({
 
           {/* Content */}
           <div className="space-y-6">
-            <div className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <Lightbulb className="h-5 w-5 text-blue-600 mt-0.5 shrink-0" />
-              <div>
-                <p className="text-sm font-medium text-blue-900 mb-1">
-                  Ready to download {fileCount} optimized image{fileCount !== 1 ? 's' : ''}
-                </p>
-                <p className="text-xs text-blue-700">
-                  All images will be packaged into a single ZIP file for easy download and organization.
-                </p>
-              </div>
-            </div>
-
             {/* Filename Input */}
             <div className="space-y-3">
               <label htmlFor="zip-filename" className="text-sm font-medium">
@@ -92,15 +78,12 @@ export default function ZipDownloadDialog({
                   onChange={(e) => setZipFilename(e.target.value)}
                   disabled={isDownloading}
                   className="flex-1 px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                  placeholder="e.g., my-optimized-images"
+                  placeholder="ZIP filename"
                 />
                 <span className="px-3 py-2 bg-muted text-muted-foreground rounded-md text-sm">
                   .zip
                 </span>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Choose a descriptive name to easily identify your download
-              </p>
             </div>
 
             {/* Progress */}

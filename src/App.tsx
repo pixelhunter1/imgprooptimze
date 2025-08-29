@@ -7,7 +7,7 @@ import BatchRenameDialog, { type BatchRenamePattern } from '@/components/dialogs
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ImageProcessor, type OptimizationOptions, type ProcessedImage } from '@/lib/imageProcessor';
-import { Package, Edit3, Info } from 'lucide-react';
+import { Package, Edit3 } from 'lucide-react';
 
 interface UploadedImage {
   id: string;
@@ -127,7 +127,6 @@ function App() {
             <Card className="bg-card border border-border rounded-lg shadow-sm">
               <CardContent className="p-6 space-y-4">
                 <h2 className="text-xl font-semibold text-foreground">Optimization Settings</h2>
-                <p className="text-sm text-muted-foreground">Choose output format and quality.</p>
                 <OptimizationControls
                   options={optimizationOptions}
                   onOptionsChange={setOptimizationOptions}
@@ -184,20 +183,7 @@ function App() {
             </CardContent>
           </Card>
 
-          {/* Helpful Tips */}
-          {processedImages.length > 0 && (
-            <div className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <Info className="h-5 w-5 text-blue-600 mt-0.5 shrink-0" />
-              <div className="text-sm">
-                <p className="font-medium text-blue-900 mb-1">💡 Quick Tips</p>
-                <ul className="text-blue-700 space-y-1 text-xs">
-                  <li>• Click any filename below to rename individual images</li>
-                  <li>• Use "Rename All" to quickly rename multiple images at once</li>
-                  <li>• Download as ZIP to get all images in one organized file</li>
-                </ul>
-              </div>
-            </div>
-          )}
+
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {processedImages.map((img) => (

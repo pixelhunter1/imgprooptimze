@@ -214,7 +214,7 @@ export default function BatchRenameDialog({
                       value={baseName}
                       onChange={(e) => setBaseName(e.target.value)}
                       className="w-full px-4 py-3 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                      placeholder="e.g., image, photo, product"
+                      placeholder="Base name"
                     />
                   </div>
                   <div className="space-y-3">
@@ -239,7 +239,7 @@ export default function BatchRenameDialog({
                       value={prefix}
                       onChange={(e) => setPrefix(e.target.value)}
                       className="w-full px-4 py-3 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                      placeholder="e.g., optimized_, compressed_"
+                      placeholder="Prefix"
                     />
                   </div>
                   <div className="space-y-3">
@@ -249,7 +249,7 @@ export default function BatchRenameDialog({
                       value={suffix}
                       onChange={(e) => setSuffix(e.target.value)}
                       className="w-full px-4 py-3 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                      placeholder="e.g., _small, _web"
+                      placeholder="Suffix"
                     />
                   </div>
                 </div>
@@ -290,7 +290,7 @@ export default function BatchRenameDialog({
                               setCustomNames(newNames);
                             }}
                             className="w-full px-3 py-2 text-sm border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                            placeholder="Enter custom filename"
+                            placeholder="Filename"
                           />
                         </div>
                       </div>

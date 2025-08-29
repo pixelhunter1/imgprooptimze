@@ -25,16 +25,16 @@ export default function OptimizationControls({
   totalImages,
 }: OptimizationControlsProps) {
   const formatOptions = [
-    { value: 'webp', label: 'WebP', description: 'Best compression, modern browsers' },
-    { value: 'jpeg', label: 'JPEG', description: 'Good compression, universal support' },
-    { value: 'png', label: 'PNG', description: 'Lossless, supports transparency' },
+    { value: 'webp', label: 'WebP' },
+    { value: 'jpeg', label: 'JPEG' },
+    { value: 'png', label: 'PNG' },
   ] as const;
 
   const qualityPresets = [
-    { value: 0.4, label: 'Small', description: 'High compression' },
-    { value: 0.7, label: 'Balanced', description: 'Good trade-off' },
-    { value: 0.9, label: 'High', description: 'Sharp & clear' },
-    { value: 1.0, label: 'Maximum', description: 'Best quality' },
+    { value: 0.4, label: 'Small' },
+    { value: 0.7, label: 'Balanced' },
+    { value: 0.9, label: 'High' },
+    { value: 1.0, label: 'Maximum' },
   ];
 
   return (
@@ -61,7 +61,6 @@ export default function OptimizationControls({
                 }`}
               >
                 <div className="font-medium">{format.label}</div>
-                <div className="text-xs text-gray-500">{format.description}</div>
               </button>
             ))}
           </div>
@@ -108,7 +107,6 @@ export default function OptimizationControls({
                 }`}
               >
                 <div className="font-medium">{preset.label}</div>
-                <div className="text-gray-500">{preset.description}</div>
               </button>
             ))}
           </div>
