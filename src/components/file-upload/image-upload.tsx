@@ -24,6 +24,7 @@ interface ImageUploadProps {
   className?: string;
   onImagesChange?: (images: ImageFile[]) => void;
   onUploadComplete?: (images: ImageFile[]) => void;
+  onOptimize?: () => void;
 }
 
 export default function ImageUpload({
@@ -33,16 +34,11 @@ export default function ImageUpload({
   className,
   onImagesChange,
   onUploadComplete,
+  onOptimize,
 }: ImageUploadProps) {
   const [images, setImages] = useState<ImageFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
-  const [visibleDefaultImages, setVisibleDefaultImages] = useState([
-    { id: 'default-1', src: 'https://picsum.photos/400/300?random=1', alt: 'Product view 1' },
-    { id: 'default-2', src: 'https://picsum.photos/400/300?random=2', alt: 'Product view 2' },
-    { id: 'default-3', src: 'https://picsum.photos/400/300?random=3', alt: 'Product view 3' },
-    { id: 'default-4', src: 'https://picsum.photos/400/300?random=4', alt: 'Product view 4' },
-  ]);
 
   const validateFile = (file: File): string | null => {
     if (!file.type.startsWith('image/')) {
@@ -106,31 +102,27 @@ export default function ImageUpload({
         progress = 100;
         clearInterval(interval);
 
-        setImages((prev) =>
-          prev.map((img) => (img.id === imageFile.id ? { ...img, progress: 100, status: 'completed' as const } : img)),
-        );
-
-        // Check if all uploads are complete
-        const updatedImages = images.map((img) =>
-          img.id === imageFile.id ? { ...img, progress: 100, status: 'completed' as const } : img,
-        );
-
-        if (updatedImages.every((img) => img.status === 'completed')) {
-          onUploadComplete?.(updatedImages);
-        }
+        setImages((prev) => {
+          const updated = prev.map((img) =>
+            img.id === imageFile.id ? { ...img, progress: 100, status: 'completed' as const } : img,
+          );
+          onImagesChange?.(updated);
+          if (updated.every((img) => img.status === 'completed')) {
+            onUploadComplete?.(updated);
+          }
+          return updated;
+        });
       } else {
-        setImages((prev) => prev.map((img) => (img.id === imageFile.id ? { ...img, progress } : img)));
+        setImages((prev) => {
+          const updated = prev.map((img) => (img.id === imageFile.id ? { ...img, progress } : img));
+          onImagesChange?.(updated);
+          return updated;
+        });
       }
     }, 100);
   };
 
   const removeImage = useCallback((id: string) => {
-    // If it's a default image, remove it from visible defaults
-    if (id.startsWith('default-')) {
-      setVisibleDefaultImages((prev) => prev.filter((img) => img.id !== id));
-      return;
-    }
-
     // Remove uploaded image
     setImages((prev) => {
       const image = prev.find((img) => img.id === id);
@@ -198,31 +190,9 @@ export default function ImageUpload({
     <div className={cn('w-full max-w-4xl', className)}>
       {/* Image Grid - Moved to top */}
       <div className="mb-6">
-        <div className="grid grid-cols-4 gap-2.5">
-          {/* Always show all visible default images first */}
-          {visibleDefaultImages.map((defaultImg) => (
-            <Card
-              key={defaultImg.id}
-              className="flex items-center justify-center rounded-md bg-accent/50 shadow-none shrink-0 relative group"
-            >
-              <img src={defaultImg.src} className="h-[120px] w-full object-cover rounded-md" alt={defaultImg.alt} />
-
-              {/* Remove Button Overlay for default images too */}
-              <Button
-                onClick={() => removeImage(defaultImg.id)}
-                variant="outline"
-                size="icon"
-                className="shadow-sm absolute top-2 right-2 size-6 opacity-0 group-hover:opacity-100 rounded-full"
-              >
-                <XIcon className="size-3.5" />
-              </Button>
-            </Card>
-          ))}
-        </div>
-
-        {/* Show uploaded images in a separate grid below */}
+        {/* Uploaded images grid */}
         {images.length > 0 && (
-          <div className="grid grid-cols-4 gap-2.5 mt-4">
+          <div className="grid grid-cols-4 gap-2.5">
             {images.map((imageFile, index) => (
               <Card
                 key={imageFile.id}
@@ -268,9 +238,16 @@ export default function ImageUpload({
           <span className="text-xs text-secondary-foreground font-normal block mb-3">
             JPEG, PNG, up to {formatBytes(maxSize)}.
           </span>
-          <Button size="sm" variant="mono" onClick={openFileDialog}>
-            Browse File
-          </Button>
+          <div className="flex items-center justify-center gap-2">
+            <Button size="sm" variant="primary" onClick={openFileDialog}>
+              Browse File
+            </Button>
+            {images.length > 0 && (
+              <Button size="sm" variant="primary" onClick={onOptimize}>
+                Optimize Images
+              </Button>
+            )}
+          </div>
         </CardContent>
       </Card>
 

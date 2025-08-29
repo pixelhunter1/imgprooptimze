@@ -2,7 +2,7 @@ import * as React from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { ChevronDown } from 'lucide-react';
 import type { LucideProps } from 'lucide-react';
-import { Slot as SlotPrimitive } from 'radix-ui';
+import { Slot } from '@radix-ui/react-slot';
 import { cn } from '@/lib/utils';
 
 const buttonVariants = cva(
@@ -377,7 +377,7 @@ function Button({
     selected?: boolean;
     asChild?: boolean;
   }) {
-  const Comp = asChild ? SlotPrimitive.Slot : 'button';
+  const Comp = asChild ? Slot : 'button';
   return (
     <Comp
       data-slot="button"
