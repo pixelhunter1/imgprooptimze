@@ -24,7 +24,6 @@ interface ImageUploadProps {
   className?: string;
   onImagesChange?: (images: ImageFile[]) => void;
   onUploadComplete?: (images: ImageFile[]) => void;
-  onOptimize?: () => void;
 }
 
 export default function ImageUpload({
@@ -34,7 +33,6 @@ export default function ImageUpload({
   className,
   onImagesChange,
   onUploadComplete,
-  onOptimize,
 }: ImageUploadProps) {
   const [images, setImages] = useState<ImageFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -238,15 +236,10 @@ export default function ImageUpload({
           <span className="text-xs text-secondary-foreground font-normal block mb-3">
             JPEG, PNG, up to {formatBytes(maxSize)}.
           </span>
-          <div className="flex items-center justify-center gap-2">
+          <div className="flex items-center justify-center">
             <Button size="sm" variant="primary" onClick={openFileDialog}>
               Browse File
             </Button>
-            {images.length > 0 && (
-              <Button size="sm" variant="primary" onClick={onOptimize}>
-                Optimize Images
-              </Button>
-            )}
           </div>
         </CardContent>
       </Card>

@@ -2,14 +2,13 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Slider, SliderThumb } from '@/components/ui/slider';
-import { Settings, Download, Zap } from 'lucide-react';
+import { Settings, Zap } from 'lucide-react';
 import { type OptimizationOptions } from '@/lib/imageProcessor';
 
 interface OptimizationControlsProps {
   options: OptimizationOptions;
   onOptionsChange: (options: OptimizationOptions) => void;
   onOptimize: () => void;
-  onDownloadAll: () => void;
   isProcessing: boolean;
   hasImages: boolean;
   processedCount: number;
@@ -20,7 +19,6 @@ export default function OptimizationControls({
   options,
   onOptionsChange,
   onOptimize,
-  onDownloadAll,
   isProcessing,
   hasImages,
   processedCount,
@@ -144,31 +142,20 @@ export default function OptimizationControls({
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
+        {/* Action Button */}
+        <div className="pt-4 border-t">
           <Button
             onClick={onOptimize}
             disabled={!hasImages || isProcessing}
-            className="flex-1 flex items-center gap-2"
+            className="w-full flex items-center justify-center gap-2"
             size="lg"
             variant="primary"
           >
             <Zap className="h-4 w-4" />
-            {isProcessing 
+            {isProcessing
               ? `Processing... (${processedCount}/${totalImages})`
               : 'Optimize Images'
             }
-          </Button>
-          
-          <Button
-            onClick={onDownloadAll}
-            disabled={processedCount === 0}
-            variant="primary"
-            className="flex items-center gap-2"
-            size="lg"
-          >
-            <Download className="h-4 w-4" />
-            Download ZIP ({processedCount})
           </Button>
         </div>
 

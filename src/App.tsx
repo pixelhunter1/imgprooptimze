@@ -116,7 +116,6 @@ function App() {
               <ImageUpload
                 onImagesChange={handleImagesUploaded}
                 onUploadComplete={() => {}}
-                onOptimize={handleOptimizeImages}
                 maxFiles={10}
                 maxSize={50 * 1024 * 1024} // 50MB
                 accept="image/*"
@@ -133,7 +132,6 @@ function App() {
                   options={optimizationOptions}
                   onOptionsChange={setOptimizationOptions}
                   onOptimize={handleOptimizeImages}
-                  onDownloadAll={handleDownloadAll}
                   isProcessing={isProcessing}
                   hasImages={uploadedImages.some(img => img.status === 'completed')}
                   processedCount={processedImages.length}
