@@ -64,6 +64,7 @@ export default function ResetProjectDialog({
                 onClick={onClose}
                 disabled={isResetting}
                 className="flex-1"
+                size="lg"
               >
                 Cancel
               </Button>
@@ -72,7 +73,7 @@ export default function ResetProjectDialog({
                 onClick={handleConfirm}
                 disabled={isResetting}
                 className="flex-1 flex items-center gap-2"
-                size="sm"
+                size="lg"
               >
                 {isResetting ? (
                   <>

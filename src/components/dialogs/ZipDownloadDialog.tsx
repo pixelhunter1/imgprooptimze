@@ -104,10 +104,12 @@ export default function ZipDownloadDialog({
                 onClick={onClose}
                 disabled={isDownloading}
                 className="flex-1"
+                size="lg"
               >
                 Cancel
               </Button>
               <Button
+                variant="primary"
                 onClick={handleDownload}
                 disabled={isDownloading || !zipFilename.trim()}
                 className="flex-1 flex items-center gap-2"

@@ -139,20 +139,15 @@ function App() {
           </Card>
 
           {uploadedImages.length > 0 && (
-            <Card className="bg-card border border-border rounded-lg">
-              <CardContent className="p-6 space-y-4">
-                <h2 className="text-xl font-semibold text-foreground">Optimization Settings</h2>
-                <OptimizationControls
-                  options={optimizationOptions}
-                  onOptionsChange={setOptimizationOptions}
-                  onOptimize={handleOptimizeImages}
-                  isProcessing={isProcessing}
-                  hasImages={uploadedImages.some(img => img.status === 'completed')}
-                  processedCount={processedImages.length}
-                  totalImages={uploadedImages.filter(img => img.status === 'completed').length}
-                />
-              </CardContent>
-            </Card>
+            <OptimizationControls
+              options={optimizationOptions}
+              onOptionsChange={setOptimizationOptions}
+              onOptimize={handleOptimizeImages}
+              isProcessing={isProcessing}
+              hasImages={uploadedImages.some(img => img.status === 'completed')}
+              processedCount={processedImages.length}
+              totalImages={uploadedImages.filter(img => img.status === 'completed').length}
+            />
           )}
         </div>
 

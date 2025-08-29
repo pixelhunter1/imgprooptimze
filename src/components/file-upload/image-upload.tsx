@@ -223,8 +223,9 @@ const ImageUpload = forwardRef<ImageUploadRef, ImageUploadProps>(({
                 <Button
                   onClick={() => removeImage(imageFile.id)}
                   variant="outline"
-                  size="icon"
-                  className="absolute top-2 end-2 size-6 opacity-0 group-hover:opacity-100 rounded-full"
+                  size="sm"
+                  mode="icon"
+                  className="absolute top-2 end-2 opacity-0 group-hover:opacity-100 rounded-full"
                 >
                   <XIcon className="size-3.5" />
                 </Button>
@@ -254,7 +255,7 @@ const ImageUpload = forwardRef<ImageUploadRef, ImageUploadProps>(({
             JPEG, PNG, up to {formatBytes(maxSize)}.
           </span>
           <div className="flex items-center justify-center">
-            <Button size="sm" variant="primary" onClick={openFileDialog}>
+            <Button variant="primary" size="md" onClick={openFileDialog}>
               Browse File
             </Button>
           </div>
@@ -281,7 +282,12 @@ const ImageUpload = forwardRef<ImageUploadRef, ImageUploadProps>(({
                         <p className="text-xs text-muted-foreground">Uploading... {Math.round(imageFile.progress)}%</p>
                       )}
                     </div>
-                    <Button onClick={() => removeImage(imageFile.id)} variant="ghost" size="icon" className="size-6">
+                    <Button
+                      onClick={() => removeImage(imageFile.id)}
+                      variant="ghost"
+                      size="sm"
+                      mode="icon"
+                    >
                       <CircleX className="size-3.5" />
                     </Button>
                   </div>

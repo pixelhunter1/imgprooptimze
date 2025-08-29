@@ -159,7 +159,8 @@ export default function ImagePreview({
                     </div>
                     <div className="flex gap-2">
                       <Button
-                        size="sm"
+                        variant="primary"
+                        size="md"
                         onClick={handleSaveEdit}
                         disabled={!editedFilename.trim()}
                         className="flex-1"
@@ -167,8 +168,8 @@ export default function ImagePreview({
                         Save
                       </Button>
                       <Button
-                        size="sm"
                         variant="outline"
+                        size="md"
                         onClick={handleCancelEdit}
                         className="flex-1"
                       >
@@ -192,10 +193,10 @@ export default function ImagePreview({
 
               {/* Download Button */}
               <Button
+                variant="primary"
                 onClick={() => onDownload(processedImage)}
                 className="w-full flex items-center justify-center gap-2"
-                size="md"
-                variant="primary"
+                size="lg"
               >
                 <Download className="h-4 w-4" />
                 Download

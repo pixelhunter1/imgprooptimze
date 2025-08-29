@@ -93,21 +93,19 @@ export default function OptimizationControls({
           
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             {qualityPresets.map((preset) => (
-              <button
+              <Button
                 key={preset.value}
+                variant={Math.abs(options.quality - preset.value) < 0.05 ? "primary" : "outline"}
+                size="sm"
                 onClick={() => onOptionsChange({
                   ...options,
                   quality: preset.value,
                   preserveQuality: preset.value >= 0.9 // Auto-enable preserve quality for high settings
                 })}
-                className={`p-2 text-xs border rounded transition-colors ${
-                  Math.abs(options.quality - preset.value) < 0.05
-                    ? 'border-primary bg-primary/5'
-                    : 'border-border hover:bg-muted'
-                }`}
+                className="h-auto py-2"
               >
                 <div className="font-medium">{preset.label}</div>
-              </button>
+              </Button>
             ))}
           </div>
         </div>

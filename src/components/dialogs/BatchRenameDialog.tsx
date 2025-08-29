@@ -339,6 +339,7 @@ export default function BatchRenameDialog({
               Cancel
             </Button>
             <Button
+              variant="primary"
               onClick={handleApply}
               className="flex-1 flex items-center gap-2"
               size="lg"
