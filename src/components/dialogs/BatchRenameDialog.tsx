@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, memo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { X, Edit3, FileText, Hash, Type } from 'lucide-react';
@@ -21,6 +21,68 @@ export interface BatchRenamePattern {
 }
 
 type RenameMode = 'simple' | 'numbered' | 'custom' | 'individual';
+
+// Memoized image component to prevent re-render issues
+const ImageThumbnail = memo(({ image, index }: { image: ProcessedImage; index: number }) => {
+  const [imgSrc, setImgSrc] = useState<string>('');
+  const [hasError, setHasError] = useState(false);
+
+  // Create a fresh blob URL for this specific image
+  useEffect(() => {
+    console.log(`🔍 Creating fresh URL for image ${index + 1}:`, {
+      originalFile: image.originalFile.name,
+      optimizedFile: image.optimizedFile.name,
+      originalUrl: image.originalUrl,
+      optimizedUrl: image.optimizedUrl,
+      sameFile: image.originalFile === image.optimizedFile
+    });
+
+    // Try to create a fresh URL from the optimized file
+    try {
+      const freshUrl = URL.createObjectURL(image.optimizedFile);
+      setImgSrc(freshUrl);
+      console.log(`✅ Fresh URL created for ${image.originalFile.name}:`, freshUrl);
+
+      // Cleanup function to revoke the URL when component unmounts
+      return () => {
+        URL.revokeObjectURL(freshUrl);
+      };
+    } catch (error) {
+      console.error(`❌ Failed to create fresh URL for ${image.originalFile.name}:`, error);
+      setImgSrc(image.optimizedUrl);
+    }
+  }, [image.id, image.optimizedFile]); // Only re-run if image changes
+
+  if (!imgSrc) {
+    return (
+      <div className="w-16 h-16 bg-muted rounded-md border border-border flex items-center justify-center">
+        <span className="text-xs text-muted-foreground">Loading...</span>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={imgSrc}
+      alt={`Preview ${index + 1}`}
+      className="w-16 h-16 object-cover rounded-md border border-border"
+      onLoad={() => {
+        console.log(`✅ Image ${index + 1} (${image.originalFile.name}) loaded successfully with fresh URL`);
+        setHasError(false);
+      }}
+      onError={(e) => {
+        console.error(`❌ Image ${index + 1} (${image.originalFile.name}) failed to load with fresh URL`);
+        if (!hasError) {
+          setHasError(true);
+          // Try original URL as fallback
+          const target = e.target as HTMLImageElement;
+          target.src = image.originalUrl;
+          console.log(`🔄 Trying original URL fallback for image ${index + 1}:`, image.originalUrl);
+        }
+      }}
+    />
+  );
+});
 
 export default function BatchRenameDialog({
   isOpen,
@@ -101,6 +163,11 @@ export default function BatchRenameDialog({
   };
 
   if (!isOpen) return null;
+
+  // Debug: Log image URLs (only once)
+  if (images.length > 0) {
+    console.log('🔍 BatchRenameDialog - Images loaded:', images.length);
+  }
 
   const previews = generatePreview();
 
@@ -263,14 +330,10 @@ export default function BatchRenameDialog({
                   </div>
                   <div className="space-y-4">
                     {images.map((image, index) => (
-                      <div key={image.id} className="flex items-center gap-4 p-3 bg-background rounded-lg border border-border">
+                      <div key={`${image.id}-${index}`} className="flex items-center gap-4 p-3 bg-background rounded-lg border border-border">
                         {/* Image Thumbnail */}
                         <div className="flex-shrink-0">
-                          <img
-                            src={image.optimizedUrl || URL.createObjectURL(image.originalFile)}
-                            alt={`Preview ${index + 1}`}
-                            className="w-16 h-16 object-cover rounded-md border border-border"
-                          />
+                          <ImageThumbnail image={image} index={index} />
                         </div>
 
                         {/* Image Info and Input */}

@@ -89,6 +89,9 @@ export class ImageProcessor {
    */
   static createUnprocessedResult(file: File, options: OptimizationOptions): ProcessedImage {
     const originalUrl = URL.createObjectURL(file);
+    const optimizedUrl = URL.createObjectURL(file); // Create separate URL even for same file
+
+    // Unprocessed URLs created successfully
 
     return {
       id: crypto.randomUUID(),
@@ -98,7 +101,7 @@ export class ImageProcessor {
       optimizedSize: file.size,
       compressionRatio: 0, // No compression applied
       originalUrl,
-      optimizedUrl: originalUrl, // Same URL since no processing
+      optimizedUrl,
       format: options.format,
       quality: options.quality,
     };
@@ -424,6 +427,8 @@ export class ImageProcessor {
       // Create URLs for preview
       const originalUrl = URL.createObjectURL(file);
       const optimizedUrl = URL.createObjectURL(finalFile);
+
+      // URLs created successfully
 
       return {
         id: crypto.randomUUID(),
