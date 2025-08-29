@@ -9,7 +9,7 @@ import ResetProjectDialog from '@/components/dialogs/ResetProjectDialog';
 import InstallButton from '@/components/pwa/InstallButton';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { ImageProcessor, type OptimizationOptions, type ProcessedImage } from '@/lib/imageProcessor';
+import { ImageProcessor, type OptimizationOptions, type ProcessedImage, type FileValidationResult } from '@/lib/imageProcessor';
 import { Package, Edit3, Trash2 } from 'lucide-react';
 
 interface UploadedImage {
@@ -40,6 +40,11 @@ function App() {
   const handleImagesUploaded = useCallback((images: UploadedImage[]) => {
     setUploadedImages(images);
 
+  }, []);
+
+  const handleValidationError = useCallback((errors: FileValidationResult[]) => {
+    // Log validation errors for debugging
+    console.warn('File validation errors:', errors);
   }, []);
 
   const handleOptimizeImages = useCallback(async () => {
@@ -132,9 +137,10 @@ function App() {
                 ref={imageUploadRef}
                 onImagesChange={handleImagesUploaded}
                 onUploadComplete={() => {}}
+                onValidationError={handleValidationError}
                 maxFiles={10}
                 maxSize={50 * 1024 * 1024} // 50MB
-                accept="image/*"
+                accept="image/png,image/jpeg,image/webp"
               />
             </CardContent>
           </Card>

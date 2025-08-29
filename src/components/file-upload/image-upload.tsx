@@ -5,8 +5,9 @@ import { Alert, AlertContent, AlertDescription, AlertIcon, AlertTitle } from '@/
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { CircleX, CloudUpload, ImageIcon, TriangleAlert, XIcon } from 'lucide-react';
+import { CircleX, CloudUpload, ImageIcon, TriangleAlert, XIcon, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ImageProcessor, ALLOWED_EXTENSIONS, type FileValidationResult } from '@/lib/imageProcessor';
 
 interface ImageFile {
   id: string;
@@ -24,6 +25,7 @@ interface ImageUploadProps {
   className?: string;
   onImagesChange?: (images: ImageFile[]) => void;
   onUploadComplete?: (images: ImageFile[]) => void;
+  onValidationError?: (errors: FileValidationResult[]) => void;
 }
 
 export interface ImageUploadRef {
@@ -33,14 +35,16 @@ export interface ImageUploadRef {
 const ImageUpload = forwardRef<ImageUploadRef, ImageUploadProps>(({
   maxFiles = 10,
   maxSize = 2 * 1024 * 1024, // 2MB
-  accept = 'image/*',
+  accept = 'image/png,image/jpeg,image/webp', // Restrict to allowed formats
   className,
   onImagesChange,
   onUploadComplete,
+  onValidationError,
 }, ref) => {
   const [images, setImages] = useState<ImageFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
+  const [validationErrors, setValidationErrors] = useState<FileValidationResult[]>([]);
 
   // Expose reset function via ref
   useImperativeHandle(ref, () => ({
@@ -51,33 +55,73 @@ const ImageUpload = forwardRef<ImageUploadRef, ImageUploadProps>(({
       });
       setImages([]);
       setErrors([]);
+      setValidationErrors([]);
       setIsDragging(false);
     }
   }), [images]);
 
   const validateFile = (file: File): string | null => {
-    if (!file.type.startsWith('image/')) {
-      return 'File must be an image';
+    // First check file type validation using ImageProcessor
+    const typeValidation = ImageProcessor.validateImageFile(file);
+    if (!typeValidation.isValid) {
+      return typeValidation.error || 'Invalid file type';
     }
+
+    // Then check size constraints
     if (file.size > maxSize) {
       return `File size must be less than ${(maxSize / 1024 / 1024).toFixed(1)}MB`;
     }
+
+    // Check file count limit
     if (images.length >= maxFiles) {
       return `Maximum ${maxFiles} files allowed`;
     }
+
     return null;
   };
 
   const addImages = useCallback(
-    (files: FileList | File[]) => {
+    async (files: FileList | File[]) => {
+      // First, validate all files using the comprehensive validation
+      const batchValidation = ImageProcessor.validateImageFiles(files);
+
+      // If no valid files, show error and prevent upload
+      if (!batchValidation.hasValidFiles) {
+        setValidationErrors(batchValidation.invalidFiles);
+        onValidationError?.(batchValidation.invalidFiles);
+
+        // Show summary error
+        const errorMessage = `No valid image files selected. ${batchValidation.invalidFiles.length} file(s) rejected.`;
+        setErrors(prev => [...prev, errorMessage]);
+        return;
+      }
+
+      // Process valid files and check additional constraints
       const newImages: ImageFile[] = [];
       const newErrors: string[] = [];
+      const rejectedFiles: FileValidationResult[] = [...batchValidation.invalidFiles];
 
-      Array.from(files).forEach((file) => {
+      // Additional validation for size and count limits
+      for (const file of batchValidation.validFiles) {
         const error = validateFile(file);
         if (error) {
-          newErrors.push(`${file.name}: ${error}`);
-          return;
+          rejectedFiles.push({
+            isValid: false,
+            error,
+            fileName: file.name
+          });
+          continue;
+        }
+
+        // Verify image integrity (additional security check)
+        const isValidImage = await ImageProcessor.verifyImageIntegrity(file);
+        if (!isValidImage) {
+          rejectedFiles.push({
+            isValid: false,
+            error: 'File appears to be corrupted or is not a valid image',
+            fileName: file.name
+          });
+          continue;
         }
 
         const imageFile: ImageFile = {
@@ -89,7 +133,22 @@ const ImageUpload = forwardRef<ImageUploadRef, ImageUploadProps>(({
         };
 
         newImages.push(imageFile);
-      });
+      }
+
+      // Update validation errors state
+      if (rejectedFiles.length > 0) {
+        setValidationErrors(rejectedFiles);
+        onValidationError?.(rejectedFiles);
+
+        // Add summary to errors
+        const rejectedCount = rejectedFiles.length;
+        const acceptedCount = newImages.length;
+        if (rejectedCount > 0) {
+          newErrors.push(`${rejectedCount} file(s) rejected. ${acceptedCount} file(s) accepted.`);
+        }
+      } else {
+        setValidationErrors([]);
+      }
 
       if (newErrors.length > 0) {
         setErrors((prev) => [...prev, ...newErrors]);
@@ -106,7 +165,7 @@ const ImageUpload = forwardRef<ImageUploadRef, ImageUploadProps>(({
         });
       }
     },
-    [images, maxSize, maxFiles, onImagesChange],
+    [images, maxSize, maxFiles, onImagesChange, onValidationError],
   );
 
   const simulateUpload = (imageFile: ImageFile) => {
@@ -252,7 +311,7 @@ const ImageUpload = forwardRef<ImageUploadRef, ImageUploadProps>(({
           </div>
           <h3 className="text-2sm text-foreground font-semibold mb-0.5">Choose a file or drag & drop here.</h3>
           <span className="text-xs text-secondary-foreground font-normal block mb-3">
-            JPEG, PNG, up to {formatBytes(maxSize)}.
+            PNG, WebP, JPEG/JPG only, up to {formatBytes(maxSize)}.
           </span>
           <div className="flex items-center justify-center">
             <Button variant="primary" size="lg" onClick={openFileDialog}>
@@ -303,7 +362,39 @@ const ImageUpload = forwardRef<ImageUploadRef, ImageUploadProps>(({
         </div>
       )}
 
-      {/* Error Messages */}
+      {/* Validation Error Messages */}
+      {validationErrors.length > 0 && (
+        <Alert variant="destructive" appearance="light" className="mt-5">
+          <AlertIcon>
+            <AlertCircle />
+          </AlertIcon>
+          <AlertContent>
+            <AlertTitle>File Validation Errors</AlertTitle>
+            <AlertDescription>
+              <div className="space-y-2">
+                <p className="text-sm font-medium">
+                  {validationErrors.length} file(s) rejected:
+                </p>
+                <ul className="text-sm space-y-1 ml-2">
+                  {validationErrors.map((error, index) => (
+                    <li key={index} className="flex items-start gap-2">
+                      <span className="font-medium text-destructive-foreground">•</span>
+                      <span>
+                        <strong>{error.fileName}:</strong> {error.error}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-xs mt-2 text-muted-foreground">
+                  Only PNG, WebP, and JPEG/JPG images are allowed.
+                </p>
+              </div>
+            </AlertDescription>
+          </AlertContent>
+        </Alert>
+      )}
+
+      {/* General Error Messages */}
       {errors.length > 0 && (
         <Alert variant="destructive" appearance="light" className="mt-5">
           <AlertIcon>

@@ -9,6 +9,30 @@ export interface OptimizationOptions {
   preserveQuality?: boolean; // When true, prioritizes quality over file size
 }
 
+// File validation types and constants
+export interface FileValidationResult {
+  isValid: boolean;
+  error?: string;
+  fileName: string;
+}
+
+export interface BatchValidationResult {
+  validFiles: File[];
+  invalidFiles: FileValidationResult[];
+  hasValidFiles: boolean;
+  hasInvalidFiles: boolean;
+}
+
+// Allowed image formats
+export const ALLOWED_IMAGE_FORMATS = {
+  'image/png': ['.png'],
+  'image/jpeg': ['.jpg', '.jpeg'],
+  'image/webp': ['.webp']
+} as const;
+
+export const ALLOWED_MIME_TYPES = Object.keys(ALLOWED_IMAGE_FORMATS) as string[];
+export const ALLOWED_EXTENSIONS = Object.values(ALLOWED_IMAGE_FORMATS).flat();
+
 export interface ProcessedImage {
   id: string;
   originalFile: File;
@@ -24,6 +48,102 @@ export interface ProcessedImage {
 }
 
 export class ImageProcessor {
+  /**
+   * Validates a single file for allowed image formats
+   * Checks both MIME type and file extension for security
+   */
+  static validateImageFile(file: File): FileValidationResult {
+    const fileName = file.name;
+    const mimeType = file.type;
+    const extension = fileName.toLowerCase().substring(fileName.lastIndexOf('.'));
+
+    // Check if MIME type is allowed
+    if (!ALLOWED_MIME_TYPES.includes(mimeType)) {
+      return {
+        isValid: false,
+        error: `Invalid file type. Only PNG, WebP, and JPEG/JPG images are allowed. Found: ${mimeType || 'unknown'}`,
+        fileName
+      };
+    }
+
+    // Check if file extension matches the MIME type
+    const allowedExtensions = ALLOWED_IMAGE_FORMATS[mimeType as keyof typeof ALLOWED_IMAGE_FORMATS];
+    if (!allowedExtensions || !(allowedExtensions as readonly string[]).includes(extension)) {
+      return {
+        isValid: false,
+        error: `File extension "${extension}" doesn't match the file type "${mimeType}". Possible security risk detected.`,
+        fileName
+      };
+    }
+
+    // Additional check: ensure file has an extension
+    if (!extension || extension === fileName) {
+      return {
+        isValid: false,
+        error: 'File must have a valid image extension (.png, .jpg, .jpeg, or .webp)',
+        fileName
+      };
+    }
+
+    return {
+      isValid: true,
+      fileName
+    };
+  }
+
+  /**
+   * Validates multiple files and separates valid from invalid ones
+   */
+  static validateImageFiles(files: File[] | FileList): BatchValidationResult {
+    const validFiles: File[] = [];
+    const invalidFiles: FileValidationResult[] = [];
+
+    Array.from(files).forEach(file => {
+      const validation = this.validateImageFile(file);
+      if (validation.isValid) {
+        validFiles.push(file);
+      } else {
+        invalidFiles.push(validation);
+      }
+    });
+
+    return {
+      validFiles,
+      invalidFiles,
+      hasValidFiles: validFiles.length > 0,
+      hasInvalidFiles: invalidFiles.length > 0
+    };
+  }
+
+  /**
+   * Checks if the file appears to be a real image by attempting to load it
+   * This provides additional security against renamed files
+   */
+  static async verifyImageIntegrity(file: File): Promise<boolean> {
+    return new Promise((resolve) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        resolve(true);
+      };
+
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        resolve(false);
+      };
+
+      // Set a timeout to avoid hanging
+      setTimeout(() => {
+        URL.revokeObjectURL(url);
+        resolve(false);
+      }, 5000);
+
+      img.src = url;
+    });
+  }
+
   static async optimizeImage(
     file: File,
     options: OptimizationOptions,
