@@ -97,11 +97,6 @@ export default function OptimizationControls({
           <div className="flex justify-between items-center">
             <label className="text-sm font-medium text-foreground">Quality</label>
             <div className="flex items-center gap-2">
-              {options.preserveQuality && (
-                <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-md border border-primary/20">
-                  Max Quality
-                </span>
-              )}
               <span className="text-sm font-medium text-foreground">{Math.round(options.quality * 100)}%</span>
             </div>
           </div>
@@ -125,8 +120,7 @@ export default function OptimizationControls({
                 size="md"
                 onClick={() => onOptionsChange({
                   ...options,
-                  quality: preset.value,
-                  preserveQuality: preset.value >= 0.9 // Auto-enable preserve quality for high settings
+                  quality: preset.value
                 })}
                 className="flex-1"
               >
@@ -136,31 +130,7 @@ export default function OptimizationControls({
           </div>
         </div>
 
-        {/* Maximum Quality Toggle */}
-        <div className="flex items-center justify-between py-3 border-t border-border">
-          <div className="flex-1">
-            <label className="text-sm font-medium text-foreground">Maximum Quality Mode</label>
-            <p className="text-xs text-muted-foreground mt-1">
-              Prioritizes image sharpness over file size
-            </p>
-          </div>
-          <button
-            onClick={() => onOptionsChange({
-              ...options,
-              preserveQuality: !options.preserveQuality,
-              quality: !options.preserveQuality ? 1.0 : options.quality
-            })}
-            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-              options.preserveQuality ? 'bg-primary' : 'bg-muted'
-            }`}
-          >
-            <span
-              className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform shadow-sm ${
-                options.preserveQuality ? 'translate-x-5' : 'translate-x-1'
-              }`}
-            />
-          </button>
-        </div>
+
 
         {/* Browser Compatibility Info */}
         {capabilities.showCompatibilityWarning && (

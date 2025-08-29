@@ -44,7 +44,6 @@ function App() {
       format: caps.canUseWebP ? 'webp' : caps.recommendedFormat,
       quality: 0.8, // Default to 80% quality for good balance of size and quality
       maxWidthOrHeight: browser.isIOS ? 1600 : 1920, // Lower for iOS
-      preserveQuality: false,
     };
   });
 

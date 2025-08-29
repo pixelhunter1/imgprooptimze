@@ -7,7 +7,6 @@ export interface OptimizationOptions {
   quality: number; // 0.1 to 1.0 (1.0 = maximum quality)
   maxSizeMB?: number; // Optional file size limit (only applied for quality < 0.8)
   maxWidthOrHeight?: number; // Maximum dimension in pixels
-  preserveQuality?: boolean; // When true, prioritizes quality over file size
 }
 
 // File validation types and constants
@@ -133,7 +132,7 @@ export class ImageProcessor {
       return await this.highQualityOptimization(file, options, onProgress);
     }
 
-    if (isHighQuality || options.preserveQuality) {
+    if (isHighQuality) {
       return await this.highQualityOptimization(file, options, onProgress);
     }
 

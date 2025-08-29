@@ -58,7 +58,6 @@ A modern, minimalist web application for professional image optimization with cl
 
 ### Advanced Controls
 - **Custom Quality Slider** - Fine-tune compression from 10% to 100%
-- **Preserve Quality Toggle** - Override compression for quality-critical images
 - **Format-Specific Optimization** - Tailored settings for each output format
 - **Dimension Limits** - Set maximum width/height while preserving proportions
 
