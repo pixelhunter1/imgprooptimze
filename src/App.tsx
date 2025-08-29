@@ -147,39 +147,42 @@ function App() {
         {/* Right Column: Results only */}
         <div className="space-y-4">
           <Card className="bg-card border border-border rounded-lg shadow-sm">
-            <CardContent className="p-6 space-y-2">
-              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                <div className="flex-1">
-                  <h2 className="text-xl font-semibold text-foreground">Optimized Images</h2>
-                  {processedImages.length > 0 && (
-                    <div className="mt-1 text-sm text-muted-foreground">
-                      <span>Total saved: {ImageProcessor.formatFileSize(totalSavings)}</span>
-                      <span className="mx-2">•</span>
-                      <span>Average compression: {averageCompression.toFixed(1)}%</span>
-                    </div>
-                  )}
-                </div>
+            <CardContent className="p-6 space-y-4">
+              {/* Header and Stats */}
+              <div className="space-y-2">
+                <h2 className="text-xl font-semibold text-foreground">Optimized Images</h2>
                 {processedImages.length > 0 && (
-                  <div className="flex flex-col sm:flex-row gap-3 lg:min-w-[280px]">
-                    <Button
-                      variant="outline"
-                      onClick={() => setShowBatchRenameDialog(true)}
-                      className="flex items-center justify-center gap-2 flex-1"
-                    >
-                      <Edit3 className="h-4 w-4" />
-                      Rename All
-                    </Button>
-                    <Button
-                      variant="primary"
-                      onClick={handleDownloadAll}
-                      className="flex items-center justify-center gap-2 flex-1"
-                    >
-                      <Package className="h-4 w-4" />
-                      Download ZIP ({processedImages.length})
-                    </Button>
+                  <div className="text-sm text-muted-foreground">
+                    <span>Total saved: {ImageProcessor.formatFileSize(totalSavings)}</span>
+                    <span className="mx-2">•</span>
+                    <span>Average compression: {averageCompression.toFixed(1)}%</span>
                   </div>
                 )}
               </div>
+
+              {/* Action Buttons - Moved below text */}
+              {processedImages.length > 0 && (
+                <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowBatchRenameDialog(true)}
+                    className="flex items-center justify-center gap-2 flex-1"
+                    size="lg"
+                  >
+                    <Edit3 className="h-4 w-4" />
+                    Rename All
+                  </Button>
+                  <Button
+                    variant="primary"
+                    onClick={handleDownloadAll}
+                    className="flex items-center justify-center gap-2 flex-1"
+                    size="lg"
+                  >
+                    <Package className="h-4 w-4" />
+                    Download ZIP ({processedImages.length})
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
 
