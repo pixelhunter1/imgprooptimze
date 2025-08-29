@@ -80,14 +80,14 @@ export default function ImagePreview({
 
 
   return (
-    <Card className="bg-card border border-border rounded-xl shadow-sm w-full overflow-hidden hover:shadow-md transition-shadow duration-200">
+    <Card className="bg-card border border-border rounded-xl w-full overflow-hidden">
       <CardContent className="p-0">
         {/* Remove Button - Positioned absolutely */}
         <Button
           variant="ghost"
           size="sm"
           onClick={() => onRemove(processedImage.id)}
-          className="absolute top-3 right-3 z-10 h-8 w-8 p-0 bg-background/80 backdrop-blur-sm hover:bg-background border border-border/50 rounded-full shadow-sm"
+          className="absolute top-3 right-3 z-10 h-8 w-8 p-0 bg-background/80 backdrop-blur-sm hover:bg-background border border-border/50 rounded-full"
           title="Remove image"
         >
           <X className="h-4 w-4" />

@@ -109,7 +109,7 @@ function App() {
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 lg:items-start">
         {/* Left Column: Upload + Settings stacked */}
         <div className="space-y-6 lg:sticky lg:top-8 self-start">
-          <Card className="bg-card border border-border rounded-lg shadow-sm">
+          <Card className="bg-card border border-border rounded-lg">
             <CardContent className="p-6 space-y-4">
               <h2 className="text-xl font-semibold text-foreground">Upload Images</h2>
               <p className="text-sm text-muted-foreground">Drag and drop or click to select images.</p>
@@ -124,7 +124,7 @@ function App() {
           </Card>
 
           {uploadedImages.length > 0 && (
-            <Card className="bg-card border border-border rounded-lg shadow-sm">
+            <Card className="bg-card border border-border rounded-lg">
               <CardContent className="p-6 space-y-4">
                 <h2 className="text-xl font-semibold text-foreground">Optimization Settings</h2>
                 <OptimizationControls
@@ -143,7 +143,7 @@ function App() {
 
         {/* Right Column: Results only */}
         <div className="space-y-4">
-          <Card className="bg-card border border-border rounded-lg shadow-sm">
+          <Card className="bg-card border border-border rounded-lg">
             <CardContent className="p-6 space-y-4">
               {/* Header and Stats */}
               <div className="space-y-2">

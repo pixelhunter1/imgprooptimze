@@ -6,7 +6,7 @@ import { Slot } from '@radix-ui/react-slot';
 import { cn } from '@/lib/utils';
 
 const buttonVariants = cva(
-  'cursor-pointer group whitespace-nowrap focus-visible:outline-hidden inline-flex items-center justify-center has-data-[arrow=true]:justify-between whitespace-nowrap text-sm font-medium ring-offset-background transition-[color,box-shadow] disabled:pointer-events-none disabled:opacity-60 [&_svg]:shrink-0',
+  'cursor-pointer group whitespace-nowrap focus-visible:outline-hidden inline-flex items-center justify-center has-data-[arrow=true]:justify-between whitespace-nowrap text-sm font-medium ring-offset-background transition-colors disabled:pointer-events-none disabled:opacity-60 [&_svg]:shrink-0',
   {
     variants: {
       variant: {
@@ -120,81 +120,9 @@ const buttonVariants = cva(
         className: 'h-auto min-h-10',
       },
 
-      // Shadow support
-      {
-        variant: 'primary',
-        mode: 'default',
-        appearance: 'default',
-        className: 'shadow-xs shadow-black/5',
-      },
-      {
-        variant: 'mono',
-        mode: 'default',
-        appearance: 'default',
-        className: 'shadow-xs shadow-black/5',
-      },
-      {
-        variant: 'secondary',
-        mode: 'default',
-        appearance: 'default',
-        className: 'shadow-xs shadow-black/5',
-      },
-      {
-        variant: 'outline',
-        mode: 'default',
-        appearance: 'default',
-        className: 'shadow-xs shadow-black/5',
-      },
-      {
-        variant: 'dashed',
-        mode: 'default',
-        appearance: 'default',
-        className: 'shadow-xs shadow-black/5',
-      },
-      {
-        variant: 'destructive',
-        mode: 'default',
-        appearance: 'default',
-        className: 'shadow-xs shadow-black/5',
-      },
 
-      // Shadow support
-      {
-        variant: 'primary',
-        mode: 'icon',
-        appearance: 'default',
-        className: 'shadow-xs shadow-black/5',
-      },
-      {
-        variant: 'mono',
-        mode: 'icon',
-        appearance: 'default',
-        className: 'shadow-xs shadow-black/5',
-      },
-      {
-        variant: 'secondary',
-        mode: 'icon',
-        appearance: 'default',
-        className: 'shadow-xs shadow-black/5',
-      },
-      {
-        variant: 'outline',
-        mode: 'icon',
-        appearance: 'default',
-        className: 'shadow-xs shadow-black/5',
-      },
-      {
-        variant: 'dashed',
-        mode: 'icon',
-        appearance: 'default',
-        className: 'shadow-xs shadow-black/5',
-      },
-      {
-        variant: 'destructive',
-        mode: 'icon',
-        appearance: 'default',
-        className: 'shadow-xs shadow-black/5',
-      },
+
+
 
       // Link
       {

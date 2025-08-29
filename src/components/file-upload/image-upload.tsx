@@ -207,7 +207,7 @@ export default function ImageUpload({
                   onClick={() => removeImage(imageFile.id)}
                   variant="outline"
                   size="icon"
-                  className="shadow-sm absolute top-2 end-2 size-6 opacity-0 group-hover:opacity-100 rounded-full"
+                  className="absolute top-2 end-2 size-6 opacity-0 group-hover:opacity-100 rounded-full"
                 >
                   <XIcon className="size-3.5" />
                 </Button>

@@ -6,7 +6,7 @@ import { cva, type VariantProps } from 'class-variance-authority';
 // Define input size variants
 const inputVariants = cva(
   `
-    flex w-full bg-background border border-input shadow-xs shadow-black/5 transition-[color,box-shadow] text-foreground placeholder:text-muted-foreground/80 
+    flex w-full bg-background border border-input transition-colors text-foreground placeholder:text-muted-foreground/80
     focus-visible:ring-ring/30  focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px]     
     disabled:cursor-not-allowed disabled:opacity-60 
     [&[readonly]]:bg-muted/80 [&[readonly]]:cursor-not-allowed
@@ -29,7 +29,7 @@ const inputVariants = cva(
 );
 
 const inputAddonVariants = cva(
-  'flex items-center shrink-0 justify-center bg-muted border border-input shadow-xs shadow-[rgba(0,0,0,0.05)] text-secondary-foreground [&_svg]:text-secondary-foreground/60',
+  'flex items-center shrink-0 justify-center bg-muted border border-input text-secondary-foreground [&_svg]:text-secondary-foreground/60',
   {
     variants: {
       variant: {
@@ -94,7 +94,7 @@ const inputWrapperVariants = cva(
     [&_[data-slot=input]]:border-0 
     [&_[data-slot=input]]:bg-transparent 
     [&_[data-slot=input]]:p-0
-    [&_[data-slot=input]]:shadow-none 
+
     [&_[data-slot=input]]:focus-visible:ring-0 
     [&_[data-slot=input]]:h-auto 
     [&_[data-slot=input]]:disabled:cursor-not-allowed

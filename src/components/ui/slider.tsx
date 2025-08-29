@@ -24,7 +24,7 @@ function SliderThumb({ className, ...props }: React.ComponentProps<typeof Slider
     <SliderPrimitive.Thumb
       data-slot="slider-thumb"
       className={cn(
-        'box-content block size-4 shrink-0 cursor-pointer rounded-full border-[2px] border-primary bg-primary-foreground shadow-xs shadow-black/5 outline-hidden focus:outline-hidden',
+        'box-content block size-4 shrink-0 cursor-pointer rounded-full border-[2px] border-primary bg-primary-foreground outline-hidden focus:outline-hidden',
         className,
       )}
       {...props}
