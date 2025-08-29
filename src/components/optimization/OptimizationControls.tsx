@@ -168,7 +168,7 @@ export default function OptimizationControls({
             size="lg"
           >
             <Download className="h-4 w-4" />
-            Download All ({processedCount})
+            Download ZIP ({processedCount})
           </Button>
         </div>
 

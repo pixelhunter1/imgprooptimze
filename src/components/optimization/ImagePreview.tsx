@@ -1,7 +1,8 @@
+import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Download, FileImage, TrendingDown, Zap, X } from 'lucide-react';
+import { Download, FileImage, TrendingDown, Zap, X, Edit2 } from 'lucide-react';
 import { Badge } from '@/components/ui/base-badge';
 import { type ProcessedImage, ImageProcessor } from '@/lib/imageProcessor';
 
@@ -9,6 +10,7 @@ interface ImagePreviewProps {
   processedImage: ProcessedImage;
   onDownload: (image: ProcessedImage) => void;
   onRemove: (id: string) => void;
+  onRename: (id: string, newFilename: string) => void;
   isProcessing?: boolean;
   processingProgress?: number;
 }
@@ -17,9 +19,13 @@ export default function ImagePreview({
   processedImage,
   onDownload,
   onRemove,
+  onRename,
   isProcessing = false,
   processingProgress = 0,
 }: ImagePreviewProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedFilename, setEditedFilename] = useState('');
+
   const {
     originalFile,
     originalSize,
@@ -28,7 +34,41 @@ export default function ImagePreview({
     optimizedUrl,
     format,
     quality,
+    customFilename,
   } = processedImage;
+
+  // Get current display filename
+  const getCurrentFilename = () => {
+    if (customFilename) {
+      return customFilename;
+    }
+    return originalFile.name.replace(/\.[^/.]+$/, ''); // Remove extension
+  };
+
+  const handleStartEdit = () => {
+    setEditedFilename(getCurrentFilename());
+    setIsEditing(true);
+  };
+
+  const handleSaveEdit = () => {
+    if (editedFilename.trim() && editedFilename.trim() !== getCurrentFilename()) {
+      onRename(processedImage.id, editedFilename.trim());
+    }
+    setIsEditing(false);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setEditedFilename('');
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSaveEdit();
+    } else if (e.key === 'Escape') {
+      handleCancelEdit();
+    }
+  };
 
   const getCompressionColor = (ratio: number) => {
     if (ratio >= 80) return 'text-green-600';
@@ -134,6 +174,58 @@ export default function ImagePreview({
                 <span>Format: {format.toUpperCase()}</span>
                 <span className="mx-1">•</span>
                 <span>Quality: {Math.round(quality * 100)}%</span>
+              </div>
+
+              {/* Simplified Filename Display/Edit */}
+              <div className="space-y-2">
+                <div className="text-xs text-muted-foreground">Save as</div>
+                {isEditing ? (
+                  <div className="space-y-2">
+                    <div className="flex gap-1">
+                      <input
+                        type="text"
+                        value={editedFilename}
+                        onChange={(e) => setEditedFilename(e.target.value)}
+                        onKeyDown={handleKeyPress}
+                        className="flex-1 px-3 py-2 text-sm border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                        placeholder="Enter new filename"
+                        autoFocus
+                      />
+                      <span className="px-2 py-2 text-sm text-muted-foreground bg-muted rounded-md">
+                        {ImageProcessor.getExtensionFromFormat(format as 'webp' | 'jpeg' | 'png')}
+                      </span>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        onClick={handleSaveEdit}
+                        disabled={!editedFilename.trim()}
+                        className="flex-1"
+                      >
+                        Save
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleCancelEdit}
+                        className="flex-1"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    className="group flex items-center gap-2 p-2 rounded-md border border-dashed border-border hover:border-primary hover:bg-primary/5 cursor-pointer transition-colors"
+                    onClick={handleStartEdit}
+                    title="Click to rename this file"
+                  >
+                    <span className="flex-1 text-sm truncate">
+                      {getCurrentFilename()}{ImageProcessor.getExtensionFromFormat(format as 'webp' | 'jpeg' | 'png')}
+                    </span>
+                    <Edit2 className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                  </div>
+                )}
               </div>
 
               {/* Download Button */}

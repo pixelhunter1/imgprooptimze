@@ -2,9 +2,12 @@ import { useState, useCallback } from 'react';
 import ImageUpload from '@/components/file-upload/image-upload';
 import OptimizationControls from '@/components/optimization/OptimizationControls';
 import ImagePreview from '@/components/optimization/ImagePreview';
+import ZipDownloadDialog from '@/components/dialogs/ZipDownloadDialog';
+import BatchRenameDialog, { type BatchRenamePattern } from '@/components/dialogs/BatchRenameDialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ImageProcessor, type OptimizationOptions, type ProcessedImage } from '@/lib/imageProcessor';
+import { Package, Edit3, Info } from 'lucide-react';
 
 interface UploadedImage {
   id: string;
@@ -19,6 +22,8 @@ function App() {
   const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
   const [processedImages, setProcessedImages] = useState<ProcessedImage[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showZipDialog, setShowZipDialog] = useState(false);
+  const [showBatchRenameDialog, setShowBatchRenameDialog] = useState(false);
 
   const [optimizationOptions, setOptimizationOptions] = useState<OptimizationOptions>({
     format: 'webp',
@@ -63,12 +68,31 @@ function App() {
     }
   }, [uploadedImages, optimizationOptions]);
 
-  const handleDownloadAll = useCallback(async () => {
+  const handleDownloadAll = useCallback(() => {
+    setShowZipDialog(true);
+  }, []);
+
+  const handleZipDownload = useCallback(async (zipFilename: string) => {
     try {
-      await ImageProcessor.downloadMultipleFiles(processedImages);
+      await ImageProcessor.downloadAsZip(processedImages, zipFilename);
     } catch (err) {
-      console.error('Download failed:', err);
+      console.error('ZIP download failed:', err);
     }
+  }, [processedImages]);
+
+  const handleRenameImage = useCallback((id: string, newFilename: string) => {
+    setProcessedImages(prev =>
+      prev.map(img =>
+        img.id === id
+          ? { ...img, customFilename: newFilename }
+          : img
+      )
+    );
+  }, []);
+
+  const handleBatchRename = useCallback((pattern: BatchRenamePattern) => {
+    const renamedImages = ImageProcessor.applyBatchRename(processedImages, pattern);
+    setProcessedImages(renamedImages);
   }, [processedImages]);
 
   // Summary stats for results
@@ -124,8 +148,8 @@ function App() {
         <div className="space-y-4">
           <Card className="bg-card border border-border rounded-lg shadow-sm">
             <CardContent className="p-6 space-y-2">
-              <div className="flex items-center justify-between">
-                <div>
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                <div className="flex-1">
                   <h2 className="text-xl font-semibold text-foreground">Optimized Images</h2>
                   {processedImages.length > 0 && (
                     <div className="mt-1 text-sm text-muted-foreground">
@@ -136,13 +160,43 @@ function App() {
                   )}
                 </div>
                 {processedImages.length > 0 && (
-                  <Button variant="primary" onClick={handleDownloadAll}>
-                    Download All ({processedImages.length})
-                  </Button>
+                  <div className="flex flex-col sm:flex-row gap-3 lg:min-w-[280px]">
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowBatchRenameDialog(true)}
+                      className="flex items-center justify-center gap-2 flex-1"
+                    >
+                      <Edit3 className="h-4 w-4" />
+                      Rename All
+                    </Button>
+                    <Button
+                      variant="primary"
+                      onClick={handleDownloadAll}
+                      className="flex items-center justify-center gap-2 flex-1"
+                    >
+                      <Package className="h-4 w-4" />
+                      Download ZIP ({processedImages.length})
+                    </Button>
+                  </div>
                 )}
               </div>
             </CardContent>
           </Card>
+
+          {/* Helpful Tips */}
+          {processedImages.length > 0 && (
+            <div className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <Info className="h-5 w-5 text-blue-600 mt-0.5 shrink-0" />
+              <div className="text-sm">
+                <p className="font-medium text-blue-900 mb-1">💡 Quick Tips</p>
+                <ul className="text-blue-700 space-y-1 text-xs">
+                  <li>• Click any filename below to rename individual images</li>
+                  <li>• Use "Rename All" to quickly rename multiple images at once</li>
+                  <li>• Download as ZIP to get all images in one organized file</li>
+                </ul>
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {processedImages.map((img) => (
@@ -151,13 +205,27 @@ function App() {
                 processedImage={img}
                 onDownload={(image) => ImageProcessor.downloadFile(image.optimizedFile)}
                 onRemove={(id) => setProcessedImages((prev) => prev.filter((p) => p.id !== id))}
+                onRename={handleRenameImage}
               />
             ))}
           </div>
         </div>
-
-
       </div>
+
+      {/* Dialogs */}
+      <ZipDownloadDialog
+        isOpen={showZipDialog}
+        onClose={() => setShowZipDialog(false)}
+        onDownload={handleZipDownload}
+        fileCount={processedImages.length}
+      />
+
+      <BatchRenameDialog
+        isOpen={showBatchRenameDialog}
+        onClose={() => setShowBatchRenameDialog(false)}
+        onApply={handleBatchRename}
+        images={processedImages}
+      />
     </div>
   );
 }

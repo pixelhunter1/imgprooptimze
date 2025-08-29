@@ -1,4 +1,5 @@
 import imageCompression from 'browser-image-compression';
+import JSZip from 'jszip';
 
 export interface OptimizationOptions {
   format: 'webp' | 'jpeg' | 'png';
@@ -19,6 +20,7 @@ export interface ProcessedImage {
   optimizedUrl: string;
   format: string;
   quality: number;
+  customFilename?: string; // User-defined filename (without extension)
 }
 
 export class ImageProcessor {
@@ -277,5 +279,142 @@ export class ImageProcessor {
       // Small delay to prevent browser blocking multiple downloads
       await new Promise(resolve => setTimeout(resolve, 100));
     }
+  }
+
+  /**
+   * Creates and downloads a ZIP file containing all processed images
+   * @param files Array of processed images
+   * @param zipFilename Name for the ZIP file (without .zip extension)
+   * @param onProgress Optional progress callback
+   */
+  static async downloadAsZip(
+    files: ProcessedImage[],
+    zipFilename: string = 'optimized-images',
+    onProgress?: (progress: number) => void
+  ): Promise<void> {
+    if (files.length === 0) {
+      throw new Error('No files to download');
+    }
+
+    const zip = new JSZip();
+    const totalFiles = files.length;
+
+    // Add each file to the ZIP
+    for (let i = 0; i < files.length; i++) {
+      const processedImage = files[i];
+      const filename = this.getFinalFilename(processedImage);
+
+      // Convert file to array buffer
+      const arrayBuffer = await processedImage.optimizedFile.arrayBuffer();
+      zip.file(filename, arrayBuffer);
+
+      // Update progress
+      if (onProgress) {
+        onProgress(Math.round(((i + 1) / totalFiles) * 80)); // 80% for adding files
+      }
+    }
+
+    // Generate ZIP file
+    if (onProgress) onProgress(90);
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
+
+    // Download the ZIP
+    if (onProgress) onProgress(100);
+    const zipFile = new File([zipBlob], `${zipFilename}.zip`, { type: 'application/zip' });
+    await this.downloadFile(zipFile, `${zipFilename}.zip`);
+  }
+
+  /**
+   * Gets the final filename for a processed image, considering custom naming
+   * @param processedImage The processed image
+   * @returns Final filename with extension
+   */
+  static getFinalFilename(processedImage: ProcessedImage): string {
+    const extension = this.getExtensionFromFormat(processedImage.format as 'webp' | 'jpeg' | 'png');
+
+    if (processedImage.customFilename) {
+      // Use custom filename, ensuring it doesn't already have an extension
+      const cleanName = processedImage.customFilename.replace(/\.[^/.]+$/, '');
+      return `${cleanName}${extension}`;
+    }
+
+    // Use original filename with optimized suffix
+    return this.generateFileName(processedImage.originalFile.name, processedImage.format as 'webp' | 'jpeg' | 'png');
+  }
+
+  /**
+   * Gets file extension from format
+   * @param format Image format
+   * @returns File extension with dot
+   */
+  static getExtensionFromFormat(format: 'webp' | 'jpeg' | 'png'): string {
+    const extensions = {
+      webp: '.webp',
+      jpeg: '.jpg',
+      png: '.png',
+    };
+    return extensions[format];
+  }
+
+  /**
+   * Applies batch renaming to multiple images
+   * @param images Array of processed images
+   * @param pattern Renaming pattern object
+   * @returns Updated array of processed images
+   */
+  static applyBatchRename(
+    images: ProcessedImage[],
+    pattern: {
+      prefix?: string;
+      suffix?: string;
+      useNumbering?: boolean;
+      startNumber?: number;
+      originalName?: boolean;
+      customNames?: string[];
+    }
+  ): ProcessedImage[] {
+    return images.map((image, index) => {
+      let newName = '';
+
+      if (pattern.customNames && pattern.customNames[index]) {
+        // Individual custom names mode
+        newName = pattern.customNames[index].trim();
+      } else if (pattern.originalName) {
+        // Simple mode: Keep original names unchanged
+        newName = image.originalFile.name.replace(/\.[^/.]+$/, '');
+      } else if (pattern.useNumbering) {
+        // Numbered mode: Use prefix (baseName) + number
+        if (pattern.prefix) {
+          newName += pattern.prefix;
+        }
+        const number = (pattern.startNumber || 1) + index;
+        newName += `_${number.toString().padStart(3, '0')}`;
+      } else {
+        // Custom mode: prefix + suffix (without original name)
+        if (pattern.prefix && pattern.suffix) {
+          // When both prefix and suffix are provided, use only prefix + suffix
+          newName = pattern.prefix + pattern.suffix;
+        } else if (pattern.prefix) {
+          // Only prefix: prefix + original name
+          newName = pattern.prefix + image.originalFile.name.replace(/\.[^/.]+$/, '');
+        } else if (pattern.suffix) {
+          // Only suffix: original name + suffix
+          newName = image.originalFile.name.replace(/\.[^/.]+$/, '') + pattern.suffix;
+        } else {
+          // Neither prefix nor suffix: keep original name
+          newName = image.originalFile.name.replace(/\.[^/.]+$/, '');
+        }
+      }
+
+      // Fallback to original name if somehow empty
+      if (!newName) {
+        newName = image.originalFile.name.replace(/\.[^/.]+$/, '');
+      }
+
+      return {
+        ...image,
+        customFilename: newName
+      };
+    });
   }
 }
