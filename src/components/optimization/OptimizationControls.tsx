@@ -90,6 +90,11 @@ export default function OptimizationControls({
               WebP not supported in {browserInfo.name}. JPEG will be used instead.
             </p>
           )}
+          {options.format === 'png' && (
+            <p className="text-xs text-blue-600 bg-blue-50 p-2 rounded border border-blue-200">
+              Smart PNG conversion: If PNG increases file size, original format will be kept automatically.
+            </p>
+          )}
         </div>
 
         {/* Quality Control */}

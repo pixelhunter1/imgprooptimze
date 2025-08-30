@@ -68,13 +68,19 @@ export class ImageProcessor {
     const inputFormat = this.getFormatFromMimeType(file.type);
     const outputFormat = options.format;
 
-    // Skip if same format and maximum quality (100%)
-    if (inputFormat === outputFormat && options.quality >= 1.0) {
+    // Never skip processing for JPEG - always apply some optimization
+    if (outputFormat === 'jpeg') {
+      return false;
+    }
+
+    // For PNG: Skip if same format and maximum quality (100%)
+    if (inputFormat === outputFormat && outputFormat === 'png' && options.quality >= 1.0) {
       return true;
     }
 
-    // Skip if no dimension constraints and same format with very high quality
+    // For WebP: Skip if same format and very high quality with no constraints
     if (inputFormat === outputFormat &&
+        outputFormat === 'webp' &&
         options.quality >= 0.95 &&
         !options.maxWidthOrHeight &&
         !options.maxSizeMB) {
@@ -143,9 +149,9 @@ export class ImageProcessor {
     const isHighQuality = options.quality >= 0.9;
     const isPngOutput = outputFormat === 'png';
 
-    // Format-specific optimization strategy
+    // Format-specific optimization strategy with size increase prevention
     if (isPngOutput) {
-      return await this.highQualityOptimization(file, options, onProgress);
+      return await this.smartPngOptimization(file, options, onProgress);
     }
 
     if (isHighQuality) {
@@ -448,6 +454,63 @@ export class ImageProcessor {
     }
   }
 
+  /**
+   * Smart PNG optimization that prevents file size increases
+   */
+  static async smartPngOptimization(
+    file: File,
+    options: OptimizationOptions,
+    onProgress?: (progress: number) => void
+  ): Promise<File> {
+    const inputFormat = this.getFormatFromMimeType(file.type);
+
+    if (onProgress) onProgress(10);
+
+    // If already PNG, use standard optimization
+    if (inputFormat === 'png') {
+      return await this.highQualityOptimization(file, options, onProgress);
+    }
+
+    // For non-PNG to PNG conversion, test the conversion first
+    if (onProgress) onProgress(30);
+
+    try {
+      // Create a test conversion to check file size
+      const testConversion = await this.convertFormat(file, 'png', options.quality);
+
+      if (onProgress) onProgress(70);
+
+      // Compare file sizes
+      const originalSize = file.size;
+      const convertedSize = testConversion.size;
+      const sizeIncrease = ((convertedSize - originalSize) / originalSize) * 100;
+
+      console.log(`🔍 PNG CONVERSION CHECK: ${this.formatFileSize(originalSize)} → ${this.formatFileSize(convertedSize)} (${sizeIncrease > 0 ? '+' : ''}${sizeIncrease.toFixed(1)}%)`);
+
+      // If conversion increases file size by more than 5%, keep original format
+      if (sizeIncrease > 5) {
+        console.log(`⚠️ PNG conversion would increase size by ${sizeIncrease.toFixed(1)}%. Keeping original ${inputFormat.toUpperCase()} format.`);
+
+        // Optimize in original format instead
+        const optimizedOptions = { ...options, format: inputFormat as 'webp' | 'jpeg' | 'png' };
+        const result = await this.highQualityOptimization(file, optimizedOptions, onProgress);
+
+        if (onProgress) onProgress(100);
+        return result;
+      }
+
+      // Size increase is acceptable, return the PNG conversion
+      if (onProgress) onProgress(100);
+      return testConversion;
+
+    } catch (error) {
+      console.error('Error during PNG conversion test:', error);
+      // Fallback to original format optimization
+      const optimizedOptions = { ...options, format: inputFormat as 'webp' | 'jpeg' | 'png' };
+      return await this.highQualityOptimization(file, optimizedOptions, onProgress);
+    }
+  }
+
   static async highQualityOptimization(
     file: File,
     options: OptimizationOptions,
@@ -461,8 +524,13 @@ export class ImageProcessor {
     // Check if we need to resize the image
     const needsResize = await this.checkIfResizeNeeded(file, options.maxWidthOrHeight);
 
-    // If same format, maximum quality, and no resize needed, return original
-    if (inputFormat === outputFormat &&
+    // For JPEG, always process to apply compression (never skip)
+    if (outputFormat === 'jpeg') {
+      // Continue with processing
+    }
+    // For PNG: If same format, maximum quality, and no resize needed, return original
+    else if (inputFormat === outputFormat &&
+        outputFormat === 'png' &&
         options.quality >= 1.0 &&
         !needsResize) {
       if (onProgress) onProgress(100);
