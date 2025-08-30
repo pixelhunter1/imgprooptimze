@@ -260,17 +260,17 @@ function App() {
                       <Package className="h-4 w-4" />
                       Download ZIP ({processedImages.length})
                     </Button>
+                    {/* Reset Project button - icon only with destructive styling */}
+                    <Button
+                      variant="destructive"
+                      onClick={() => setShowResetProjectDialog(true)}
+                      className="flex items-center justify-center"
+                      size="lg"
+                      title="Reset Project"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
-                  {/* Reset Project button - only show when there are processed images */}
-                  <Button
-                    variant="destructive"
-                    onClick={() => setShowResetProjectDialog(true)}
-                    className="flex items-center justify-center gap-2"
-                    size="lg"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    Reset Project
-                  </Button>
                 </div>
               )}
             </CardContent>
