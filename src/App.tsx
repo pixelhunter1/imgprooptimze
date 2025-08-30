@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { Analytics } from '@vercel/analytics/react';
 import ImageUpload, { type ImageUploadRef } from '@/components/file-upload/image-upload';
 import OptimizationControls from '@/components/optimization/OptimizationControls';
 import ImagePreview from '@/components/optimization/ImagePreview';
@@ -334,6 +335,9 @@ function App() {
         <div className="fixed bottom-4 right-4 z-40">
           <VersionDisplay showUpdateButton />
         </div>
+
+        {/* Vercel Analytics */}
+        <Analytics />
       </div>
     </div>
   );
