@@ -66,6 +66,18 @@ export default function FloatingSupport() {
       {/* Support Options Menu */}
       {isOpen && (
         <div className="mb-4 space-y-2 animate-in slide-in-from-bottom-2 duration-200">
+          {/* Close button at the top */}
+          <div className="flex justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsOpen(false)}
+              className="h-8 w-8 p-0 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 border-slate-300 dark:border-slate-600"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+
           {supportOptions.map((option) => (
             <div
               key={option.id}
@@ -97,20 +109,9 @@ export default function FloatingSupport() {
       {/* Main Floating Button */}
       <Button
         onClick={() => setIsOpen(!isOpen)}
-        className={`
-          h-14 w-14 rounded-full shadow-lg transition-all duration-200 border-0
-          ${isOpen 
-            ? 'bg-slate-600 hover:bg-slate-700 rotate-45' 
-            : 'bg-blue-600 hover:bg-blue-700 hover:scale-110'
-          }
-          text-white
-        `}
+        className="h-14 w-14 rounded-full shadow-lg transition-all duration-200 border-0 bg-blue-600 hover:bg-blue-700 hover:scale-110 text-white"
       >
-        {isOpen ? (
-          <X className="h-6 w-6" />
-        ) : (
-          <MessageCircle className="h-6 w-6" />
-        )}
+        <MessageCircle className="h-6 w-6" />
       </Button>
 
       {/* Tooltip for closed state */}
