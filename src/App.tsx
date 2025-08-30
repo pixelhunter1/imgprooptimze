@@ -333,7 +333,7 @@ function App() {
 
         {/* Version Display (bottom right corner) */}
         <div className="fixed bottom-4 right-4 z-40">
-          <VersionDisplay showUpdateButton />
+          <VersionDisplay />
         </div>
 
         {/* Vercel Analytics */}

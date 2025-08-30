@@ -276,5 +276,5 @@ export function shouldCheckForUpdates(intervalMs: number = 30 * 60 * 1000): bool
  */
 export function getVersionString(): string {
   const current = getCurrentVersion();
-  return `v${current.version} (${current.buildHash.substring(0, 7)})`;
+  return `v${current.version}`;
 }
