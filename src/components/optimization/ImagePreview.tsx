@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Download, Zap, Edit2 } from 'lucide-react';
+import { Download, Zap, Edit2, X } from 'lucide-react';
 import { Badge } from '@/components/ui/base-badge';
 import { type ProcessedImage, ImageProcessor } from '@/lib/imageProcessor';
 
@@ -10,6 +10,7 @@ interface ImagePreviewProps {
   processedImage: ProcessedImage;
   onDownload: (image: ProcessedImage) => void;
   onRename: (id: string, newFilename: string) => void;
+  onRemove?: (id: string) => void;
   isProcessing?: boolean;
   processingProgress?: number;
 }
@@ -18,6 +19,7 @@ export default function ImagePreview({
   processedImage,
   onDownload,
   onRename,
+  onRemove,
   isProcessing = false,
   processingProgress = 0,
 }: ImagePreviewProps) {
@@ -129,6 +131,16 @@ export default function ImagePreview({
                   alt="Optimized"
                   className="w-full h-full object-cover"
                 />
+                {/* Remove Button */}
+                {onRemove && (
+                  <button
+                    onClick={() => onRemove(processedImage.id)}
+                    className="absolute top-2 right-2 h-8 w-8 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center shadow-lg transition-colors"
+                    title="Remove image"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
                 {/* Simple Format Badge */}
                 <div className="absolute bottom-3 right-3">
                   <Badge appearance="light" variant="secondary" size="sm" className="bg-background/90 backdrop-blur-sm">

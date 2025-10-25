@@ -150,6 +150,23 @@ function App() {
     setProcessedImages(renamedImages);
   }, [processedImages]);
 
+  const handleDownloadImage = useCallback(async (image: ProcessedImage) => {
+    const finalFilename = ImageProcessor.getFinalFilename(image);
+    await ImageProcessor.downloadFile(image.optimizedFile, finalFilename);
+  }, []);
+
+  const handleRemoveImage = useCallback((imageId: string) => {
+    // Find the image to clean up its URLs
+    const imageToRemove = processedImages.find(img => img.id === imageId);
+    if (imageToRemove) {
+      // Clean up blob URLs to prevent memory leaks
+      ImageProcessor.cleanupProcessedImage(imageToRemove);
+    }
+
+    // Remove from state
+    setProcessedImages(prev => prev.filter(img => img.id !== imageId));
+  }, [processedImages]);
+
   const handleResetProject = useCallback(() => {
     // Clean up blob URLs from processed images to prevent memory leaks
     ImageProcessor.cleanupProcessedImages(processedImages);
@@ -296,11 +313,9 @@ function App() {
                 <ImagePreview
                   key={img.id}
                   processedImage={img}
-                  onDownload={(image) => {
-                    const finalFilename = ImageProcessor.getFinalFilename(image);
-                    ImageProcessor.downloadFile(image.optimizedFile, finalFilename);
-                  }}
+                  onDownload={handleDownloadImage}
                   onRename={handleRenameImage}
+                  onRemove={handleRemoveImage}
                 />
               ))}
             </div>
