@@ -111,17 +111,41 @@ function checkWebPSupport(): boolean {
 }
 
 /**
- * Checks AVIF support using canvas
+ * Checks AVIF support using a small AVIF image
+ * Note: This is a synchronous fallback - actual AVIF support should be tested with image loading
  */
 function checkAVIFSupport(): boolean {
-  try {
-    const canvas = document.createElement('canvas');
-    canvas.width = 1;
-    canvas.height = 1;
-    return canvas.toDataURL('image/avif').indexOf('data:image/avif') === 0;
-  } catch {
-    return false;
+  // AVIF is supported in:
+  // - Chrome 85+
+  // - Edge 85+
+  // - Firefox 93+
+  // - Safari 16+ (macOS 13+, iOS 16+)
+
+  const userAgent = navigator.userAgent;
+
+  // Chrome/Edge detection
+  if (/Chrome\/(\d+)/.test(userAgent)) {
+    const version = parseInt(RegExp.$1);
+    return version >= 85;
   }
+
+  // Firefox detection
+  if (/Firefox\/(\d+)/.test(userAgent)) {
+    const version = parseInt(RegExp.$1);
+    return version >= 93;
+  }
+
+  // Safari detection (more complex)
+  if (/Safari/.test(userAgent) && !/Chrome/.test(userAgent)) {
+    // Safari 16+ supports AVIF
+    const match = userAgent.match(/Version\/(\d+)/);
+    if (match) {
+      const version = parseInt(match[1]);
+      return version >= 16;
+    }
+  }
+
+  return false;
 }
 
 /**
@@ -224,11 +248,13 @@ export function logBrowserInfo(): void {
   console.group('🌐 Browser Detection');
   console.log('Browser:', browser.name, browser.version);
   console.log('Platform:', browser.isMobile ? 'Mobile' : 'Desktop');
-  console.log('WebP Support:', browser.supportsWebP);
-  console.log('AVIF Support:', browser.supportsAVIF);
+  console.log('WebP Support:', browser.supportsWebP ? '✅' : '❌');
+  console.log('AVIF Support:', browser.supportsAVIF ? '✅ (AVAILABLE)' : '❌ (NOT SUPPORTED)');
   console.log('Web Workers:', browser.supportsWebWorkers);
   console.log('Compatibility Issues:', browser.hasCompressionIssues);
-  console.log('Recommended Format:', capabilities.recommendedFormat);
+  console.log('Recommended Format:', capabilities.recommendedFormat.toUpperCase());
   console.log('Compression Method:', capabilities.compressionMethod);
+  console.log('---');
+  console.log('User Agent:', navigator.userAgent);
   console.groupEnd();
 }

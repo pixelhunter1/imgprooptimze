@@ -17,7 +17,7 @@ import { useMobileDetection } from '@/hooks/useMobileDetection';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ImageProcessor, type OptimizationOptions, type ProcessedImage, type FileValidationResult } from '@/lib/imageProcessor';
-import { detectBrowser, getBrowserCapabilities } from '@/lib/browserDetection';
+import { detectBrowser, getBrowserCapabilities, logBrowserInfo } from '@/lib/browserDetection';
 import { Package, Edit3, Trash2 } from 'lucide-react';
 
 interface UploadedImage {
@@ -37,6 +37,11 @@ function App() {
   const [showBatchRenameDialog, setShowBatchRenameDialog] = useState(false);
   const [showResetProjectDialog, setShowResetProjectDialog] = useState(false);
   const imageUploadRef = useRef<ImageUploadRef>(null);
+
+  // Log browser info on mount (for debugging AVIF support)
+  useEffect(() => {
+    logBrowserInfo();
+  }, []);
 
   // Browser compatibility detection
   useBrowserCompatibility();
