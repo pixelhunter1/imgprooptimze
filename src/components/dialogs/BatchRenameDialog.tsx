@@ -136,19 +136,21 @@ export default function BatchRenameDialog({
         // Individual custom names mode
         newName = customNames[index] || image.originalFile.name.replace(/\.[^/.]+$/, '');
       } else {
-        // Custom mode: prefix + suffix (without original name)
+        // Custom mode: prefix + original name + suffix
+        const originalName = image.originalFile.name.replace(/\.[^/.]+$/, '');
+
         if (prefix && suffix) {
-          // When both prefix and suffix are provided, use only prefix + suffix
-          newName = prefix + suffix;
+          // Both prefix and suffix: prefix + original name + suffix
+          newName = prefix + originalName + suffix;
         } else if (prefix) {
           // Only prefix: prefix + original name
-          newName = prefix + image.originalFile.name.replace(/\.[^/.]+$/, '');
+          newName = prefix + originalName;
         } else if (suffix) {
           // Only suffix: original name + suffix
-          newName = image.originalFile.name.replace(/\.[^/.]+$/, '') + suffix;
+          newName = originalName + suffix;
         } else {
           // Neither prefix nor suffix: keep original name
-          newName = image.originalFile.name.replace(/\.[^/.]+$/, '');
+          newName = originalName;
         }
       }
 
@@ -248,7 +250,7 @@ export default function BatchRenameDialog({
                     <span className="font-medium text-sm">Custom</span>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Add prefix and/or suffix (replaces original if both used)
+                    Add prefix and/or suffix to original filename
                   </p>
                 </div>
 

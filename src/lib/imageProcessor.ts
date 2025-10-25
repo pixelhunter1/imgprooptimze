@@ -1118,19 +1118,21 @@ export class ImageProcessor {
         const number = (pattern.startNumber || 1) + index;
         newName += `_${number.toString().padStart(3, '0')}`;
       } else {
-        // Custom mode: prefix + suffix (without original name)
+        // Custom mode: prefix + original name + suffix
+        const originalName = image.originalFile.name.replace(/\.[^/.]+$/, '');
+
         if (pattern.prefix && pattern.suffix) {
-          // When both prefix and suffix are provided, use only prefix + suffix
-          newName = pattern.prefix + pattern.suffix;
+          // Both prefix and suffix: prefix + original name + suffix
+          newName = pattern.prefix + originalName + pattern.suffix;
         } else if (pattern.prefix) {
           // Only prefix: prefix + original name
-          newName = pattern.prefix + image.originalFile.name.replace(/\.[^/.]+$/, '');
+          newName = pattern.prefix + originalName;
         } else if (pattern.suffix) {
           // Only suffix: original name + suffix
-          newName = image.originalFile.name.replace(/\.[^/.]+$/, '') + pattern.suffix;
+          newName = originalName + pattern.suffix;
         } else {
           // Neither prefix nor suffix: keep original name
-          newName = image.originalFile.name.replace(/\.[^/.]+$/, '');
+          newName = originalName;
         }
       }
 
