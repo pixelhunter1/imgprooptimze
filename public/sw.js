@@ -1,6 +1,6 @@
 // Version will be injected at build time
 const APP_VERSION = '1.0.9'; // This will be replaced during build
-const BUILD_HASH = 'c6e32427'; // This will be replaced during build
+const BUILD_HASH = '58422868'; // This will be replaced during build
 const CACHE_NAME = `image-optimizer-v${APP_VERSION}-${BUILD_HASH}`;
 const STATIC_CACHE_NAME = `image-optimizer-static-v${APP_VERSION}-${BUILD_HASH}`;
 

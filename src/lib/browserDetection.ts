@@ -15,6 +15,7 @@ export interface BrowserInfo {
   isIOS: boolean;
   isAndroid: boolean;
   supportsWebP: boolean;
+  supportsAVIF: boolean;
   supportsWebWorkers: boolean;
   supportsOffscreenCanvas: boolean;
   hasCompressionIssues: boolean;
@@ -22,9 +23,10 @@ export interface BrowserInfo {
 
 export interface BrowserCapabilities {
   canUseWebP: boolean;
+  canUseAVIF: boolean;
   canUseWebWorkers: boolean;
   canUseOffscreenCanvas: boolean;
-  recommendedFormat: 'webp' | 'jpeg' | 'png';
+  recommendedFormat: 'webp' | 'jpeg' | 'png' | 'avif';
   maxQualityRecommended: number;
   compressionMethod: 'canvas' | 'library' | 'hybrid';
   showCompatibilityWarning: boolean;
@@ -68,9 +70,10 @@ export function detectBrowser(): BrowserInfo {
 
   // Feature detection
   const supportsWebP = checkWebPSupport();
+  const supportsAVIF = checkAVIFSupport();
   const supportsWebWorkers = typeof Worker !== 'undefined';
   const supportsOffscreenCanvas = typeof OffscreenCanvas !== 'undefined';
-  
+
   // Safari-specific issues
   const hasCompressionIssues = isSafari || isIOS;
 
@@ -86,6 +89,7 @@ export function detectBrowser(): BrowserInfo {
     isIOS,
     isAndroid,
     supportsWebP,
+    supportsAVIF,
     supportsWebWorkers,
     supportsOffscreenCanvas,
     hasCompressionIssues
@@ -107,6 +111,20 @@ function checkWebPSupport(): boolean {
 }
 
 /**
+ * Checks AVIF support using canvas
+ */
+function checkAVIFSupport(): boolean {
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1;
+    canvas.height = 1;
+    return canvas.toDataURL('image/avif').indexOf('data:image/avif') === 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Gets browser capabilities and recommendations
  */
 export function getBrowserCapabilities(browserInfo?: BrowserInfo): BrowserCapabilities {
@@ -116,31 +134,34 @@ export function getBrowserCapabilities(browserInfo?: BrowserInfo): BrowserCapabi
   if (browser.isSafari || browser.isIOS) {
     return {
       canUseWebP: browser.supportsWebP,
+      canUseAVIF: browser.supportsAVIF,
       canUseWebWorkers: false, // Disable web workers for Safari due to issues
       canUseOffscreenCanvas: false,
-      recommendedFormat: browser.supportsWebP ? 'webp' : 'jpeg',
+      recommendedFormat: browser.supportsAVIF ? 'avif' : browser.supportsWebP ? 'webp' : 'jpeg',
       maxQualityRecommended: 0.85, // Lower quality for Safari to avoid issues
       compressionMethod: 'canvas', // Use canvas-only approach
       showCompatibilityWarning: true
     };
   }
-  
+
   // Chrome, Brave and modern browsers
   if (browser.isChrome || browser.isBrave || browser.isFirefox || browser.isEdge) {
     return {
       canUseWebP: browser.supportsWebP,
+      canUseAVIF: browser.supportsAVIF,
       canUseWebWorkers: browser.supportsWebWorkers,
       canUseOffscreenCanvas: browser.supportsOffscreenCanvas,
-      recommendedFormat: 'webp',
+      recommendedFormat: browser.supportsAVIF ? 'avif' : 'webp',
       maxQualityRecommended: 1.0,
       compressionMethod: 'hybrid',
       showCompatibilityWarning: false
     };
   }
-  
+
   // Fallback for unknown browsers
   return {
     canUseWebP: browser.supportsWebP,
+    canUseAVIF: browser.supportsAVIF,
     canUseWebWorkers: browser.supportsWebWorkers,
     canUseOffscreenCanvas: false,
     recommendedFormat: 'jpeg',
@@ -204,6 +225,7 @@ export function logBrowserInfo(): void {
   console.log('Browser:', browser.name, browser.version);
   console.log('Platform:', browser.isMobile ? 'Mobile' : 'Desktop');
   console.log('WebP Support:', browser.supportsWebP);
+  console.log('AVIF Support:', browser.supportsAVIF);
   console.log('Web Workers:', browser.supportsWebWorkers);
   console.log('Compatibility Issues:', browser.hasCompressionIssues);
   console.log('Recommended Format:', capabilities.recommendedFormat);

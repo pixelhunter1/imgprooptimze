@@ -168,7 +168,7 @@ export default function ImagePreview({
                         autoFocus
                       />
                       <div className="px-3 py-2 text-sm text-muted-foreground bg-muted rounded-md border border-border">
-                        {ImageProcessor.getExtensionFromFormat(format as 'webp' | 'jpeg' | 'png')}
+                        {ImageProcessor.getExtensionFromFormat(format as 'webp' | 'jpeg' | 'png' | 'avif')}
                       </div>
                     </div>
                     <div className="flex gap-2">
@@ -198,7 +198,7 @@ export default function ImagePreview({
                     title="Click to rename this file"
                   >
                     <span className="flex-1 text-sm font-mono text-foreground truncate">
-                      {getCurrentFilename()}{ImageProcessor.getExtensionFromFormat(format as 'webp' | 'jpeg' | 'png')}
+                      {getCurrentFilename()}{ImageProcessor.getExtensionFromFormat(format as 'webp' | 'jpeg' | 'png' | 'avif')}
                     </span>
                     <Edit2 className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
                   </div>

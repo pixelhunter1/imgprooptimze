@@ -56,13 +56,18 @@
 
 import imageCompression from 'browser-image-compression';
 import JSZip from 'jszip';
+import piexif from 'piexifjs';
 import { detectBrowser, getBrowserCapabilities } from './browserDetection';
 
 export interface OptimizationOptions {
-  format: 'webp' | 'jpeg' | 'png';
+  format: 'webp' | 'jpeg' | 'png' | 'avif';
   quality: number; // 0.1 to 1.0 (1.0 = maximum quality)
-  maxSizeMB?: number; // Optional file size limit (only applied for quality < 0.8)
+  maxSizeMB?: number; // Optional file size limit - now configurable in UI
   maxWidthOrHeight?: number; // Maximum dimension in pixels
+  preserveExif?: boolean; // Preserve EXIF metadata (camera, GPS, copyright)
+  progressiveJpeg?: boolean; // Create progressive JPEG (better web loading)
+  losslessWebP?: boolean; // Use lossless WebP compression
+  pngCompressionLevel?: number; // PNG compression level 0-9 (higher = smaller but slower)
 }
 
 // File validation types and constants
@@ -83,7 +88,8 @@ export interface BatchValidationResult {
 export const ALLOWED_IMAGE_FORMATS = {
   'image/png': ['.png'],
   'image/jpeg': ['.jpg', '.jpeg'],
-  'image/webp': ['.webp']
+  'image/webp': ['.webp'],
+  'image/avif': ['.avif']
 } as const;
 
 export const ALLOWED_MIME_TYPES = Object.keys(ALLOWED_IMAGE_FORMATS) as string[];
@@ -104,6 +110,65 @@ export interface ProcessedImage {
 }
 
 export class ImageProcessor {
+  /**
+   * Extracts EXIF data from an image file
+   * @param file The image file
+   * @returns EXIF data as base64 string, or null if no EXIF data
+   */
+  static async extractExifData(file: File): Promise<string | null> {
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const dataUrl = btoa(
+        new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
+      );
+      const exifObj = piexif.load('data:image/jpeg;base64,' + dataUrl);
+
+      // Check if there's any EXIF data
+      if (Object.keys(exifObj).length === 0) {
+        return null;
+      }
+
+      return JSON.stringify(exifObj);
+    } catch (error) {
+      console.warn('Failed to extract EXIF data:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Inserts EXIF data into an optimized image
+   * @param optimizedFile The optimized image file
+   * @param exifDataJson EXIF data as JSON string
+   * @returns New file with EXIF data inserted
+   */
+  static async insertExifData(optimizedFile: File, exifDataJson: string): Promise<File> {
+    try {
+      const exifObj = JSON.parse(exifDataJson);
+      const arrayBuffer = await optimizedFile.arrayBuffer();
+      const dataUrl = btoa(
+        new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
+      );
+
+      const exifBytes = piexif.dump(exifObj);
+      const newDataUrl = piexif.insert(exifBytes, 'data:image/jpeg;base64,' + dataUrl);
+
+      // Convert data URL back to File
+      const base64Data = newDataUrl.split(',')[1];
+      const binaryString = atob(base64Data);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+
+      return new File([bytes], optimizedFile.name, {
+        type: optimizedFile.type,
+      });
+    } catch (error) {
+      console.warn('Failed to insert EXIF data:', error);
+      return optimizedFile; // Return original if insertion fails
+    }
+  }
+
   /**
    * Maps user-facing quality to internal processing quality
    * This prevents file size increases at 100% quality by using 90% internally
@@ -442,6 +507,15 @@ export class ImageProcessor {
       const browserInfo = detectBrowser();
       const capabilities = getBrowserCapabilities(browserInfo);
 
+      // Extract EXIF data if preservation is enabled (JPEG/TIFF only)
+      let exifData: string | null = null;
+      if (options.preserveExif && (file.type === 'image/jpeg' || file.type === 'image/tiff')) {
+        exifData = await this.extractExifData(file);
+        if (exifData) {
+          console.log('📸 EXIF data extracted successfully');
+        }
+      }
+
       // Check if we can skip processing entirely
       if (this.shouldSkipProcessing(file, options)) {
         if (onProgress) onProgress(100);
@@ -469,6 +543,12 @@ export class ImageProcessor {
 
       // Choose optimization method based on format, quality, and browser capabilities
       finalFile = await this.selectOptimizationMethod(file, optimizedOptions, capabilities, onProgress);
+
+      // Insert EXIF data back if it was extracted and output is JPEG
+      if (exifData && options.preserveExif && options.format === 'jpeg') {
+        finalFile = await this.insertExifData(finalFile, exifData);
+        console.log('📸 EXIF data inserted successfully');
+      }
 
       // Calculate compression ratio
       const originalSize = file.size;
@@ -532,7 +612,7 @@ export class ImageProcessor {
 
     try {
       // Create a test conversion to check file size
-      const testConversion = await this.convertFormat(file, 'png', options.quality);
+      const testConversion = await this.convertFormat(file, 'png', options.quality, false);
 
       if (onProgress) onProgress(70);
 
@@ -651,10 +731,16 @@ export class ImageProcessor {
           if (onProgress) onProgress(80);
 
           // Format-specific quality handling
-          let finalQuality = options.quality;
+          let finalQuality: number | undefined = options.quality;
           if (outputFormat === 'png') {
             // PNG is lossless, use 1.0 for best compression
             finalQuality = 1.0;
+          } else if (outputFormat === 'webp' && options.losslessWebP) {
+            // Lossless WebP
+            finalQuality = undefined;
+          } else if (outputFormat === 'avif') {
+            // AVIF supports quality parameter
+            finalQuality = options.quality;
           }
 
           canvas.toBlob(
@@ -702,7 +788,14 @@ export class ImageProcessor {
     const isPngInput = inputFormat === 'png';
 
     // Configure compression options - prioritize quality over file size for better results
-    const compressionOptions: any = {
+    const compressionOptions: {
+      maxWidthOrHeight: number;
+      useWebWorker: boolean;
+      fileType: string;
+      initialQuality: number;
+      onProgress?: (progress: number) => void;
+      maxSizeMB?: number;
+    } = {
       maxWidthOrHeight: options.maxWidthOrHeight || 1920,
       useWebWorker: capabilities.canUseWebWorkers, // Disable for Safari
       fileType: this.getFileType(options.format),
@@ -720,14 +813,14 @@ export class ImageProcessor {
           return file;
         } else {
           // Different format, use direct conversion
-          return await this.convertFormat(file, options.format, options.quality);
+          return await this.convertFormat(file, options.format, options.quality, options.losslessWebP);
         }
       }
     }
 
-    // Only add maxSizeMB if explicitly set and quality is moderate
-    // This prevents aggressive compression that causes blurriness
-    if (options.maxSizeMB && options.quality < 0.8) {
+    // Only add maxSizeMB if explicitly set (removed quality < 0.8 restriction)
+    // This allows users to control file size even at high quality
+    if (options.maxSizeMB) {
       compressionOptions.maxSizeMB = options.maxSizeMB;
     }
 
@@ -736,7 +829,7 @@ export class ImageProcessor {
 
     // If we need format conversion, use high-quality Canvas conversion
     if (options.format !== this.getFormatFromMimeType(file.type)) {
-      return await this.convertFormat(compressedFile, options.format, options.quality);
+      return await this.convertFormat(compressedFile, options.format, options.quality, options.losslessWebP);
     }
 
     return compressedFile;
@@ -744,8 +837,9 @@ export class ImageProcessor {
 
   static async convertFormat(
     file: File,
-    targetFormat: 'webp' | 'jpeg' | 'png',
-    quality: number
+    targetFormat: 'webp' | 'jpeg' | 'png' | 'avif',
+    quality: number,
+    lossless?: boolean
   ): Promise<File> {
     return new Promise((resolve, reject) => {
       const canvas = document.createElement('canvas');
@@ -776,16 +870,22 @@ export class ImageProcessor {
           ctx.fillStyle = '#FFFFFF';
           ctx.fillRect(0, 0, canvas.width, canvas.height);
         }
-        // For PNG and WebP, preserve transparency by not adding background
+        // For PNG, WebP, and AVIF, preserve transparency by not adding background
 
         ctx.drawImage(img, 0, 0);
 
         // Format-specific quality handling
-        let finalQuality = quality;
+        let finalQuality: number | undefined = quality;
         if (targetFormat === 'png') {
           // PNG is lossless, so quality parameter is ignored by most browsers
           // Use 1.0 to ensure best compression without quality loss
           finalQuality = 1.0;
+        } else if (targetFormat === 'webp' && lossless) {
+          // For lossless WebP, quality should be undefined or 1.0
+          finalQuality = undefined;
+        } else if (targetFormat === 'avif') {
+          // AVIF uses quality parameter similar to JPEG
+          finalQuality = quality;
         }
 
         canvas.toBlob(
@@ -815,28 +915,31 @@ export class ImageProcessor {
     });
   }
 
-  static getFileType(format: 'webp' | 'jpeg' | 'png'): string {
+  static getFileType(format: 'webp' | 'jpeg' | 'png' | 'avif'): string {
     const mimeTypes = {
       webp: 'image/webp',
       jpeg: 'image/jpeg',
       png: 'image/png',
+      avif: 'image/avif',
     };
     return mimeTypes[format];
   }
 
-  static getFormatFromMimeType(mimeType: string): 'webp' | 'jpeg' | 'png' {
+  static getFormatFromMimeType(mimeType: string): 'webp' | 'jpeg' | 'png' | 'avif' {
+    if (mimeType.includes('avif')) return 'avif';
     if (mimeType.includes('webp')) return 'webp';
     if (mimeType.includes('jpeg') || mimeType.includes('jpg')) return 'jpeg';
     if (mimeType.includes('png')) return 'png';
     return 'jpeg'; // default fallback
   }
 
-  static generateFileName(originalName: string, format: 'webp' | 'jpeg' | 'png'): string {
+  static generateFileName(originalName: string, format: 'webp' | 'jpeg' | 'png' | 'avif'): string {
     const nameWithoutExt = originalName.replace(/\.[^/.]+$/, '');
     const extensions = {
       webp: '.webp',
       jpeg: '.jpg',
       png: '.png',
+      avif: '.avif',
     };
     return `${nameWithoutExt}_optimized${extensions[format]}`;
   }
@@ -917,7 +1020,7 @@ export class ImageProcessor {
    * @returns Final filename with extension
    */
   static getFinalFilename(processedImage: ProcessedImage): string {
-    const extension = this.getExtensionFromFormat(processedImage.format as 'webp' | 'jpeg' | 'png');
+    const extension = this.getExtensionFromFormat(processedImage.format as 'webp' | 'jpeg' | 'png' | 'avif');
 
     if (processedImage.customFilename) {
       // Use custom filename, ensuring it doesn't already have an extension
@@ -926,7 +1029,7 @@ export class ImageProcessor {
     }
 
     // Use original filename with optimized suffix
-    return this.generateFileName(processedImage.originalFile.name, processedImage.format as 'webp' | 'jpeg' | 'png');
+    return this.generateFileName(processedImage.originalFile.name, processedImage.format as 'webp' | 'jpeg' | 'png' | 'avif');
   }
 
   /**
@@ -934,11 +1037,12 @@ export class ImageProcessor {
    * @param format Image format
    * @returns File extension with dot
    */
-  static getExtensionFromFormat(format: 'webp' | 'jpeg' | 'png'): string {
+  static getExtensionFromFormat(format: 'webp' | 'jpeg' | 'png' | 'avif'): string {
     const extensions = {
       webp: '.webp',
       jpeg: '.jpg',
       png: '.png',
+      avif: '.avif',
     };
     return extensions[format];
   }

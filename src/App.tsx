@@ -39,7 +39,7 @@ function App() {
   const imageUploadRef = useRef<ImageUploadRef>(null);
 
   // Browser compatibility detection
-  const { } = useBrowserCompatibility();
+  useBrowserCompatibility();
 
   // Mobile device detection
   const { isMobile, isTablet } = useMobileDetection();
@@ -66,9 +66,14 @@ function App() {
     const caps = getBrowserCapabilities(browser);
 
     return {
-      format: caps.canUseWebP ? 'webp' : caps.recommendedFormat,
+      format: caps.recommendedFormat, // Will use AVIF if available, then WebP, then JPEG
       quality: 0.8, // Default to 80% quality for good balance of size and quality
       maxWidthOrHeight: browser.isIOS ? 1600 : 1920, // Lower for iOS
+      preserveExif: false, // Disabled by default
+      progressiveJpeg: false, // Disabled by default
+      losslessWebP: false, // Disabled by default
+      pngCompressionLevel: 6, // Default PNG compression level
+      maxSizeMB: undefined, // No limit by default
     };
   });
 
@@ -205,7 +210,7 @@ function App() {
                 onValidationError={handleValidationError}
                 maxFiles={10}
                 maxSize={50 * 1024 * 1024} // 50MB
-                accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"
+                accept=".png,.jpg,.jpeg,.webp,.avif,image/png,image/jpeg,image/webp,image/avif"
               />
             </CardContent>
           </Card>

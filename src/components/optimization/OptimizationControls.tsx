@@ -31,6 +31,11 @@ export default function OptimizationControls({
 
   const formatOptions = [
     {
+      value: 'avif',
+      label: 'AVIF',
+      supported: capabilities.canUseAVIF
+    },
+    {
       value: 'webp',
       label: 'WebP',
       supported: capabilities.canUseWebP
@@ -85,6 +90,16 @@ export default function OptimizationControls({
               </Button>
             ))}
           </div>
+          {!capabilities.canUseAVIF && options.format === 'avif' && (
+            <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded border border-amber-200">
+              AVIF not supported in {browserInfo.name}. WebP or JPEG will be used instead.
+            </p>
+          )}
+          {options.format === 'avif' && capabilities.canUseAVIF && (
+            <p className="text-xs text-green-600 bg-green-50 p-2 rounded border border-green-200">
+              <strong>AVIF:</strong> Next-gen format with 30-50% better compression than WebP. Supports transparency.
+            </p>
+          )}
           {!capabilities.canUseWebP && options.format === 'webp' && (
             <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded border border-amber-200">
               WebP not supported in {browserInfo.name}. JPEG will be used instead.
@@ -92,7 +107,7 @@ export default function OptimizationControls({
           )}
           {options.format === 'jpeg' && (
             <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded border border-amber-200">
-              <strong>JPEG Note:</strong> JPEG doesn't support transparency. PNG/WebP images with transparency will have a white background.
+              <strong>JPEG Note:</strong> JPEG doesn't support transparency. PNG/WebP/AVIF images with transparency will have a white background.
             </p>
           )}
           {options.format === 'png' && (
@@ -152,7 +167,68 @@ export default function OptimizationControls({
           )}
         </div>
 
+        {/* Advanced Options */}
+        <div className="space-y-4 border-t border-border pt-6">
+          <h4 className="text-sm font-medium text-foreground">Advanced Options</h4>
 
+          {/* Max File Size */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground">Maximum File Size (optional)</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min="0.1"
+                max="50"
+                step="0.1"
+                placeholder="MB"
+                value={options.maxSizeMB || ''}
+                onChange={(e) => onOptionsChange({
+                  ...options,
+                  maxSizeMB: e.target.value ? parseFloat(e.target.value) : undefined
+                })}
+                className="flex-1 px-3 py-2 text-sm border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+              <span className="text-sm text-muted-foreground">MB</span>
+            </div>
+            {options.maxSizeMB && (
+              <p className="text-xs text-muted-foreground">
+                Images will be compressed to stay under {options.maxSizeMB} MB
+              </p>
+            )}
+          </div>
+
+          {/* Preserve EXIF (JPEG only) */}
+          {options.format === 'jpeg' && (
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="preserveExif"
+                checked={options.preserveExif || false}
+                onChange={(e) => onOptionsChange({ ...options, preserveExif: e.target.checked })}
+                className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+              />
+              <label htmlFor="preserveExif" className="text-sm text-foreground cursor-pointer">
+                Preserve EXIF metadata (camera, GPS, copyright)
+              </label>
+            </div>
+          )}
+
+          {/* Lossless WebP */}
+          {options.format === 'webp' && (
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="losslessWebP"
+                checked={options.losslessWebP || false}
+                onChange={(e) => onOptionsChange({ ...options, losslessWebP: e.target.checked })}
+                className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+              />
+              <label htmlFor="losslessWebP" className="text-sm text-foreground cursor-pointer">
+                Lossless WebP (larger files, perfect quality)
+              </label>
+            </div>
+          )}
+        </div>
 
         {/* Browser Compatibility Info */}
         {capabilities.showCompatibilityWarning && (

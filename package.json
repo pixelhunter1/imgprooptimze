@@ -25,6 +25,7 @@
     "clsx": "^2.1.1",
     "jszip": "^3.10.1",
     "lucide-react": "^0.542.0",
+    "piexifjs": "^1.0.6",
     "radix-ui": "^1.4.3",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
@@ -35,6 +36,7 @@
   "devDependencies": {
     "@eslint/js": "^9.33.0",
     "@types/node": "^24.3.0",
+    "@types/piexifjs": "^1.0.0",
     "@types/react": "^19.1.10",
     "@types/react-dom": "^19.1.7",
     "@vitejs/plugin-react": "^5.0.0",
