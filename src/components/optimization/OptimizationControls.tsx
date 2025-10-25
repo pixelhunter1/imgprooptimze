@@ -90,10 +90,20 @@ export default function OptimizationControls({
               WebP not supported in {browserInfo.name}. JPEG will be used instead.
             </p>
           )}
-          {options.format === 'png' && (
-            <p className="text-xs text-blue-600 bg-blue-50 p-2 rounded border border-blue-200">
-              Smart PNG conversion: If PNG increases file size, original format will be kept automatically.
+          {options.format === 'jpeg' && (
+            <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded border border-amber-200">
+              <strong>JPEG Note:</strong> JPEG doesn't support transparency. PNG/WebP images with transparency will have a white background.
             </p>
+          )}
+          {options.format === 'png' && (
+            <div className="space-y-2">
+              <p className="text-xs text-blue-600 bg-blue-50 p-2 rounded border border-blue-200">
+                <strong>PNG Info:</strong> PNG is lossless - quality slider affects compression level, not visual quality. Images always maintain perfect quality.
+              </p>
+              <p className="text-xs text-blue-600 bg-blue-50 p-2 rounded border border-blue-200">
+                Smart PNG conversion: If PNG increases file size by more than 5%, original format will be kept automatically.
+              </p>
+            </div>
           )}
         </div>
 
@@ -105,7 +115,7 @@ export default function OptimizationControls({
               <span className="text-sm font-medium text-foreground">{Math.round(options.quality * 100)}%</span>
             </div>
           </div>
-          
+
           <Slider
             value={[options.quality]}
             onValueChange={([value]) => onOptionsChange({ ...options, quality: value })}
@@ -116,7 +126,7 @@ export default function OptimizationControls({
           >
             <SliderThumb />
           </Slider>
-          
+
           <div className="flex gap-2">
             {qualityPresets.map((preset) => (
               <Button
@@ -133,6 +143,13 @@ export default function OptimizationControls({
               </Button>
             ))}
           </div>
+
+          {/* Quality mapping info for 100% */}
+          {options.quality >= 1.0 && options.format !== 'png' && (
+            <p className="text-xs text-blue-600 bg-blue-50 p-2 rounded border border-blue-200">
+              <strong>Smart optimization:</strong> To prevent file size increases, 100% quality is processed at 90% internally for optimal results.
+            </p>
+          )}
         </div>
 
 

@@ -1,3 +1,59 @@
+/**
+ * Image Processor Module
+ *
+ * KNOWN LIMITATIONS AND DESIGN DECISIONS:
+ *
+ * 1. PNG OPTIMIZATION:
+ *    - PNG quality parameter is always set to 1.0 (lossless) regardless of user selection
+ *    - This is technically correct since PNG is lossless by nature
+ *    - Canvas API doesn't provide true PNG compression (no pngquant/similar libraries)
+ *    - Quality slider for PNG only affects whether to skip processing entirely
+ *
+ * 2. QUALITY MAPPING:
+ *    - User-selected 100% quality is mapped to 90% internally to prevent file size increases
+ *    - This is now transparent to users via UI notifications
+ *    - Applies to JPEG and WebP, but not PNG
+ *
+ * 3. JPEG LIMITATIONS:
+ *    - No progressive JPEG support (all JPEGs are baseline)
+ *    - Progressive JPEGs would improve web loading performance
+ *    - Could be added using canvas with additional processing
+ *
+ * 4. EXIF DATA:
+ *    - All EXIF metadata is lost during optimization
+ *    - This includes camera settings, GPS data, copyright info
+ *    - Would require exif-js or piexifjs library to preserve
+ *
+ * 5. maxSizeMB LIMITATION:
+ *    - Only applies when quality < 0.8 (see line 674)
+ *    - This prevents aggressive compression at high quality
+ *    - Not exposed in UI - internal optimization only
+ *
+ * 6. WEBP OPTIMIZATION:
+ *    - No lossless WebP option available
+ *    - Always uses lossy compression
+ *    - No quality capping like JPEG (100% -> 90%)
+ *
+ * 7. PNG CONVERSION THRESHOLD:
+ *    - Hard-coded 5% size increase threshold (line 491)
+ *    - Not configurable by users
+ *    - Could be made adaptive based on image characteristics
+ *
+ * 8. BROWSER COMPATIBILITY:
+ *    - Safari has reduced quality cap (85%) and dimension limits (1600px)
+ *    - Web Workers disabled for Safari due to stability issues
+ *    - Uses canvas-only approach for Safari instead of hybrid
+ *
+ * FUTURE IMPROVEMENTS:
+ * - Add AVIF format support (better than WebP)
+ * - Add progressive JPEG option
+ * - Add EXIF preservation option
+ * - Add lossless WebP option
+ * - Add true PNG compression library (pngquant)
+ * - Make PNG conversion threshold configurable
+ * - Expose maxSizeMB in UI for user control
+ */
+
 import imageCompression from 'browser-image-compression';
 import JSZip from 'jszip';
 import { detectBrowser, getBrowserCapabilities } from './browserDetection';
@@ -230,8 +286,8 @@ export class ImageProcessor {
 
           if (width > maxDimension || height > maxDimension) {
             const ratio = Math.min(maxDimension / width, maxDimension / height);
-            width = Math.floor(width * ratio);
-            height = Math.floor(height * ratio);
+            width = Math.round(width * ratio);
+            height = Math.round(height * ratio);
           }
 
           canvas.width = width;

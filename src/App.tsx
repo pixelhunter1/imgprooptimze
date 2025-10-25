@@ -172,11 +172,11 @@ function App() {
   // Format average compression display
   const getAverageCompressionDisplay = (ratio: number) => {
     if (ratio < 0) {
-      return `+${Math.abs(ratio).toFixed(1)}% increase`;
+      return `${Math.abs(ratio).toFixed(1)}% larger (average)`;
     } else if (ratio === 0) {
-      return '0% (no compression)';
+      return 'Same size (no compression)';
     } else {
-      return `${ratio.toFixed(1)}% reduction`;
+      return `${ratio.toFixed(1)}% smaller (average)`;
     }
   };
 

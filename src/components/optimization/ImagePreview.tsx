@@ -78,13 +78,13 @@ export default function ImagePreview({
   const getCompressionDisplay = (ratio: number) => {
     if (ratio < 0) {
       // File size increased
-      return `+${Math.abs(ratio).toFixed(0)}%`;
+      return `+${Math.abs(ratio).toFixed(0)}% larger`;
     } else if (ratio === 0) {
       // No compression
-      return '0%';
+      return 'Same size';
     } else {
-      // Normal compression
-      return `-${ratio.toFixed(0)}%`;
+      // Normal compression (file got smaller)
+      return `${ratio.toFixed(0)}% smaller`;
     }
   };
 
