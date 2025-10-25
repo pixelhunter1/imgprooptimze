@@ -750,9 +750,18 @@ export class ImageProcessor {
                 return;
               }
 
+              // Check if browser actually encoded in the requested format
+              const requestedType = this.getFileType(options.format);
+              const actualType = blob.type;
+
+              if (actualType !== requestedType) {
+                console.warn(`⚠️ ENCODING FAILED: Requested ${options.format.toUpperCase()} but got ${actualType}`);
+                console.warn(`Your browser cannot ENCODE ${options.format.toUpperCase()} - falling back to ${actualType}`);
+              }
+
               const fileName = this.generateFileName(file.name, options.format);
               const convertedFile = new File([blob], fileName, {
-                type: this.getFileType(options.format),
+                type: blob.type, // Use actual blob type
               });
 
               if (onProgress) onProgress(100);
@@ -895,9 +904,21 @@ export class ImageProcessor {
               return;
             }
 
+            // IMPORTANT: Check if browser actually encoded in the requested format
+            const requestedType = this.getFileType(targetFormat);
+            const actualType = blob.type;
+
+            if (actualType !== requestedType) {
+              console.warn(`⚠️ ENCODING FAILED: Requested ${targetFormat.toUpperCase()} (${requestedType}) but got ${actualType}`);
+              console.warn(`This means your browser cannot ENCODE ${targetFormat.toUpperCase()} via Canvas API`);
+              console.warn(`File will be saved as the fallback format instead`);
+            } else {
+              console.log(`✅ Successfully encoded as ${targetFormat.toUpperCase()}`);
+            }
+
             const fileName = this.generateFileName(file.name, targetFormat);
             const convertedFile = new File([blob], fileName, {
-              type: this.getFileType(targetFormat),
+              type: blob.type, // Use actual blob type, not requested type
             });
 
             resolve(convertedFile);

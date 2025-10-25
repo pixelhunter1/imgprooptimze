@@ -111,41 +111,28 @@ function checkWebPSupport(): boolean {
 }
 
 /**
- * Checks AVIF support using a small AVIF image
- * Note: This is a synchronous fallback - actual AVIF support should be tested with image loading
+ * Checks AVIF ENCODING support via Canvas API
+ * This is different from DECODING - many browsers can show AVIF but cannot create AVIF
  */
 function checkAVIFSupport(): boolean {
-  // AVIF is supported in:
-  // - Chrome 85+
-  // - Edge 85+
-  // - Firefox 93+
-  // - Safari 16+ (macOS 13+, iOS 16+)
+  // WARNING: Chrome/Edge/Firefox support AVIF DECODING (viewing) since:
+  // - Chrome 85+, Edge 85+, Firefox 93+, Safari 16+
+  //
+  // BUT Canvas API ENCODING support is LIMITED:
+  // - Chrome: NO native Canvas AVIF encoding (as of Chrome 131)
+  // - Firefox: NO native Canvas AVIF encoding
+  // - Safari: NO native Canvas AVIF encoding
+  //
+  // Canvas.toBlob('image/avif') will SILENTLY FAIL and return PNG instead!
+  // This causes files to be LARGER, not smaller.
+  //
+  // SOLUTION: We need a WASM library like @squoosh/lib for real AVIF encoding
+  // For now, we DISABLE AVIF to prevent issues
 
-  const userAgent = navigator.userAgent;
+  console.warn('🚫 AVIF encoding via Canvas API is NOT reliably supported in any browser');
+  console.warn('📦 To enable AVIF, we need to add @squoosh/lib or similar WASM encoder');
 
-  // Chrome/Edge detection
-  if (/Chrome\/(\d+)/.test(userAgent)) {
-    const version = parseInt(RegExp.$1);
-    return version >= 85;
-  }
-
-  // Firefox detection
-  if (/Firefox\/(\d+)/.test(userAgent)) {
-    const version = parseInt(RegExp.$1);
-    return version >= 93;
-  }
-
-  // Safari detection (more complex)
-  if (/Safari/.test(userAgent) && !/Chrome/.test(userAgent)) {
-    // Safari 16+ supports AVIF
-    const match = userAgent.match(/Version\/(\d+)/);
-    if (match) {
-      const version = parseInt(match[1]);
-      return version >= 16;
-    }
-  }
-
-  return false;
+  return false; // Disabled until we add proper AVIF encoding library
 }
 
 /**
