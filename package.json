@@ -1,13 +1,19 @@
 {
   "name": "imgprooptimze",
   "private": true,
-  "version": "1.0.9",
+  "version": "1.0.10",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "prebuild": "node scripts/build-version.js",
     "build": "tsc -b && vite build && node scripts/build-version.js",
+    "build:patch": "node scripts/auto-version.js patch && npm run build",
+    "build:minor": "node scripts/auto-version.js minor && npm run build",
+    "build:major": "node scripts/auto-version.js major && npm run build",
     "postbuild": "cp public/version.json dist/version.json",
+    "version:patch": "node scripts/auto-version.js patch",
+    "version:minor": "node scripts/auto-version.js minor",
+    "version:major": "node scripts/auto-version.js major",
     "lint": "eslint .",
     "preview": "vite preview"
   },
