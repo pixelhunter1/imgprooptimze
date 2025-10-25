@@ -20,35 +20,7 @@ Este documento apresenta recomendações para melhorar ainda mais a qualidade e 
 
 ## 🎯 Prioridade ALTA - Recomendações Críticas
 
-### 1. Adicionar Suporte para AVIF
-**Impacto**: MUITO ALTO
-**Dificuldade**: MÉDIA
-**Benefício**: AVIF oferece 30-50% melhor compressão que WebP
-
-```typescript
-// Adicionar ao OptimizationOptions
-export interface OptimizationOptions {
-  format: 'webp' | 'jpeg' | 'png' | 'avif'; // ADD AVIF
-  quality: number;
-  // ...
-}
-
-// Verificar suporte do browser
-function checkAVIFSupport(): boolean {
-  const canvas = document.createElement('canvas');
-  canvas.width = 1;
-  canvas.height = 1;
-  return canvas.toDataURL('image/avif').indexOf('data:image/avif') === 0;
-}
-```
-
-**Bibliotecas recomendadas**:
-- `avif.js` ou `@saschazar/wasm-avif` para encoding
-- Fallback para WebP se browser não suportar
-
----
-
-### 2. Preservação de Metadados EXIF
+### 1. Preservação de Metadados EXIF
 **Impacto**: ALTO (importante para fotógrafos profissionais)
 **Dificuldade**: MÉDIA
 **Benefício**: Mantém informações importantes (câmara, GPS, copyright)
@@ -79,7 +51,7 @@ async function preserveExifData(originalFile: File, optimizedFile: File): Promis
 
 ---
 
-### 3. JPEG Progressivo
+### 2. JPEG Progressivo
 **Impacto**: ALTO (melhor UX em web)
 **Dificuldade**: ALTA
 **Benefício**: Imagens carregam progressivamente (melhor perceived performance)
@@ -103,7 +75,7 @@ interface OptimizationOptions {
 
 ## 🎯 Prioridade MÉDIA - Melhorias Importantes
 
-### 4. Compressão PNG Real
+### 3. Compressão PNG Real
 **Impacto**: MÉDIO
 **Dificuldade**: ALTA
 **Benefício**: PNG pode ser otimizado muito melhor
@@ -133,7 +105,7 @@ async function optimizePNG(file: File, quality: number): Promise<File> {
 
 ---
 
-### 5. WebP Lossless
+### 4. WebP Lossless
 **Impacto**: MÉDIO
 **Dificuldade**: BAIXA
 **Benefício**: Opção de WebP sem perdas para gráficos/screenshots
@@ -159,7 +131,7 @@ canvas.toBlob(
 
 ---
 
-### 6. Controlo de maxSizeMB no UI
+### 5. Controlo de maxSizeMB no UI
 **Impacto**: MÉDIO
 **Dificuldade**: BAIXA
 **Benefício**: Utilizadores podem definir tamanho máximo de ficheiro
@@ -190,7 +162,7 @@ canvas.toBlob(
 
 ## 🎯 Prioridade BAIXA - Melhorias Nice-to-Have
 
-### 7. Threshold de PNG Configurável
+### 6. Threshold de PNG Configurável
 **Impacto**: BAIXO
 **Dificuldade**: MUITO BAIXA
 
@@ -209,7 +181,7 @@ if (sizeIncrease > threshold) {
 
 ---
 
-### 8. Compressão Adaptativa Baseada em Conteúdo
+### 7. Compressão Adaptativa Baseada em Conteúdo
 **Impacto**: MÉDIO
 **Dificuldade**: MUITO ALTA
 **Benefício**: Otimização automática baseada no tipo de imagem
@@ -227,7 +199,7 @@ async function analyzeImageContent(file: File): Promise<ImageType> {
 
 ---
 
-### 9. Batch Processing Otimizado
+### 8. Batch Processing Otimizado
 **Impacto**: MÉDIO
 **Dificuldade**: MÉDIA
 
@@ -246,7 +218,7 @@ async function optimizeBatch(files: File[], options: OptimizationOptions) {
 
 ---
 
-### 10. Service Worker para Background Processing
+### 9. Service Worker para Background Processing
 **Impacto**: MÉDIO
 **Dificuldade**: ALTA
 
@@ -278,7 +250,6 @@ self.addEventListener('message', async (event) => {
 | **JPEG** | Lossy alta | ❌ | 100% | Fotografias |
 | **PNG** | Lossless | ✅ | 100% | Gráficos, transparência |
 | **WebP** | Lossy/Lossless | ✅ | 97% | Web moderna (geral) |
-| **AVIF** | Lossy superior | ✅ | 85% | Web moderna (melhor compressão) |
 
 ---
 
@@ -290,21 +261,19 @@ self.addEventListener('message', async (event) => {
 3. Expor maxSizeMB no UI
 
 ### Fase 2 (Médio Prazo - 1 mês)
-4. Adicionar suporte AVIF
-5. Implementar preservação EXIF
-6. JPEG progressivo
+4. Implementar preservação EXIF
+5. JPEG progressivo
 
 ### Fase 3 (Longo Prazo - 2-3 meses)
-7. Compressão PNG real (pngquant)
-8. Batch processing otimizado
-9. Compressão adaptativa baseada em conteúdo
+6. Compressão PNG real (pngquant)
+7. Batch processing otimizado
+8. Compressão adaptativa baseada em conteúdo
 
 ---
 
 ## 📚 Bibliotecas Recomendadas
 
 ### Essenciais
-- `@saschazar/wasm-avif` - Encoding AVIF via WebAssembly
 - `piexifjs` - Manipulação de EXIF data
 - `pngquant-wasm` - Compressão PNG otimizada
 
@@ -334,12 +303,11 @@ self.addEventListener('message', async (event) => {
 
 O projeto já tem uma base sólida com otimizações inteligentes. As melhorias sugeridas focam em:
 
-1. **Expandir formatos** (AVIF)
-2. **Preservar qualidade** (EXIF, PNG real)
-3. **Melhorar UX** (JPEG progressivo, controlo de tamanho)
-4. **Performance** (batch processing, service workers)
+1. **Preservar qualidade** (EXIF, PNG real)
+2. **Melhorar UX** (JPEG progressivo, controlo de tamanho)
+3. **Performance** (batch processing, service workers)
 
-**Prioridade recomendada**: AVIF > EXIF > JPEG Progressivo > PNG real
+**Prioridade recomendada**: EXIF > JPEG Progressivo > PNG real
 
 ---
 

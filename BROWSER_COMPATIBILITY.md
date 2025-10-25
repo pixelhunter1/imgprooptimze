@@ -163,7 +163,6 @@ npm test -- browserDetection.test.ts
 ## 🔄 Atualizações Futuras
 
 ### **Planejadas**
-- [ ] Suporte para AVIF em browsers compatíveis
 - [ ] Otimizações específicas para Edge
 - [ ] Melhor detecção de capacidades de hardware
 - [ ] Progressive Web App melhorada para iOS

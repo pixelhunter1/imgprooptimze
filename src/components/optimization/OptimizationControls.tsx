@@ -31,11 +31,6 @@ export default function OptimizationControls({
 
   const formatOptions = [
     {
-      value: 'avif',
-      label: 'AVIF',
-      supported: capabilities.canUseAVIF
-    },
-    {
       value: 'webp',
       label: 'WebP',
       supported: capabilities.canUseWebP
@@ -90,16 +85,6 @@ export default function OptimizationControls({
               </Button>
             ))}
           </div>
-          {!capabilities.canUseAVIF && options.format === 'avif' && (
-            <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded border border-amber-200">
-              AVIF not supported in {browserInfo.name}. WebP or JPEG will be used instead.
-            </p>
-          )}
-          {options.format === 'avif' && capabilities.canUseAVIF && (
-            <p className="text-xs text-green-600 bg-green-50 p-2 rounded border border-green-200">
-              <strong>AVIF:</strong> Next-gen format with 30-50% better compression than WebP. Supports transparency.
-            </p>
-          )}
           {!capabilities.canUseWebP && options.format === 'webp' && (
             <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded border border-amber-200">
               WebP not supported in {browserInfo.name}. JPEG will be used instead.
@@ -107,7 +92,7 @@ export default function OptimizationControls({
           )}
           {options.format === 'jpeg' && (
             <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded border border-amber-200">
-              <strong>JPEG Note:</strong> JPEG doesn't support transparency. PNG/WebP/AVIF images with transparency will have a white background.
+              <strong>JPEG Note:</strong> JPEG doesn't support transparency. PNG/WebP images with transparency will have a white background.
             </p>
           )}
           {options.format === 'png' && (

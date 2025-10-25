@@ -45,7 +45,6 @@
  *    - Uses canvas-only approach for Safari instead of hybrid
  *
  * FUTURE IMPROVEMENTS:
- * - Add AVIF format support (better than WebP)
  * - Add progressive JPEG option
  * - Add EXIF preservation option
  * - Add lossless WebP option
@@ -60,7 +59,7 @@ import piexif from 'piexifjs';
 import { detectBrowser, getBrowserCapabilities } from './browserDetection';
 
 export interface OptimizationOptions {
-  format: 'webp' | 'jpeg' | 'png' | 'avif';
+  format: 'webp' | 'jpeg' | 'png';
   quality: number; // 0.1 to 1.0 (1.0 = maximum quality)
   maxSizeMB?: number; // Optional file size limit - now configurable in UI
   maxWidthOrHeight?: number; // Maximum dimension in pixels
@@ -88,8 +87,7 @@ export interface BatchValidationResult {
 export const ALLOWED_IMAGE_FORMATS = {
   'image/png': ['.png'],
   'image/jpeg': ['.jpg', '.jpeg'],
-  'image/webp': ['.webp'],
-  'image/avif': ['.avif']
+  'image/webp': ['.webp']
 } as const;
 
 export const ALLOWED_MIME_TYPES = Object.keys(ALLOWED_IMAGE_FORMATS) as string[];
@@ -738,9 +736,6 @@ export class ImageProcessor {
           } else if (outputFormat === 'webp' && options.losslessWebP) {
             // Lossless WebP
             finalQuality = undefined;
-          } else if (outputFormat === 'avif') {
-            // AVIF supports quality parameter
-            finalQuality = options.quality;
           }
 
           canvas.toBlob(
@@ -846,7 +841,7 @@ export class ImageProcessor {
 
   static async convertFormat(
     file: File,
-    targetFormat: 'webp' | 'jpeg' | 'png' | 'avif',
+    targetFormat: 'webp' | 'jpeg' | 'png',
     quality: number,
     lossless?: boolean
   ): Promise<File> {
@@ -879,7 +874,7 @@ export class ImageProcessor {
           ctx.fillStyle = '#FFFFFF';
           ctx.fillRect(0, 0, canvas.width, canvas.height);
         }
-        // For PNG, WebP, and AVIF, preserve transparency by not adding background
+        // For PNG and WebP, preserve transparency by not adding background
 
         ctx.drawImage(img, 0, 0);
 
@@ -892,9 +887,6 @@ export class ImageProcessor {
         } else if (targetFormat === 'webp' && lossless) {
           // For lossless WebP, quality should be undefined or 1.0
           finalQuality = undefined;
-        } else if (targetFormat === 'avif') {
-          // AVIF uses quality parameter similar to JPEG
-          finalQuality = quality;
         }
 
         canvas.toBlob(
@@ -936,31 +928,28 @@ export class ImageProcessor {
     });
   }
 
-  static getFileType(format: 'webp' | 'jpeg' | 'png' | 'avif'): string {
+  static getFileType(format: 'webp' | 'jpeg' | 'png'): string {
     const mimeTypes = {
       webp: 'image/webp',
       jpeg: 'image/jpeg',
       png: 'image/png',
-      avif: 'image/avif',
     };
     return mimeTypes[format];
   }
 
-  static getFormatFromMimeType(mimeType: string): 'webp' | 'jpeg' | 'png' | 'avif' {
-    if (mimeType.includes('avif')) return 'avif';
+  static getFormatFromMimeType(mimeType: string): 'webp' | 'jpeg' | 'png' {
     if (mimeType.includes('webp')) return 'webp';
     if (mimeType.includes('jpeg') || mimeType.includes('jpg')) return 'jpeg';
     if (mimeType.includes('png')) return 'png';
     return 'jpeg'; // default fallback
   }
 
-  static generateFileName(originalName: string, format: 'webp' | 'jpeg' | 'png' | 'avif'): string {
+  static generateFileName(originalName: string, format: 'webp' | 'jpeg' | 'png'): string {
     const nameWithoutExt = originalName.replace(/\.[^/.]+$/, '');
     const extensions = {
       webp: '.webp',
       jpeg: '.jpg',
       png: '.png',
-      avif: '.avif',
     };
     return `${nameWithoutExt}_optimized${extensions[format]}`;
   }
@@ -1041,7 +1030,7 @@ export class ImageProcessor {
    * @returns Final filename with extension
    */
   static getFinalFilename(processedImage: ProcessedImage): string {
-    const extension = this.getExtensionFromFormat(processedImage.format as 'webp' | 'jpeg' | 'png' | 'avif');
+    const extension = this.getExtensionFromFormat(processedImage.format as 'webp' | 'jpeg' | 'png');
 
     if (processedImage.customFilename) {
       // Use custom filename, ensuring it doesn't already have an extension
@@ -1050,7 +1039,7 @@ export class ImageProcessor {
     }
 
     // Use original filename with optimized suffix
-    return this.generateFileName(processedImage.originalFile.name, processedImage.format as 'webp' | 'jpeg' | 'png' | 'avif');
+    return this.generateFileName(processedImage.originalFile.name, processedImage.format as 'webp' | 'jpeg' | 'png');
   }
 
   /**
@@ -1058,12 +1047,11 @@ export class ImageProcessor {
    * @param format Image format
    * @returns File extension with dot
    */
-  static getExtensionFromFormat(format: 'webp' | 'jpeg' | 'png' | 'avif'): string {
+  static getExtensionFromFormat(format: 'webp' | 'jpeg' | 'png'): string {
     const extensions = {
       webp: '.webp',
       jpeg: '.jpg',
       png: '.png',
-      avif: '.avif',
     };
     return extensions[format];
   }

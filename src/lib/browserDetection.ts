@@ -15,7 +15,6 @@ export interface BrowserInfo {
   isIOS: boolean;
   isAndroid: boolean;
   supportsWebP: boolean;
-  supportsAVIF: boolean;
   supportsWebWorkers: boolean;
   supportsOffscreenCanvas: boolean;
   hasCompressionIssues: boolean;
@@ -23,10 +22,9 @@ export interface BrowserInfo {
 
 export interface BrowserCapabilities {
   canUseWebP: boolean;
-  canUseAVIF: boolean;
   canUseWebWorkers: boolean;
   canUseOffscreenCanvas: boolean;
-  recommendedFormat: 'webp' | 'jpeg' | 'png' | 'avif';
+  recommendedFormat: 'webp' | 'jpeg' | 'png';
   maxQualityRecommended: number;
   compressionMethod: 'canvas' | 'library' | 'hybrid';
   showCompatibilityWarning: boolean;
@@ -70,7 +68,6 @@ export function detectBrowser(): BrowserInfo {
 
   // Feature detection
   const supportsWebP = checkWebPSupport();
-  const supportsAVIF = checkAVIFSupport();
   const supportsWebWorkers = typeof Worker !== 'undefined';
   const supportsOffscreenCanvas = typeof OffscreenCanvas !== 'undefined';
 
@@ -89,7 +86,6 @@ export function detectBrowser(): BrowserInfo {
     isIOS,
     isAndroid,
     supportsWebP,
-    supportsAVIF,
     supportsWebWorkers,
     supportsOffscreenCanvas,
     hasCompressionIssues
@@ -110,30 +106,6 @@ function checkWebPSupport(): boolean {
   }
 }
 
-/**
- * Checks AVIF ENCODING support via Canvas API
- * This is different from DECODING - many browsers can show AVIF but cannot create AVIF
- */
-function checkAVIFSupport(): boolean {
-  // WARNING: Chrome/Edge/Firefox support AVIF DECODING (viewing) since:
-  // - Chrome 85+, Edge 85+, Firefox 93+, Safari 16+
-  //
-  // BUT Canvas API ENCODING support is LIMITED:
-  // - Chrome: NO native Canvas AVIF encoding (as of Chrome 131)
-  // - Firefox: NO native Canvas AVIF encoding
-  // - Safari: NO native Canvas AVIF encoding
-  //
-  // Canvas.toBlob('image/avif') will SILENTLY FAIL and return PNG instead!
-  // This causes files to be LARGER, not smaller.
-  //
-  // SOLUTION: We need a WASM library like @squoosh/lib for real AVIF encoding
-  // For now, we DISABLE AVIF to prevent issues
-
-  console.warn('🚫 AVIF encoding via Canvas API is NOT reliably supported in any browser');
-  console.warn('📦 To enable AVIF, we need to add @squoosh/lib or similar WASM encoder');
-
-  return false; // Disabled until we add proper AVIF encoding library
-}
 
 /**
  * Gets browser capabilities and recommendations
@@ -145,10 +117,9 @@ export function getBrowserCapabilities(browserInfo?: BrowserInfo): BrowserCapabi
   if (browser.isSafari || browser.isIOS) {
     return {
       canUseWebP: browser.supportsWebP,
-      canUseAVIF: browser.supportsAVIF,
       canUseWebWorkers: false, // Disable web workers for Safari due to issues
       canUseOffscreenCanvas: false,
-      recommendedFormat: browser.supportsAVIF ? 'avif' : browser.supportsWebP ? 'webp' : 'jpeg',
+      recommendedFormat: browser.supportsWebP ? 'webp' : 'jpeg',
       maxQualityRecommended: 0.85, // Lower quality for Safari to avoid issues
       compressionMethod: 'canvas', // Use canvas-only approach
       showCompatibilityWarning: true
@@ -159,10 +130,9 @@ export function getBrowserCapabilities(browserInfo?: BrowserInfo): BrowserCapabi
   if (browser.isChrome || browser.isBrave || browser.isFirefox || browser.isEdge) {
     return {
       canUseWebP: browser.supportsWebP,
-      canUseAVIF: browser.supportsAVIF,
       canUseWebWorkers: browser.supportsWebWorkers,
       canUseOffscreenCanvas: browser.supportsOffscreenCanvas,
-      recommendedFormat: browser.supportsAVIF ? 'avif' : 'webp',
+      recommendedFormat: 'webp',
       maxQualityRecommended: 1.0,
       compressionMethod: 'hybrid',
       showCompatibilityWarning: false
@@ -172,7 +142,6 @@ export function getBrowserCapabilities(browserInfo?: BrowserInfo): BrowserCapabi
   // Fallback for unknown browsers
   return {
     canUseWebP: browser.supportsWebP,
-    canUseAVIF: browser.supportsAVIF,
     canUseWebWorkers: browser.supportsWebWorkers,
     canUseOffscreenCanvas: false,
     recommendedFormat: 'jpeg',
@@ -236,7 +205,6 @@ export function logBrowserInfo(): void {
   console.log('Browser:', browser.name, browser.version);
   console.log('Platform:', browser.isMobile ? 'Mobile' : 'Desktop');
   console.log('WebP Support:', browser.supportsWebP ? '✅' : '❌');
-  console.log('AVIF Support:', browser.supportsAVIF ? '✅ (AVAILABLE)' : '❌ (NOT SUPPORTED)');
   console.log('Web Workers:', browser.supportsWebWorkers);
   console.log('Compatibility Issues:', browser.hasCompressionIssues);
   console.log('Recommended Format:', capabilities.recommendedFormat.toUpperCase());
