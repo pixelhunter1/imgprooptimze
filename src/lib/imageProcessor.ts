@@ -172,11 +172,8 @@ export class ImageProcessor {
    * This prevents file size increases at 100% quality by using 90% internally
    */
   static mapQualityForProcessing(userQuality: number): number {
-    // If user selects 100% (1.0), use 90% (0.9) internally for better results
-    if (userQuality >= 1.0) {
-      return 0.9;
-    }
-    // For all other quality levels, use as-is
+    // Return the exact quality requested by the user
+    // We no longer cap at 0.9 for 100% selection to ensure maximum quality
     return userQuality;
   }
 
@@ -199,10 +196,10 @@ export class ImageProcessor {
 
     // For WebP: Skip if same format and very high quality with no constraints
     if (inputFormat === outputFormat &&
-        outputFormat === 'webp' &&
-        options.quality >= 0.95 &&
-        !options.maxWidthOrHeight &&
-        !options.maxSizeMB) {
+      outputFormat === 'webp' &&
+      options.quality >= 0.95 &&
+      !options.maxWidthOrHeight &&
+      !options.maxSizeMB) {
       return true;
     }
 
@@ -365,8 +362,9 @@ export class ImageProcessor {
 
           if (onProgress) onProgress(80);
 
-          // Use lower quality for Safari to prevent issues
-          const safariQuality = Math.min(options.quality, 0.85);
+          // Use the requested quality, even for Safari
+          // Previous cap of 0.85 is removed to allow higher quality
+          const safariQuality = options.quality;
 
           canvas.toBlob(
             (blob) => {
@@ -548,6 +546,19 @@ export class ImageProcessor {
         console.log('📸 EXIF data inserted successfully');
       }
 
+      // SAFEGUARD: If the "optimized" file is larger than the original, and we haven't changed format,
+      // it's better to keep the original file.
+      // Exception: If user specifically requested 100% quality, they might accept a size increase,
+      // but generally "optimization" implies size reduction.
+      // We'll be safe: if it's bigger and same format, keep original.
+      const inputFormat = this.getFormatFromMimeType(file.type);
+      if (finalFile.size > file.size && inputFormat === options.format) {
+        console.log(`⚠️ Optimized file is larger (${this.formatFileSize(finalFile.size)} > ${this.formatFileSize(file.size)}). Keeping original.`);
+        finalFile = file;
+        // We also need to ensure the "optimized" URL points to the original
+        // This is handled below where we create URLs from finalFile
+      }
+
       // Calculate compression ratio
       const originalSize = file.size;
       const optimizedSize = finalFile.size;
@@ -621,8 +632,9 @@ export class ImageProcessor {
 
       console.log(`🔍 PNG CONVERSION CHECK: ${this.formatFileSize(originalSize)} → ${this.formatFileSize(convertedSize)} (${sizeIncrease > 0 ? '+' : ''}${sizeIncrease.toFixed(1)}%)`);
 
-      // If conversion increases file size by more than 5%, keep original format
-      if (sizeIncrease > 5) {
+      // If conversion increases file size by more than 20%, keep original format
+      // Reverted from 50% to 20% to avoid excessive size increases while still allowing some flexibility
+      if (sizeIncrease > 20) {
         console.log(`⚠️ PNG conversion would increase size by ${sizeIncrease.toFixed(1)}%. Keeping original ${inputFormat.toUpperCase()} format.`);
 
         // Optimize in original format instead
@@ -664,9 +676,9 @@ export class ImageProcessor {
     }
     // For PNG: If same format, maximum quality, and no resize needed, return original
     else if (inputFormat === outputFormat &&
-        outputFormat === 'png' &&
-        options.quality >= 1.0 &&
-        !needsResize) {
+      outputFormat === 'png' &&
+      options.quality >= 1.0 &&
+      !needsResize) {
       if (onProgress) onProgress(100);
       return file;
     }

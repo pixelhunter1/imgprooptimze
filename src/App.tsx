@@ -9,11 +9,9 @@ import BatchRenameDialog, { type BatchRenamePattern } from '@/components/dialogs
 import ResetProjectDialog from '@/components/dialogs/ResetProjectDialog';
 import InstallButton from '@/components/pwa/InstallButton';
 import BrowserCompatibilityAlert, { useBrowserCompatibility } from '@/components/browser/BrowserCompatibilityAlert';
-import MobileBlocker from '@/components/MobileBlocker';
 import FloatingSupport from '@/components/support/FloatingSupport';
 import UpdateNotification from '@/components/updates/UpdateNotification';
 import VersionDisplay from '@/components/updates/VersionDisplay';
-import { useMobileDetection } from '@/hooks/useMobileDetection';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ImageProcessor, type OptimizationOptions, type ProcessedImage, type FileValidationResult } from '@/lib/imageProcessor';
@@ -47,8 +45,8 @@ function App() {
   useBrowserCompatibility();
 
   // Mobile device detection
-  const { isMobile, isTablet } = useMobileDetection();
-  const shouldBlockMobile = isMobile || isTablet;
+  // const { isMobile, isTablet } = useMobileDetection();
+  // const shouldBlockMobile = isMobile || isTablet;
 
   // Cleanup blob URLs when component unmounts to prevent memory leaks
   useEffect(() => {
@@ -207,10 +205,10 @@ function App() {
     }
   };
 
-  // Block mobile devices
-  if (shouldBlockMobile) {
-    return <MobileBlocker />;
-  }
+  // Mobile blocker removed to allow responsive usage
+  // if (shouldBlockMobile) {
+  //   return <MobileBlocker />;
+  // }
 
   return (
     <div className="min-h-screen bg-background py-8 px-4">
@@ -219,111 +217,111 @@ function App() {
         <BrowserCompatibilityAlert />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:items-start">
-        {/* Left Column: Upload + Settings stacked */}
-        <div className="space-y-6 lg:sticky lg:top-8 self-start">
-          <Card className="bg-card border border-border rounded-lg">
-            <CardContent className="p-6 space-y-4">
-              <h2 className="text-xl font-semibold text-foreground">Upload Images</h2>
-              <p className="text-sm text-muted-foreground">Drag and drop or click to select images.</p>
-              <ImageUpload
-                ref={imageUploadRef}
-                onImagesChange={handleImagesUploaded}
-                onUploadComplete={() => {}}
-                onValidationError={handleValidationError}
-                maxFiles={10}
-                maxSize={50 * 1024 * 1024} // 50MB
-                accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"
+          {/* Left Column: Upload + Settings stacked */}
+          <div className="space-y-6 lg:sticky lg:top-8 self-start">
+            <Card className="bg-card border border-border rounded-lg">
+              <CardContent className="p-6 space-y-4">
+                <h2 className="text-xl font-semibold text-foreground">Upload Images</h2>
+                <p className="text-sm text-muted-foreground">Drag and drop or click to select images.</p>
+                <ImageUpload
+                  ref={imageUploadRef}
+                  onImagesChange={handleImagesUploaded}
+                  onUploadComplete={() => { }}
+                  onValidationError={handleValidationError}
+                  maxFiles={10}
+                  maxSize={50 * 1024 * 1024} // 50MB
+                  accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"
+                />
+              </CardContent>
+            </Card>
+
+            {uploadedImages.length > 0 && (
+              <OptimizationControls
+                options={optimizationOptions}
+                onOptionsChange={setOptimizationOptions}
+                onOptimize={handleOptimizeImages}
+                isProcessing={isProcessing}
+                hasImages={uploadedImages.some(img => img.status === 'completed')}
+                processedCount={processedImages.length}
+                totalImages={uploadedImages.filter(img => img.status === 'completed').length}
               />
-            </CardContent>
-          </Card>
+            )}
+          </div>
 
-          {uploadedImages.length > 0 && (
-            <OptimizationControls
-              options={optimizationOptions}
-              onOptionsChange={setOptimizationOptions}
-              onOptimize={handleOptimizeImages}
-              isProcessing={isProcessing}
-              hasImages={uploadedImages.some(img => img.status === 'completed')}
-              processedCount={processedImages.length}
-              totalImages={uploadedImages.filter(img => img.status === 'completed').length}
-            />
-          )}
-        </div>
+          {/* Right Column: Results only */}
+          <div className="space-y-4">
+            <Card className="bg-card border border-border rounded-lg">
+              <CardContent className="p-6 space-y-4">
+                {/* Header and Stats */}
+                <div className="space-y-2">
+                  <h2 className="text-xl font-semibold text-foreground">Optimized Images</h2>
+                  {processedImages.length > 0 && (
+                    <div className="text-sm text-muted-foreground">
+                      <span>Total saved: {ImageProcessor.formatFileSize(totalSavings)}</span>
+                      <span className="mx-2">•</span>
+                      <span>Average compression: {getAverageCompressionDisplay(averageCompression)}</span>
+                    </div>
+                  )}
+                </div>
 
-        {/* Right Column: Results only */}
-        <div className="space-y-4">
-          <Card className="bg-card border border-border rounded-lg">
-            <CardContent className="p-6 space-y-4">
-              {/* Header and Stats */}
-              <div className="space-y-2">
-                <h2 className="text-xl font-semibold text-foreground">Optimized Images</h2>
+                {/* Action Buttons - Moved below text */}
                 {processedImages.length > 0 && (
-                  <div className="text-sm text-muted-foreground">
-                    <span>Total saved: {ImageProcessor.formatFileSize(totalSavings)}</span>
-                    <span className="mx-2">•</span>
-                    <span>Average compression: {getAverageCompressionDisplay(averageCompression)}</span>
+                  <div className="flex flex-col gap-3 pt-2">
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <Button
+                        variant="outline"
+                        onClick={() => setShowBatchRenameDialog(true)}
+                        className="flex items-center justify-center gap-2 flex-1"
+                        size="lg"
+                      >
+                        <Edit3 className="h-4 w-4" />
+                        Rename All
+                      </Button>
+                      <Button
+                        variant="primary"
+                        onClick={handleDownloadAll}
+                        className="flex items-center justify-center gap-2 flex-1"
+                        size="lg"
+                      >
+                        <Package className="h-4 w-4" />
+                        Download ZIP ({processedImages.length})
+                      </Button>
+                      {/* Reset Project button - icon only with destructive styling */}
+                      <Button
+                        variant="destructive"
+                        onClick={() => setShowResetProjectDialog(true)}
+                        className="flex items-center justify-center"
+                        size="lg"
+                        title="Reset Project"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 )}
+              </CardContent>
+            </Card>
+
+
+
+            {/* Show processed images or skeleton loading as default empty state */}
+            {processedImages.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {processedImages.map((img) => (
+                  <ImagePreview
+                    key={img.id}
+                    processedImage={img}
+                    onDownload={handleDownloadImage}
+                    onRename={handleRenameImage}
+                    onRemove={handleRemoveImage}
+                  />
+                ))}
               </div>
-
-              {/* Action Buttons - Moved below text */}
-              {processedImages.length > 0 && (
-                <div className="flex flex-col gap-3 pt-2">
-                  <div className="flex flex-col sm:flex-row gap-3">
-                    <Button
-                      variant="outline"
-                      onClick={() => setShowBatchRenameDialog(true)}
-                      className="flex items-center justify-center gap-2 flex-1"
-                      size="lg"
-                    >
-                      <Edit3 className="h-4 w-4" />
-                      Rename All
-                    </Button>
-                    <Button
-                      variant="primary"
-                      onClick={handleDownloadAll}
-                      className="flex items-center justify-center gap-2 flex-1"
-                      size="lg"
-                    >
-                      <Package className="h-4 w-4" />
-                      Download ZIP ({processedImages.length})
-                    </Button>
-                    {/* Reset Project button - icon only with destructive styling */}
-                    <Button
-                      variant="destructive"
-                      onClick={() => setShowResetProjectDialog(true)}
-                      className="flex items-center justify-center"
-                      size="lg"
-                      title="Reset Project"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-
-
-          {/* Show processed images or skeleton loading as default empty state */}
-          {processedImages.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {processedImages.map((img) => (
-                <ImagePreview
-                  key={img.id}
-                  processedImage={img}
-                  onDownload={handleDownloadImage}
-                  onRename={handleRenameImage}
-                  onRemove={handleRemoveImage}
-                />
-              ))}
-            </div>
-          ) : (
-            /* Show skeleton loading as default empty state */
-            <ImagePreviewSkeletons count={4} />
-          )}
-        </div>
+            ) : (
+              /* Show skeleton loading as default empty state */
+              <ImagePreviewSkeletons count={4} />
+            )}
+          </div>
         </div>
 
         {/* Dialogs */}

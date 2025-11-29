@@ -129,7 +129,7 @@ export default function ImagePreview({
                 <img
                   src={optimizedUrl}
                   alt="Optimized"
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain"
                 />
                 {/* Remove Button */}
                 {onRemove && (
