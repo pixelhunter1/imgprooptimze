@@ -310,31 +310,46 @@ const ImageUpload = forwardRef<ImageUploadRef, ImageUploadProps>(({
       </div>
 
       {/* Upload Area */}
-      <Card
+      <div
         className={cn(
-          'border-dashed shadow-none rounded-md transition-colors',
-          isDragging ? 'border-primary bg-primary/5' : 'border-muted-foreground/25 hover:border-muted-foreground/50',
+          "relative border-2 border-dashed rounded-xl p-8 transition-all duration-300 ease-in-out cursor-pointer overflow-hidden group",
+          isDragging
+            ? "border-primary bg-primary/5 scale-[1.02] shadow-lg"
+            : "border-border hover:border-primary/50 hover:bg-muted/50"
         )}
         onDragEnter={handleDragEnter}
         onDragLeave={handleDragLeave}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
+        onClick={openFileDialog}
       >
-        <CardContent className="text-center">
-          <div className="flex items-center justify-center size-[32px] rounded-full border border-border mx-auto mb-3">
-            <CloudUpload className="size-4" />
+        {/* Background Pattern */}
+        <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[radial-gradient(#000_1px,transparent_1px)] [background-size:16px_16px]" />
+
+        <div className="flex flex-col items-center justify-center text-center space-y-4 relative z-10">
+          <div className={cn(
+            "p-4 rounded-full transition-all duration-300 group-hover:scale-110 group-hover:rotate-3",
+            isDragging ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary"
+          )}>
+            <CloudUpload className="h-8 w-8" />
           </div>
-          <h3 className="text-2sm text-foreground font-semibold mb-0.5">Choose image files or drag & drop here.</h3>
-          <span className="text-xs text-secondary-foreground font-normal block mb-3">
-            Only PNG, WebP, JPEG/JPG files, up to {formatBytes(maxSize)}.
-          </span>
-          <div className="flex items-center justify-center">
-            <Button variant="primary" size="lg" onClick={openFileDialog}>
-              Browse File
-            </Button>
+
+          <div className="space-y-2">
+            <p className="text-lg font-medium text-foreground">
+              {isDragging ? "Drop images here" : "Drag & drop images here"}
+            </p>
+            <p className="text-sm text-muted-foreground max-w-xs mx-auto">
+              or click to select files (PNG, JPG, WebP)
+            </p>
           </div>
-        </CardContent>
-      </Card>
+
+          <div className="flex gap-2 text-xs text-muted-foreground/60">
+            <span>Max {formatBytes(maxSize)}</span>
+            <span>•</span>
+            <span>Up to {maxFiles} files</span>
+          </div>
+        </div>
+      </div>
 
       {/* Upload Progress Cards */}
       {images.length > 0 && (
@@ -357,10 +372,13 @@ const ImageUpload = forwardRef<ImageUploadRef, ImageUploadProps>(({
                       )}
                     </div>
                     <Button
-                      onClick={() => removeImage(imageFile.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeImage(imageFile.id);
+                      }}
                       variant="ghost"
                       size="sm"
-                      mode="icon"
+                      className="h-6 w-6 p-0"
                     >
                       <CircleX className="size-3.5" />
                     </Button>
@@ -368,7 +386,7 @@ const ImageUpload = forwardRef<ImageUploadRef, ImageUploadProps>(({
 
                   <Progress
                     value={imageFile.progress}
-                    className={cn('h-1 transition-all duration-300', '[&>div]:bg-zinc-950')}
+                    className={cn('h-1 transition-all duration-300', '[&>div]:bg-primary')}
                   />
                 </div>
               </CardContent>
@@ -379,28 +397,25 @@ const ImageUpload = forwardRef<ImageUploadRef, ImageUploadProps>(({
 
       {/* Validation Error Messages */}
       {validationErrors.length > 0 && (
-        <Alert variant="destructive" appearance="light" className="mt-5">
+        <Alert variant="destructive" className="mt-5 bg-destructive/5 border-destructive/20 text-destructive">
           <AlertIcon>
-            <AlertCircle />
+            <AlertCircle className="h-4 w-4" />
           </AlertIcon>
           <AlertContent>
-            <AlertTitle>File Validation Errors</AlertTitle>
+            <AlertTitle className="text-sm font-semibold">File Validation Errors</AlertTitle>
             <AlertDescription>
-              <div className="space-y-2">
+              <div className="space-y-2 mt-1">
                 <p className="text-sm font-medium">
                   {validationErrors.length} file(s) rejected:
                 </p>
-                <ul className="text-sm space-y-1 ml-2">
+                <ul className="text-sm space-y-1 ml-2 list-disc list-inside">
                   {validationErrors.map((error, index) => (
-                    <li key={index} className="flex items-start gap-2">
-                      <span className="font-medium text-destructive-foreground">•</span>
-                      <span>
-                        <strong>{error.fileName}:</strong> {error.error}
-                      </span>
+                    <li key={index}>
+                      <span className="font-medium">{error.fileName}:</span> {error.error}
                     </li>
                   ))}
                 </ul>
-                <p className="text-xs mt-2 text-muted-foreground">
+                <p className="text-xs mt-2 opacity-80">
                   Only PNG, WebP, and JPEG/JPG images are allowed.
                 </p>
               </div>
@@ -411,13 +426,13 @@ const ImageUpload = forwardRef<ImageUploadRef, ImageUploadProps>(({
 
       {/* General Error Messages */}
       {errors.length > 0 && (
-        <Alert variant="destructive" appearance="light" className="mt-5">
+        <Alert variant="destructive" className="mt-5 bg-destructive/5 border-destructive/20 text-destructive">
           <AlertIcon>
-            <TriangleAlert />
+            <TriangleAlert className="h-4 w-4" />
           </AlertIcon>
           <AlertContent>
-            <AlertTitle>File upload error(s)</AlertTitle>
-            <AlertDescription>
+            <AlertTitle className="text-sm font-semibold">File upload error(s)</AlertTitle>
+            <AlertDescription className="text-sm mt-1">
               {errors.map((error, index) => (
                 <p key={index} className="last:mb-0">
                   {error}

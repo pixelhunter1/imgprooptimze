@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Download, Zap, Edit2, X } from 'lucide-react';
+import { Download, Zap, Edit2, X, Maximize2 } from 'lucide-react';
+import ImageComparison from './ImageComparison';
+import Modal from '@/components/ui/modal';
 import { Badge } from '@/components/ui/base-badge';
 import { type ProcessedImage, ImageProcessor } from '@/lib/imageProcessor';
 
@@ -13,6 +15,7 @@ interface ImagePreviewProps {
   onRemove?: (id: string) => void;
   isProcessing?: boolean;
   processingProgress?: number;
+  viewMode?: 'grid' | 'list';
 }
 
 export default function ImagePreview({
@@ -22,9 +25,11 @@ export default function ImagePreview({
   onRemove,
   isProcessing = false,
   processingProgress = 0,
+  viewMode = 'grid',
 }: ImagePreviewProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedFilename, setEditedFilename] = useState('');
+  const [showModal, setShowModal] = useState(false);
 
   const {
     originalFile,
@@ -93,8 +98,91 @@ export default function ImagePreview({
 
 
 
+
+  if (viewMode === 'list') {
+    return (
+      <Card className="bg-card border border-border rounded-lg w-full overflow-hidden hover:border-primary/50 transition-colors">
+        <CardContent className="p-4 flex items-center gap-4">
+          {/* Thumbnail */}
+          <div className="relative w-24 h-24 shrink-0 bg-muted/50 rounded-md overflow-hidden">
+            {isProcessing ? (
+              <div className="w-full h-full flex items-center justify-center">
+                <Zap className="h-6 w-6 animate-pulse text-primary" />
+              </div>
+            ) : (
+              <img
+                src={optimizedUrl}
+                alt="Thumbnail"
+                className="w-full h-full object-cover"
+              />
+            )}
+          </div>
+
+          {/* Info */}
+          <div className="flex-1 min-w-0 grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+            <div className="space-y-1">
+              <h3 className="font-medium text-foreground truncate" title={originalFile.name}>
+                {originalFile.name}
+              </h3>
+              <div className="flex items-center gap-2">
+                <Badge appearance="light" variant="secondary" size="sm">
+                  {format.toUpperCase()}
+                </Badge>
+                {isProcessing && <span className="text-xs text-muted-foreground">{processingProgress}%</span>}
+              </div>
+            </div>
+
+            {!isProcessing && (
+              <div className="flex flex-col text-sm text-muted-foreground">
+                <span>{ImageProcessor.formatFileSize(originalSize)} → {ImageProcessor.formatFileSize(optimizedSize)}</span>
+                <span className={`font-medium ${getCompressionColor(compressionRatio)}`}>
+                  {getCompressionDisplay(compressionRatio)}
+                </span>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex items-center justify-end gap-2">
+              {!isProcessing && (
+                <>
+                  <Button variant="ghost" size="sm" onClick={handleStartEdit}>
+                    <Edit2 className="h-4 w-4" />
+                  </Button>
+                  <Button variant="primary" size="sm" onClick={() => onDownload(processedImage)}>
+                    <Download className="h-4 w-4 mr-2" /> Download
+                  </Button>
+                  {onRemove && (
+                    <Button variant="ghost" size="sm" onClick={() => onRemove(processedImage.id)} className="text-destructive hover:text-destructive">
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Rename Input Overlay for List View */}
+          {isEditing && (
+            <div className="absolute inset-0 bg-background/95 flex items-center px-4 gap-2 z-10">
+              <input
+                type="text"
+                value={editedFilename}
+                onChange={(e) => setEditedFilename(e.target.value)}
+                onKeyDown={handleKeyPress}
+                className="flex-1 px-3 py-2 text-sm border border-border rounded-md"
+                autoFocus
+              />
+              <Button size="sm" onClick={handleSaveEdit}>Save</Button>
+              <Button size="sm" variant="ghost" onClick={handleCancelEdit}>Cancel</Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
-    <Card className="bg-card border border-border rounded-xl w-full overflow-hidden">
+    <Card className="bg-card border border-border rounded-xl w-full overflow-hidden shadow-sm hover:shadow-md transition-shadow">
       <CardContent className="p-0">
 
         {/* Processing State */}
@@ -123,43 +211,83 @@ export default function ImagePreview({
         {/* Processed State */}
         {!isProcessing && (
           <>
-            {/* Image Preview */}
-            <div className="relative">
-              <div className="relative aspect-video bg-muted/50">
+            {/* Image Preview (Static) */}
+            <div
+              className="relative aspect-video bg-muted/50 overflow-hidden group cursor-pointer"
+              onClick={() => setShowModal(true)}
+            >
+              <div className="absolute inset-0 flex items-center justify-center">
                 <img
-                  src={optimizedUrl}
-                  alt="Optimized"
-                  className="w-full h-full object-contain"
+                  src={processedImage.optimizedUrl}
+                  alt="Optimized Preview"
+                  className="max-w-full max-h-full object-contain transition-transform duration-300 group-hover:scale-105"
                 />
-                {/* Remove Button */}
-                {onRemove && (
-                  <button
-                    onClick={() => onRemove(processedImage.id)}
-                    className="absolute top-2 right-2 h-8 w-8 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center shadow-lg transition-colors"
-                    title="Remove image"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
-                {/* Simple Format Badge */}
-                <div className="absolute bottom-3 right-3">
-                  <Badge appearance="light" variant="secondary" size="sm" className="bg-background/90 backdrop-blur-sm">
-                    {format.toUpperCase()}
-                  </Badge>
-                </div>
+              </div>
+
+              {/* Overlay with "Click to Compare" hint */}
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                <span className="bg-black/60 text-white text-xs px-3 py-1.5 rounded-full backdrop-blur-sm font-medium flex items-center gap-2">
+                  <Maximize2 className="w-3 h-3" />
+                  Click to Compare
+                </span>
+              </div>
+
+
+
+              {/* Remove Button */}
+              {onRemove && (
+                <button
+                  onClick={() => onRemove(processedImage.id)}
+                  className="absolute top-2 right-2 h-8 w-8 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center shadow-lg transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 z-20"
+                  title="Remove image"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+              {/* Simple Format Badge */}
+              <div className="absolute bottom-3 right-3 pointer-events-none z-20">
+                <Badge appearance="light" variant="secondary" size="sm" className="bg-background/90 backdrop-blur-sm shadow-sm">
+                  {format.toUpperCase()}
+                </Badge>
               </div>
             </div>
 
+            {/* Modal for Detailed Comparison */}
+            <Modal isOpen={showModal} onClose={() => setShowModal(false)} className="h-[80vh]">
+              <div className="w-full h-full flex flex-col">
+                <div className="p-4 border-b border-border flex justify-between items-center">
+                  <h3 className="font-semibold text-lg">{originalFile.name}</h3>
+                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                    <span>{ImageProcessor.formatFileSize(originalSize)} → {ImageProcessor.formatFileSize(optimizedSize)}</span>
+                    <span className={`font-bold ${getCompressionColor(compressionRatio)}`}>
+                      {getCompressionDisplay(compressionRatio)}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex-1 relative bg-muted/20 overflow-hidden">
+                  <ImageComparison
+                    originalUrl={processedImage.originalUrl}
+                    optimizedUrl={processedImage.optimizedUrl}
+                    enableZoom={true}
+                    className="h-full"
+                  />
+                </div>
+              </div>
+            </Modal>
+
             {/* Content */}
-            <div className="p-6 space-y-6">
+            <div className="p-5 space-y-5">
               {/* File Info */}
-              <div className="space-y-3">
-                <h3 className="font-medium text-foreground truncate" title={originalFile.name}>
-                  {originalFile.name}
-                </h3>
-                <div className="flex items-center justify-between text-sm text-muted-foreground">
-                  <span>{ImageProcessor.formatFileSize(originalSize)} → {ImageProcessor.formatFileSize(optimizedSize)}</span>
-                  <span className={`font-medium ${getCompressionColor(compressionRatio)}`}>
+              <div className="space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <h3 className="font-medium text-foreground truncate flex-1" title={originalFile.name}>
+                    {originalFile.name}
+                  </h3>
+                </div>
+
+                <div className="flex items-center justify-between text-sm bg-muted/50 p-2 rounded-lg">
+                  <span className="text-muted-foreground">{ImageProcessor.formatFileSize(originalSize)} → {ImageProcessor.formatFileSize(optimizedSize)}</span>
+                  <span className={`font-bold ${getCompressionColor(compressionRatio)}`}>
                     {getCompressionDisplay(compressionRatio)}
                   </span>
                 </div>
@@ -186,7 +314,7 @@ export default function ImagePreview({
                     <div className="flex gap-2">
                       <Button
                         variant="primary"
-                        size="lg"
+                        size="sm"
                         onClick={handleSaveEdit}
                         disabled={!editedFilename.trim()}
                         className="flex-1"
@@ -195,7 +323,7 @@ export default function ImagePreview({
                       </Button>
                       <Button
                         variant="outline"
-                        size="lg"
+                        size="sm"
                         onClick={handleCancelEdit}
                         className="flex-1"
                       >
@@ -205,14 +333,14 @@ export default function ImagePreview({
                   </div>
                 ) : (
                   <div
-                    className="group flex items-center gap-2 p-3 rounded-md border border-dashed border-border hover:border-primary hover:bg-primary/5 cursor-pointer transition-colors"
+                    className="group flex items-center gap-2 p-2 rounded-md hover:bg-muted/50 cursor-pointer transition-colors"
                     onClick={handleStartEdit}
                     title="Click to rename this file"
                   >
-                    <span className="flex-1 text-sm font-mono text-foreground truncate">
+                    <Edit2 className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
+                    <span className="flex-1 text-sm text-muted-foreground group-hover:text-foreground truncate transition-colors">
                       {getCurrentFilename()}{ImageProcessor.getExtensionFromFormat(format as 'webp' | 'jpeg' | 'png')}
                     </span>
-                    <Edit2 className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
                   </div>
                 )}
               </div>
@@ -221,11 +349,11 @@ export default function ImagePreview({
               <Button
                 variant="primary"
                 onClick={() => onDownload(processedImage)}
-                className="w-full flex items-center justify-center gap-2"
+                className="w-full flex items-center justify-center gap-2 shadow-sm hover:shadow transition-all"
                 size="lg"
               >
                 <Download className="h-4 w-4" />
-                Download
+                Download Optimized
               </Button>
             </div>
           </>

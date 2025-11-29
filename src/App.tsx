@@ -16,7 +16,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ImageProcessor, type OptimizationOptions, type ProcessedImage, type FileValidationResult } from '@/lib/imageProcessor';
 import { detectBrowser, getBrowserCapabilities, logBrowserInfo } from '@/lib/browserDetection';
-import { Package, Edit3, Trash2 } from 'lucide-react';
+import { Package, Edit3, Trash2, LayoutGrid, List as ListIcon } from 'lucide-react';
+import Hero from '@/components/layout/Hero';
 
 interface UploadedImage {
   id: string;
@@ -34,6 +35,7 @@ function App() {
   const [showZipDialog, setShowZipDialog] = useState(false);
   const [showBatchRenameDialog, setShowBatchRenameDialog] = useState(false);
   const [showResetProjectDialog, setShowResetProjectDialog] = useState(false);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const imageUploadRef = useRef<ImageUploadRef>(null);
 
   // Log browser info on mount
@@ -213,6 +215,8 @@ function App() {
   return (
     <div className="min-h-screen bg-background py-8 px-4">
       <div className="max-w-7xl mx-auto space-y-6">
+        <Hero />
+
         {/* Browser Compatibility Alert */}
         <BrowserCompatibilityAlert />
 
@@ -252,14 +256,41 @@ function App() {
           <div className="space-y-4">
             <Card className="bg-card border border-border rounded-lg">
               <CardContent className="p-6 space-y-4">
-                {/* Header and Stats */}
-                <div className="space-y-2">
-                  <h2 className="text-xl font-semibold text-foreground">Optimized Images</h2>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <h2 className="text-xl font-semibold text-foreground">Optimized Images</h2>
+                    {processedImages.length > 0 && (
+                      <div className="text-sm text-muted-foreground">
+                        <span>Total saved: {ImageProcessor.formatFileSize(totalSavings)}</span>
+                        <span className="mx-2">•</span>
+                        <span>Average compression: {getAverageCompressionDisplay(averageCompression)}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* View Toggle */}
                   {processedImages.length > 0 && (
-                    <div className="text-sm text-muted-foreground">
-                      <span>Total saved: {ImageProcessor.formatFileSize(totalSavings)}</span>
-                      <span className="mx-2">•</span>
-                      <span>Average compression: {getAverageCompressionDisplay(averageCompression)}</span>
+                    <div className="flex items-center bg-muted/50 p-1 rounded-lg border border-border">
+                      <button
+                        onClick={() => setViewMode('grid')}
+                        className={`p-2 rounded-md transition-all ${viewMode === 'grid'
+                            ? 'bg-background text-primary shadow-sm'
+                            : 'text-muted-foreground hover:text-foreground'
+                          }`}
+                        title="Grid View"
+                      >
+                        <LayoutGrid className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => setViewMode('list')}
+                        className={`p-2 rounded-md transition-all ${viewMode === 'list'
+                            ? 'bg-background text-primary shadow-sm'
+                            : 'text-muted-foreground hover:text-foreground'
+                          }`}
+                        title="List View"
+                      >
+                        <ListIcon className="w-4 h-4" />
+                      </button>
                     </div>
                   )}
                 </div>
@@ -306,7 +337,7 @@ function App() {
 
             {/* Show processed images or skeleton loading as default empty state */}
             {processedImages.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className={`grid gap-6 ${viewMode === 'grid' ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}`}>
                 {processedImages.map((img) => (
                   <ImagePreview
                     key={img.id}
@@ -314,6 +345,7 @@ function App() {
                     onDownload={handleDownloadImage}
                     onRename={handleRenameImage}
                     onRemove={handleRemoveImage}
+                    viewMode={viewMode}
                   />
                 ))}
               </div>
