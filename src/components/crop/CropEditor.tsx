@@ -945,119 +945,6 @@ export default function CropEditor({
                 : 'Drag the crop area over the image. Resize from corners.'}
             </p>
 
-            {/* Quick actions and zoom slider for image mode */}
-            {dragMode === 'image' && (
-              <>
-                {/* Quick action buttons */}
-                <div className="mt-3 grid grid-cols-2 gap-1.5">
-                  <button
-                    onClick={() => {
-                      // Center the image in the crop
-                      if (!imageRef.current || !cropArea) return;
-                      const img = imageRef.current;
-                      const imgW = img.width * imageTransform.scale;
-                      const imgH = img.height * imageTransform.scale;
-                      setImageTransform(prev => ({
-                        ...prev,
-                        x: (cropArea.width - imgW) / 2,
-                        y: (cropArea.height - imgH) / 2,
-                      }));
-                    }}
-                    className="px-2 py-1.5 text-[10px] rounded bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
-                  >
-                    Center
-                  </button>
-                  <button
-                    onClick={() => {
-                      // Fill: scale image to cover the crop area completely
-                      if (!imageRef.current || !cropArea) return;
-                      const img = imageRef.current;
-                      const scaleToFill = Math.max(
-                        cropArea.width / img.width,
-                        cropArea.height / img.height
-                      );
-                      const imgW = img.width * scaleToFill;
-                      const imgH = img.height * scaleToFill;
-                      setImageTransform({
-                        x: (cropArea.width - imgW) / 2,
-                        y: (cropArea.height - imgH) / 2,
-                        scale: scaleToFill,
-                      });
-                    }}
-                    className="px-2 py-1.5 text-[10px] rounded bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
-                  >
-                    Fill
-                  </button>
-                  <button
-                    onClick={() => {
-                      // Fit: scale image to fit entirely inside the crop
-                      if (!imageRef.current || !cropArea) return;
-                      const img = imageRef.current;
-                      const scaleToFit = Math.min(
-                        cropArea.width / img.width,
-                        cropArea.height / img.height
-                      );
-                      const imgW = img.width * scaleToFit;
-                      const imgH = img.height * scaleToFit;
-                      setImageTransform({
-                        x: (cropArea.width - imgW) / 2,
-                        y: (cropArea.height - imgH) / 2,
-                        scale: scaleToFit,
-                      });
-                    }}
-                    className="px-2 py-1.5 text-[10px] rounded bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
-                  >
-                    Fit
-                  </button>
-                  <button
-                    onClick={() => {
-                      // Reset to original size centered
-                      if (!imageRef.current || !cropArea) return;
-                      const img = imageRef.current;
-                      setImageTransform({
-                        x: (cropArea.width - img.width) / 2,
-                        y: (cropArea.height - img.height) / 2,
-                        scale: 1,
-                      });
-                    }}
-                    className="px-2 py-1.5 text-[10px] rounded bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
-                  >
-                    100%
-                  </button>
-                </div>
-
-                {/* Zoom slider */}
-                <div className="mt-3">
-                  <div className="flex justify-between text-[10px] text-neutral-500 mb-1">
-                    <span>Zoom</span>
-                    <span>{Math.round(imageTransform.scale * 100)}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0.1"
-                    max="3"
-                    step="0.01"
-                    value={imageTransform.scale}
-                    onChange={(e) => {
-                      const newScale = parseFloat(e.target.value);
-                      setImageTransform(prev => {
-                        // Keep the image centered when scaling
-                        const oldCenterX = prev.x + (imageRef.current?.width || 0) * prev.scale / 2;
-                        const oldCenterY = prev.y + (imageRef.current?.height || 0) * prev.scale / 2;
-                        const newCenterX = (imageRef.current?.width || 0) * newScale / 2;
-                        const newCenterY = (imageRef.current?.height || 0) * newScale / 2;
-                        return {
-                          x: oldCenterX - newCenterX,
-                          y: oldCenterY - newCenterY,
-                          scale: newScale,
-                        };
-                      });
-                    }}
-                    className="w-full h-1 bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-                  />
-                </div>
-              </>
-            )}
           </div>
 
           {/* Size Presets - E-commerce first */}
@@ -1191,23 +1078,137 @@ export default function CropEditor({
         </div>
 
         {/* Canvas */}
-        <div ref={containerRef} className="flex-1 flex items-center justify-center p-4 min-h-0 overflow-auto">
+        <div ref={containerRef} className="flex-1 flex items-center justify-center p-4 min-h-0 overflow-auto relative">
           {imageLoaded ? (
-            <canvas
-              ref={canvasRef}
-              onMouseDown={handleMouseDown}
-              className="max-w-full max-h-full"
-              style={{
-                cursor: isDragging
-                  ? 'grabbing'
-                  : isResizing
-                  ? (imageResizeHandle === 'nw' || imageResizeHandle === 'se' ? 'nwse-resize' :
-                     imageResizeHandle === 'ne' || imageResizeHandle === 'sw' ? 'nesw-resize' : 'nwse-resize')
-                  : dragMode === 'image'
-                  ? 'grab'
-                  : 'crosshair'
-              }}
-            />
+            <>
+              <canvas
+                ref={canvasRef}
+                onMouseDown={handleMouseDown}
+                className="max-w-full max-h-full"
+                style={{
+                  cursor: isDragging
+                    ? 'grabbing'
+                    : isResizing
+                    ? (imageResizeHandle === 'nw' || imageResizeHandle === 'se' ? 'nwse-resize' :
+                       imageResizeHandle === 'ne' || imageResizeHandle === 'sw' ? 'nesw-resize' : 'nwse-resize')
+                    : dragMode === 'image'
+                    ? 'grab'
+                    : 'crosshair'
+                }}
+              />
+
+              {/* Floating toolbar - only in image mode */}
+              {dragMode === 'image' && (
+                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-2 bg-neutral-900/95 backdrop-blur-sm rounded-lg border border-neutral-800 shadow-lg">
+                  {/* Quick action buttons */}
+                  <button
+                    onClick={() => {
+                      if (!imageRef.current || !cropArea) return;
+                      const img = imageRef.current;
+                      const imgW = img.width * imageTransform.scale;
+                      const imgH = img.height * imageTransform.scale;
+                      setImageTransform(prev => ({
+                        ...prev,
+                        x: (cropArea.width - imgW) / 2,
+                        y: (cropArea.height - imgH) / 2,
+                      }));
+                    }}
+                    className="px-3 py-1.5 text-xs rounded bg-neutral-800 text-neutral-300 hover:bg-neutral-700 hover:text-white"
+                  >
+                    Center
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (!imageRef.current || !cropArea) return;
+                      const img = imageRef.current;
+                      const scaleToFill = Math.max(
+                        cropArea.width / img.width,
+                        cropArea.height / img.height
+                      );
+                      const imgW = img.width * scaleToFill;
+                      const imgH = img.height * scaleToFill;
+                      setImageTransform({
+                        x: (cropArea.width - imgW) / 2,
+                        y: (cropArea.height - imgH) / 2,
+                        scale: scaleToFill,
+                      });
+                    }}
+                    className="px-3 py-1.5 text-xs rounded bg-neutral-800 text-neutral-300 hover:bg-neutral-700 hover:text-white"
+                  >
+                    Fill
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (!imageRef.current || !cropArea) return;
+                      const img = imageRef.current;
+                      const scaleToFit = Math.min(
+                        cropArea.width / img.width,
+                        cropArea.height / img.height
+                      );
+                      const imgW = img.width * scaleToFit;
+                      const imgH = img.height * scaleToFit;
+                      setImageTransform({
+                        x: (cropArea.width - imgW) / 2,
+                        y: (cropArea.height - imgH) / 2,
+                        scale: scaleToFit,
+                      });
+                    }}
+                    className="px-3 py-1.5 text-xs rounded bg-neutral-800 text-neutral-300 hover:bg-neutral-700 hover:text-white"
+                  >
+                    Fit
+                  </button>
+
+                  {/* Divider */}
+                  <div className="w-px h-5 bg-neutral-700" />
+
+                  {/* Zoom slider */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-neutral-500 w-8">{Math.round(imageTransform.scale * 100)}%</span>
+                    <input
+                      type="range"
+                      min="0.1"
+                      max="3"
+                      step="0.01"
+                      value={imageTransform.scale}
+                      onChange={(e) => {
+                        const newScale = parseFloat(e.target.value);
+                        setImageTransform(prev => {
+                          const oldCenterX = prev.x + (imageRef.current?.width || 0) * prev.scale / 2;
+                          const oldCenterY = prev.y + (imageRef.current?.height || 0) * prev.scale / 2;
+                          const newCenterX = (imageRef.current?.width || 0) * newScale / 2;
+                          const newCenterY = (imageRef.current?.height || 0) * newScale / 2;
+                          return {
+                            x: oldCenterX - newCenterX,
+                            y: oldCenterY - newCenterY,
+                            scale: newScale,
+                          };
+                        });
+                      }}
+                      className="w-24 h-1 bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                    />
+                  </div>
+
+                  {/* Divider */}
+                  <div className="w-px h-5 bg-neutral-700" />
+
+                  {/* Reset button */}
+                  <button
+                    onClick={() => {
+                      if (!imageRef.current || !cropArea) return;
+                      const img = imageRef.current;
+                      setImageTransform({
+                        x: (cropArea.width - img.width) / 2,
+                        y: (cropArea.height - img.height) / 2,
+                        scale: 1,
+                      });
+                    }}
+                    className="px-3 py-1.5 text-xs rounded bg-neutral-800 text-neutral-300 hover:bg-neutral-700 hover:text-white"
+                  >
+                    Reset
+                  </button>
+                </div>
+              )}
+            </>
           ) : (
             <div className="text-neutral-500 flex items-center gap-2">
               <div className="w-5 h-5 border-2 border-neutral-500 border-t-transparent rounded-full animate-spin" />
