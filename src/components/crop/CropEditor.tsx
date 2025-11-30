@@ -321,16 +321,33 @@ export default function CropEditor({
       // Preview style effects inside crop area
       const previewPadding = styleOptions.padding * effectiveScale * 0.5;
       const previewRadius = Math.min(styleOptions.borderRadius * effectiveScale * 0.5, (cropW - previewPadding * 2) / 2, (cropH - previewPadding * 2) / 2);
+      const outerRadius = Math.min(styleOptions.borderRadius * effectiveScale * 0.5, cropW / 2, cropH / 2);
 
       // Clear the crop area
       ctx.clearRect(cropX, cropY, cropW, cropH);
 
-      // Draw background - checkered only if transparent, otherwise solid color
-      if (styleOptions.bgColor === 'transparent') {
-        drawCheckerboard(cropX, cropY, cropW, cropH, 8);
-      } else {
+      // Draw checkered background first (for transparent areas)
+      drawCheckerboard(cropX, cropY, cropW, cropH, 8);
+
+      // Draw background color with border radius if set
+      if (styleOptions.bgColor !== 'transparent') {
         ctx.fillStyle = styleOptions.bgColor;
-        ctx.fillRect(cropX, cropY, cropW, cropH);
+        if (outerRadius > 0) {
+          ctx.beginPath();
+          ctx.moveTo(cropX + outerRadius, cropY);
+          ctx.lineTo(cropX + cropW - outerRadius, cropY);
+          ctx.quadraticCurveTo(cropX + cropW, cropY, cropX + cropW, cropY + outerRadius);
+          ctx.lineTo(cropX + cropW, cropY + cropH - outerRadius);
+          ctx.quadraticCurveTo(cropX + cropW, cropY + cropH, cropX + cropW - outerRadius, cropY + cropH);
+          ctx.lineTo(cropX + outerRadius, cropY + cropH);
+          ctx.quadraticCurveTo(cropX, cropY + cropH, cropX, cropY + cropH - outerRadius);
+          ctx.lineTo(cropX, cropY + outerRadius);
+          ctx.quadraticCurveTo(cropX, cropY, cropX + outerRadius, cropY);
+          ctx.closePath();
+          ctx.fill();
+        } else {
+          ctx.fillRect(cropX, cropY, cropW, cropH);
+        }
       }
 
       // Draw the image inside crop area (clipped) - SHARP, no blur
