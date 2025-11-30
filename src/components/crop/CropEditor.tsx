@@ -397,11 +397,27 @@ export default function CropEditor({
 
   // Mouse handlers
   const getCoords = useCallback((e: React.MouseEvent | MouseEvent) => {
-    if (!canvasRef.current) return { x: 0, y: 0 };
-    const rect = canvasRef.current.getBoundingClientRect();
+    if (!canvasRef.current || !imageRef.current) return { x: 0, y: 0 };
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+
+    // Get mouse position relative to canvas
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    // Account for any CSS scaling of the canvas (when max-w-full/max-h-full causes the canvas to be rendered smaller than its internal size)
+    const cssScaleX = rect.width / canvas.width;
+    const cssScaleY = rect.height / canvas.height;
+
+    // Convert to canvas coordinates, then to image coordinates
+    const canvasX = mouseX / cssScaleX;
+    const canvasY = mouseY / cssScaleY;
+
+    // In crop mode, canvas coordinates = image coordinates * displayScale
+    // So divide by displayScale to get image coordinates
     return {
-      x: (e.clientX - rect.left) / displayScale,
-      y: (e.clientY - rect.top) / displayScale,
+      x: canvasX / displayScale,
+      y: canvasY / displayScale,
     };
   }, [displayScale]);
 
