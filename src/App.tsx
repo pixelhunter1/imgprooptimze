@@ -48,20 +48,53 @@ function App() {
   // const { isMobile, isTablet } = useMobileDetection();
   // const shouldBlockMobile = isMobile || isTablet;
 
-  // Cleanup blob URLs when component unmounts to prevent memory leaks
+  // Cleanup blob URLs when page unloads (refresh, close, navigate away)
   useEffect(() => {
-    return () => {
+    const cleanupAllBlobUrls = () => {
       // Clean up processed images
-      ImageProcessor.cleanupProcessedImages(processedImages);
+      processedImages.forEach(img => {
+        if (img.originalUrl) {
+          try { URL.revokeObjectURL(img.originalUrl); } catch (e) { /* ignore */ }
+        }
+        if (img.optimizedUrl) {
+          try { URL.revokeObjectURL(img.optimizedUrl); } catch (e) { /* ignore */ }
+        }
+      });
 
       // Clean up uploaded images
       uploadedImages.forEach(img => {
         if (img.preview) {
-          URL.revokeObjectURL(img.preview);
+          try { URL.revokeObjectURL(img.preview); } catch (e) { /* ignore */ }
         }
       });
     };
-  }, [processedImages, uploadedImages]);
+
+    // Handle page unload (refresh, close tab, navigate away)
+    const handleBeforeUnload = () => {
+      cleanupAllBlobUrls();
+    };
+
+    // Handle visibility change (tab switch, minimize)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        // Page is being hidden - cleanup if no images are being processed
+        if (!isProcessing && processedImages.length === 0 && uploadedImages.length === 0) {
+          cleanupAllBlobUrls();
+        }
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('pagehide', handleBeforeUnload);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('pagehide', handleBeforeUnload);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      cleanupAllBlobUrls();
+    };
+  }, [processedImages, uploadedImages, isProcessing]);
 
   const [optimizationOptions, setOptimizationOptions] = useState<OptimizationOptions>(() => {
     // Set initial options based on browser capabilities
@@ -189,21 +222,41 @@ function App() {
 
   const handleResetProject = useCallback(() => {
     // Clean up blob URLs from processed images to prevent memory leaks
-    ImageProcessor.cleanupProcessedImages(processedImages);
+    processedImages.forEach(img => {
+      if (img.originalUrl) {
+        try { URL.revokeObjectURL(img.originalUrl); } catch (e) { /* ignore */ }
+      }
+      if (img.optimizedUrl) {
+        try { URL.revokeObjectURL(img.optimizedUrl); } catch (e) { /* ignore */ }
+      }
+    });
 
     // Revoke blob URLs from uploaded images to prevent memory leaks
     uploadedImages.forEach(img => {
       if (img.preview) {
-        URL.revokeObjectURL(img.preview);
+        try { URL.revokeObjectURL(img.preview); } catch (e) { /* ignore */ }
       }
     });
 
-    // Clear all uploaded and processed images
+    // Clear all uploaded and processed images immediately
     setUploadedImages([]);
     setProcessedImages([]);
     setIsProcessing(false);
+
     // Reset the ImageUpload component (this will handle its own blob URL cleanup)
     imageUploadRef.current?.resetUpload();
+
+    // Force garbage collection hint by clearing references
+    // Note: This doesn't guarantee immediate GC but helps the browser know these objects can be collected
+    if (typeof window !== 'undefined' && 'gc' in window) {
+      try {
+        // @ts-ignore - gc is only available when Chrome is run with --expose-gc flag
+        window.gc();
+      } catch (e) {
+        // gc not available, which is normal
+      }
+    }
+
     // Keep optimization settings unchanged
   }, [processedImages, uploadedImages]);
 

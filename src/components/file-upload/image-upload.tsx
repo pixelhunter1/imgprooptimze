@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState, forwardRef, useImperativeHandle } from 'react';
+import { useCallback, useState, forwardRef, useImperativeHandle, useEffect, useRef } from 'react';
 import { Alert, AlertContent, AlertDescription, AlertIcon, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -46,13 +46,47 @@ const ImageUpload = forwardRef<ImageUploadRef, ImageUploadProps>(({
   const [errors, setErrors] = useState<string[]>([]);
   const [validationErrors, setValidationErrors] = useState<FileValidationResult[]>([]);
 
+  // Keep track of all blob URLs created for cleanup
+  const blobUrlsRef = useRef<Set<string>>(new Set());
+
+  // Cleanup all blob URLs on unmount or page unload
+  useEffect(() => {
+    const cleanupBlobUrls = () => {
+      blobUrlsRef.current.forEach(url => {
+        try { URL.revokeObjectURL(url); } catch (e) { /* ignore */ }
+      });
+      blobUrlsRef.current.clear();
+    };
+
+    // Handle page unload (refresh, close tab)
+    const handleBeforeUnload = () => {
+      cleanupBlobUrls();
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('pagehide', handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('pagehide', handleBeforeUnload);
+      cleanupBlobUrls();
+    };
+  }, []);
+
   // Expose reset function via ref
   useImperativeHandle(ref, () => ({
     resetUpload: () => {
       // Clear all images and revoke object URLs
       images.forEach(image => {
-        URL.revokeObjectURL(image.preview);
+        try { URL.revokeObjectURL(image.preview); } catch (e) { /* ignore */ }
+        blobUrlsRef.current.delete(image.preview);
       });
+      // Also cleanup any tracked URLs that might have been orphaned
+      blobUrlsRef.current.forEach(url => {
+        try { URL.revokeObjectURL(url); } catch (e) { /* ignore */ }
+      });
+      blobUrlsRef.current.clear();
+
       setImages([]);
       setErrors([]);
       setValidationErrors([]);
@@ -129,10 +163,14 @@ const ImageUpload = forwardRef<ImageUploadRef, ImageUploadProps>(({
           continue;
         }
 
+        const previewUrl = URL.createObjectURL(file);
+        // Track the URL for cleanup
+        blobUrlsRef.current.add(previewUrl);
+
         const imageFile: ImageFile = {
           id: `${Date.now()}-${Math.random()}`,
           file,
-          preview: URL.createObjectURL(file),
+          preview: previewUrl,
           progress: 0,
           status: 'uploading',
         };
@@ -206,7 +244,8 @@ const ImageUpload = forwardRef<ImageUploadRef, ImageUploadProps>(({
     setImages((prev) => {
       const image = prev.find((img) => img.id === id);
       if (image) {
-        URL.revokeObjectURL(image.preview);
+        try { URL.revokeObjectURL(image.preview); } catch (e) { /* ignore */ }
+        blobUrlsRef.current.delete(image.preview);
       }
       return prev.filter((img) => img.id !== id);
     });
