@@ -191,7 +191,7 @@ export default function BatchRenameDialog({
         </div>
 
         {/* Content - fixed height to prevent resize when switching tabs */}
-        <div className="p-4 space-y-4 h-[340px] overflow-y-auto scrollbar-thin">
+        <div className="p-4 space-y-4 h-[420px] overflow-y-auto scrollbar-thin">
           <style>{`
             .scrollbar-thin::-webkit-scrollbar {
               width: 4px;
@@ -310,7 +310,7 @@ export default function BatchRenameDialog({
             )}
 
             {mode === 'individual' && (
-              <div className="space-y-2 p-3 bg-neutral-800 rounded max-h-60 overflow-y-auto">
+              <div className="space-y-2 p-3 bg-neutral-800 rounded max-h-[320px] overflow-y-auto scrollbar-thin">
                 {images.map((image, index) => (
                   <div key={`${image.id}-${index}`} className="flex items-center gap-3 p-2 bg-neutral-900 rounded">
                     <div className="flex-shrink-0">

@@ -901,17 +901,6 @@ export default function CropEditor({
             <h4 className="text-neutral-400 text-xs uppercase tracking-wide mb-3">Edit Mode</h4>
             <div className="grid grid-cols-2 gap-1.5">
               <button
-                onClick={() => setDragMode('crop')}
-                className={`flex items-center justify-center gap-1.5 px-2 py-2 text-xs rounded ${
-                  dragMode === 'crop'
-                    ? 'bg-emerald-600 text-white'
-                    : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
-                }`}
-              >
-                <Crop className="w-3.5 h-3.5" />
-                Move Crop
-              </button>
-              <button
                 onClick={() => {
                   setDragMode('image');
                   // Initialize image transform to center the image in crop
@@ -938,11 +927,22 @@ export default function CropEditor({
                 <Move className="w-3.5 h-3.5" />
                 Fit Image
               </button>
+              <button
+                onClick={() => setDragMode('crop')}
+                className={`flex items-center justify-center gap-1.5 px-2 py-2 text-xs rounded ${
+                  dragMode === 'crop'
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
+                }`}
+              >
+                <Crop className="w-3.5 h-3.5" />
+                Move Crop
+              </button>
             </div>
             <p className="text-neutral-500 text-[10px] mt-2">
-              {dragMode === 'crop'
-                ? 'Drag the crop area over the image. Resize from corners.'
-                : 'Drag image to position. Resize from corners.'}
+              {dragMode === 'image'
+                ? 'Drag image to position. Resize from corners.'
+                : 'Drag the crop area over the image. Resize from corners.'}
             </p>
 
             {/* Quick actions and zoom slider for image mode */}
