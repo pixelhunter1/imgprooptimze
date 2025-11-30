@@ -30,6 +30,7 @@ interface ImageUploadProps {
 
 export interface ImageUploadRef {
   resetUpload: () => void;
+  removeImageByName: (fileName: string) => void;
 }
 
 const ImageUpload = forwardRef<ImageUploadRef, ImageUploadProps>(({
@@ -73,7 +74,7 @@ const ImageUpload = forwardRef<ImageUploadRef, ImageUploadProps>(({
     };
   }, []);
 
-  // Expose reset function via ref
+  // Expose reset and remove functions via ref
   useImperativeHandle(ref, () => ({
     resetUpload: () => {
       // Clear all images and revoke object URLs
@@ -91,8 +92,27 @@ const ImageUpload = forwardRef<ImageUploadRef, ImageUploadProps>(({
       setErrors([]);
       setValidationErrors([]);
       setIsDragging(false);
+
+      // Notify parent that images have been cleared
+      onImagesChange?.([]);
+    },
+    removeImageByName: (fileName: string) => {
+      // Find and remove image by file name
+      const imageToRemove = images.find(img => img.file.name === fileName);
+      if (imageToRemove) {
+        // Clean up blob URL
+        try { URL.revokeObjectURL(imageToRemove.preview); } catch (e) { /* ignore */ }
+        blobUrlsRef.current.delete(imageToRemove.preview);
+
+        // Update state
+        const updatedImages = images.filter(img => img.file.name !== fileName);
+        setImages(updatedImages);
+
+        // Notify parent
+        onImagesChange?.(updatedImages);
+      }
     }
-  }), [images]);
+  }), [images, onImagesChange]);
 
   const validateFile = (file: File): string | null => {
     // Check if it's actually a file (not a directory)

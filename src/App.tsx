@@ -192,9 +192,13 @@ function App() {
     if (imageToRemove) {
       // Clean up blob URLs to prevent memory leaks
       ImageProcessor.cleanupProcessedImage(imageToRemove);
+
+      // Also remove the corresponding uploaded image from ImageUpload component
+      const originalFileName = imageToRemove.originalFile.name;
+      imageUploadRef.current?.removeImageByName(originalFileName);
     }
 
-    // Remove from state
+    // Remove from processed images state
     setProcessedImages(prev => prev.filter(img => img.id !== imageId));
   }, [processedImages]);
 
