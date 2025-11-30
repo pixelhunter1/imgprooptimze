@@ -805,9 +805,18 @@ export default function CropEditor({
     const img = imageRef.current;
     const w = img.width * 0.8;
     const h = img.height * 0.8;
-    setCropArea({ x: (img.width - w) / 2, y: (img.height - h) / 2, width: w, height: h });
+    const newCropArea = { x: (img.width - w) / 2, y: (img.height - h) / 2, width: w, height: h };
+    setCropArea(newCropArea);
     setSelectedSize(null);
-    setDragMode('crop');
+    setDragMode('image');
+
+    // Reset image transform for 'image' mode
+    const scaleToFill = Math.max(w / img.width, h / img.height);
+    setImageTransform({
+      x: (w - img.width * scaleToFill) / 2,
+      y: (h - img.height * scaleToFill) / 2,
+      scale: scaleToFill,
+    });
   }, []);
 
   // Apply
