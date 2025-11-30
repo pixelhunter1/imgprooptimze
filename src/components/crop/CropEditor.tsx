@@ -63,12 +63,19 @@ export default function CropEditor({
   const [displayScale, setDisplayScale] = useState(1);
   const [imageSize, setImageSize] = useState({ width: 0, height: 0 });
 
-  // Style options (Figma-like)
+  // Frame style type (shots.so inspired)
+  type FrameStyle = 'none' | 'glass-light' | 'glass-dark' | 'inset-light' | 'inset-dark' | 'outline' | 'border' | 'liquid';
+
+  // Style options (shots.so inspired)
   const [styleOptions, setStyleOptions] = useState({
     padding: 0,
     borderRadius: 0,
     bgColor: 'transparent', // 'transparent', '#ffffff', '#000000', or custom hex
-    shadow: 'none' as 'none' | 'sm' | 'md' | 'lg',
+    shadow: 'none' as 'none' | 'spread' | 'hug' | 'lg',
+    // Frame style (shots.so style)
+    frameStyle: 'none' as FrameStyle,
+    borderWidth: 15,
+    borderColor: '#ffffff',
   });
 
   // Snap threshold in pixels
@@ -397,25 +404,114 @@ export default function CropEditor({
       ctx.drawImage(img, imgX, imgY, imgW, imgH);
       ctx.restore();
 
-      // Draw simple crop border (green)
-      ctx.strokeStyle = '#10b981';
-      ctx.lineWidth = 2;
-      if (styleOptions.borderRadius > 0) {
-        const r = Math.min(styleOptions.borderRadius * effectiveScale * 0.5, cropW / 2, cropH / 2);
+      // Draw frame style preview (shots.so inspired)
+      const bw = styleOptions.borderWidth * effectiveScale * 0.5;
+      const r = Math.min(styleOptions.borderRadius * effectiveScale * 0.5, cropW / 2, cropH / 2);
+
+      // Helper to draw rounded rect path for preview
+      const drawPreviewRoundedRect = (x: number, y: number, w: number, h: number, radius: number) => {
         ctx.beginPath();
-        ctx.moveTo(cropX + r, cropY);
-        ctx.lineTo(cropX + cropW - r, cropY);
-        ctx.quadraticCurveTo(cropX + cropW, cropY, cropX + cropW, cropY + r);
-        ctx.lineTo(cropX + cropW, cropY + cropH - r);
-        ctx.quadraticCurveTo(cropX + cropW, cropY + cropH, cropX + cropW - r, cropY + cropH);
-        ctx.lineTo(cropX + r, cropY + cropH);
-        ctx.quadraticCurveTo(cropX, cropY + cropH, cropX, cropY + cropH - r);
-        ctx.lineTo(cropX, cropY + r);
-        ctx.quadraticCurveTo(cropX, cropY, cropX + r, cropY);
-        ctx.closePath();
-        ctx.stroke();
-      } else {
-        ctx.strokeRect(cropX, cropY, cropW, cropH);
+        if (radius > 0) {
+          ctx.moveTo(x + radius, y);
+          ctx.lineTo(x + w - radius, y);
+          ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
+          ctx.lineTo(x + w, y + h - radius);
+          ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
+          ctx.lineTo(x + radius, y + h);
+          ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
+          ctx.lineTo(x, y + radius);
+          ctx.quadraticCurveTo(x, y, x + radius, y);
+          ctx.closePath();
+        } else {
+          ctx.rect(x, y, w, h);
+        }
+      };
+
+      // Draw frame style
+      switch (styleOptions.frameStyle) {
+        case 'none':
+          // Default green border when no effect selected
+          ctx.strokeStyle = '#10b981';
+          ctx.lineWidth = 2;
+          drawPreviewRoundedRect(cropX, cropY, cropW, cropH, r);
+          ctx.stroke();
+          break;
+
+        case 'glass-light':
+          // Glass Light: white semi-transparent border only
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+          ctx.lineWidth = bw;
+          drawPreviewRoundedRect(cropX + bw/2, cropY + bw/2, cropW - bw, cropH - bw, Math.max(0, r - bw/2));
+          ctx.stroke();
+          break;
+
+        case 'glass-dark':
+          // Glass Dark: dark semi-transparent border only
+          ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
+          ctx.lineWidth = bw;
+          drawPreviewRoundedRect(cropX + bw/2, cropY + bw/2, cropW - bw, cropH - bw, Math.max(0, r - bw/2));
+          ctx.stroke();
+          break;
+
+        case 'inset-light':
+          // Inset Light: inner shadow effect
+          ctx.save();
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.2)';
+          ctx.shadowBlur = bw * 1.5;
+          ctx.shadowOffsetX = bw * 0.5;
+          ctx.shadowOffsetY = bw * 0.5;
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+          ctx.lineWidth = bw;
+          drawPreviewRoundedRect(cropX + bw/2, cropY + bw/2, cropW - bw, cropH - bw, Math.max(0, r - bw/2));
+          ctx.stroke();
+          ctx.restore();
+          break;
+
+        case 'inset-dark':
+          // Inset Dark: inner shadow effect
+          ctx.save();
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+          ctx.shadowBlur = bw * 1.5;
+          ctx.shadowOffsetX = bw * 0.5;
+          ctx.shadowOffsetY = bw * 0.5;
+          ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+          ctx.lineWidth = bw;
+          drawPreviewRoundedRect(cropX + bw/2, cropY + bw/2, cropW - bw, cropH - bw, Math.max(0, r - bw/2));
+          ctx.stroke();
+          ctx.restore();
+          break;
+
+        case 'outline':
+          // Simple outline
+          ctx.strokeStyle = styleOptions.borderColor;
+          ctx.lineWidth = 1;
+          drawPreviewRoundedRect(cropX + 0.5, cropY + 0.5, cropW - 1, cropH - 1, r);
+          ctx.stroke();
+          break;
+
+        case 'border':
+          // Solid border
+          ctx.strokeStyle = styleOptions.borderColor;
+          ctx.lineWidth = bw;
+          drawPreviewRoundedRect(cropX + bw/2, cropY + bw/2, cropW - bw, cropH - bw, Math.max(0, r - bw/2));
+          ctx.stroke();
+          break;
+
+        case 'liquid':
+          // Liquid effect: gradient border with glow
+          const liquidGradient = ctx.createLinearGradient(cropX, cropY, cropX + cropW, cropY + cropH);
+          liquidGradient.addColorStop(0, '#f97316');
+          liquidGradient.addColorStop(0.5, '#eab308');
+          liquidGradient.addColorStop(1, '#f97316');
+          ctx.save();
+          ctx.shadowColor = '#f97316';
+          ctx.shadowBlur = bw * 3;
+          ctx.strokeStyle = liquidGradient;
+          ctx.lineWidth = bw;
+          drawPreviewRoundedRect(cropX + bw/2, cropY + bw/2, cropW - bw, cropH - bw, Math.max(0, r - bw/2));
+          ctx.stroke();
+          ctx.restore();
+          break;
       }
 
       // Draw snap guide lines when active
@@ -952,6 +1048,9 @@ export default function CropEditor({
       borderRadius: 0,
       bgColor: 'transparent',
       shadow: 'none',
+      frameStyle: 'none',
+      borderWidth: 15,
+      borderColor: '#ffffff',
     });
   }, []);
 
@@ -992,20 +1091,31 @@ export default function CropEditor({
       ctx.fillRect(0, 0, finalW, finalH);
     }
 
-    // Step 2: Apply shadow if set (draw shadow shape before clipping)
+    // Step 2: Apply shadow if set (shots.so style shadows)
     if (styleOptions.shadow !== 'none') {
       const shadowSizes = {
-        sm: { blur: 4, offset: 2, opacity: 0.1 },
-        md: { blur: 10, offset: 4, opacity: 0.15 },
-        lg: { blur: 20, offset: 8, opacity: 0.2 },
+        spread: { blur: 30, offset: 0, opacity: 0.15, spread: true }, // Soft spread shadow
+        hug: { blur: 8, offset: 4, opacity: 0.25, spread: false },    // Tight hugging shadow
+        lg: { blur: 40, offset: 15, opacity: 0.35, spread: false },   // Heavy dramatic shadow
       };
-      const shadowConfig = shadowSizes[styleOptions.shadow];
+      const shadowConfig = shadowSizes[styleOptions.shadow as keyof typeof shadowSizes];
 
       ctx.save();
-      ctx.shadowColor = `rgba(0, 0, 0, ${shadowConfig.opacity})`;
-      ctx.shadowBlur = shadowConfig.blur;
-      ctx.shadowOffsetX = 0;
-      ctx.shadowOffsetY = shadowConfig.offset;
+
+      if (shadowConfig.spread) {
+        // Spread shadow: soft all-around glow
+        ctx.shadowColor = `rgba(0, 0, 0, ${shadowConfig.opacity})`;
+        ctx.shadowBlur = shadowConfig.blur;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+      } else {
+        // Directional shadow
+        ctx.shadowColor = `rgba(0, 0, 0, ${shadowConfig.opacity})`;
+        ctx.shadowBlur = shadowConfig.blur;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = shadowConfig.offset;
+      }
+
       ctx.fillStyle = styleOptions.bgColor !== 'transparent' ? styleOptions.bgColor : '#ffffff';
 
       // Draw shadow shape (with border radius if set)
@@ -1077,6 +1187,106 @@ export default function CropEditor({
         cropArea.x, cropArea.y, cropArea.width, cropArea.height,
         padding, padding, outW, outH
       );
+    }
+
+    // Step 5: Draw frame styles (shots.so style)
+    if (styleOptions.frameStyle !== 'none') {
+      // Reset clip to draw border on top
+      ctx.restore();
+      ctx.save();
+
+      const bw = styleOptions.borderWidth;
+      const r = Math.min(borderRadius, outW / 2, outH / 2);
+
+      // Helper to draw rounded rect path
+      const drawRoundedRectPath = (x: number, y: number, w: number, h: number, radius: number) => {
+        ctx.beginPath();
+        if (radius > 0) {
+          ctx.roundRect(x, y, w, h, radius);
+        } else {
+          ctx.rect(x, y, w, h);
+        }
+      };
+
+      switch (styleOptions.frameStyle) {
+        case 'glass-light':
+          // Glass Light: white semi-transparent border only
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+          ctx.lineWidth = bw;
+          drawRoundedRectPath(padding + bw/2, padding + bw/2, outW - bw, outH - bw, Math.max(0, r - bw/2));
+          ctx.stroke();
+          break;
+
+        case 'glass-dark':
+          // Glass Dark: dark semi-transparent border only
+          ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
+          ctx.lineWidth = bw;
+          drawRoundedRectPath(padding + bw/2, padding + bw/2, outW - bw, outH - bw, Math.max(0, r - bw/2));
+          ctx.stroke();
+          break;
+
+        case 'inset-light':
+          // Inset Light: inner shadow effect (light version)
+          ctx.save();
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.2)';
+          ctx.shadowBlur = bw * 1.5;
+          ctx.shadowOffsetX = bw * 0.5;
+          ctx.shadowOffsetY = bw * 0.5;
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+          ctx.lineWidth = bw;
+          drawRoundedRectPath(padding + bw/2, padding + bw/2, outW - bw, outH - bw, Math.max(0, r - bw/2));
+          ctx.stroke();
+          ctx.restore();
+          break;
+
+        case 'inset-dark':
+          // Inset Dark: inner shadow effect (dark version)
+          ctx.save();
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+          ctx.shadowBlur = bw * 1.5;
+          ctx.shadowOffsetX = bw * 0.5;
+          ctx.shadowOffsetY = bw * 0.5;
+          ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+          ctx.lineWidth = bw;
+          drawRoundedRectPath(padding + bw/2, padding + bw/2, outW - bw, outH - bw, Math.max(0, r - bw/2));
+          ctx.stroke();
+          ctx.restore();
+          break;
+
+        case 'outline':
+          // Simple thin outline (always 1px)
+          ctx.strokeStyle = styleOptions.borderColor;
+          ctx.lineWidth = 1;
+          drawRoundedRectPath(padding + 0.5, padding + 0.5, outW - 1, outH - 1, r);
+          ctx.stroke();
+          break;
+
+        case 'border':
+          // Solid border with configurable width
+          ctx.strokeStyle = styleOptions.borderColor;
+          ctx.lineWidth = bw;
+          drawRoundedRectPath(padding + bw/2, padding + bw/2, outW - bw, outH - bw, Math.max(0, r - bw/2));
+          ctx.stroke();
+          break;
+
+        case 'liquid':
+          // Liquid effect: gradient border with glow
+          const liquidGradient = ctx.createLinearGradient(0, 0, finalW, finalH);
+          liquidGradient.addColorStop(0, '#f97316');
+          liquidGradient.addColorStop(0.5, '#eab308');
+          liquidGradient.addColorStop(1, '#f97316');
+          ctx.save();
+          ctx.shadowColor = '#f97316';
+          ctx.shadowBlur = bw * 2;
+          ctx.strokeStyle = liquidGradient;
+          ctx.lineWidth = bw;
+          drawRoundedRectPath(padding + bw/2, padding + bw/2, outW - bw, outH - bw, Math.max(0, r - bw/2));
+          ctx.stroke();
+          ctx.restore();
+          break;
+      }
+
+      ctx.restore();
     }
 
     // Export
@@ -1555,24 +1765,106 @@ export default function CropEditor({
               </div>
             </div>
 
-            {/* Shadow */}
-            <div>
+            {/* Shadow - shots.so style */}
+            <div className="mb-4">
               <div className="text-[10px] text-neutral-500 mb-1.5">Shadow</div>
               <div className="grid grid-cols-4 gap-1.5">
-                {(['none', 'sm', 'md', 'lg'] as const).map((shadow) => (
+                {([
+                  { id: 'none', label: 'None' },
+                  { id: 'spread', label: 'Spread' },
+                  { id: 'hug', label: 'Hug' },
+                  { id: 'lg', label: 'Heavy' },
+                ] as const).map((shadow) => (
                   <button
-                    key={shadow}
-                    onClick={() => setStyleOptions(prev => ({ ...prev, shadow }))}
+                    key={shadow.id}
+                    onClick={() => setStyleOptions(prev => ({ ...prev, shadow: shadow.id }))}
                     className={`px-2 py-1.5 text-[10px] rounded ${
-                      styleOptions.shadow === shadow
+                      styleOptions.shadow === shadow.id
                         ? 'bg-emerald-600 text-white'
                         : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
                     }`}
                   >
-                    {shadow === 'none' ? 'None' : shadow.toUpperCase()}
+                    {shadow.label}
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* Frame Styles - shots.so style */}
+            <div>
+              <div className="text-[10px] text-neutral-500 mb-1.5">Frame Style</div>
+              <div className="grid grid-cols-2 gap-1.5 mb-3">
+                {([
+                  { id: 'none', label: 'None', preview: 'bg-neutral-700' },
+                  { id: 'glass-light', label: 'Glass Light', preview: 'bg-gradient-to-br from-white/50 to-white/20 border border-white/30' },
+                  { id: 'glass-dark', label: 'Glass Dark', preview: 'bg-gradient-to-br from-black/30 to-black/10 border border-black/20' },
+                  { id: 'inset-light', label: 'Inset Light', preview: 'bg-neutral-600 shadow-inner' },
+                  { id: 'inset-dark', label: 'Inset Dark', preview: 'bg-neutral-800 shadow-inner' },
+                  { id: 'outline', label: 'Outline', preview: 'bg-transparent border border-white' },
+                  { id: 'border', label: 'Border', preview: 'bg-transparent border-2 border-white' },
+                  { id: 'liquid', label: 'Liquid', preview: 'bg-gradient-to-br from-orange-500 via-yellow-500 to-orange-500' },
+                ] as const).map((style) => (
+                  <button
+                    key={style.id}
+                    onClick={() => setStyleOptions(prev => ({ ...prev, frameStyle: style.id }))}
+                    className={`flex flex-col items-center gap-1 p-2 rounded ${
+                      styleOptions.frameStyle === style.id
+                        ? 'bg-emerald-600/20 ring-1 ring-emerald-500'
+                        : 'bg-neutral-800 hover:bg-neutral-700'
+                    }`}
+                  >
+                    <div className={`w-8 h-6 rounded ${style.preview}`} />
+                    <span className="text-[9px] text-neutral-300">{style.label}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Border Width - show for styles that have visible borders */}
+              {styleOptions.frameStyle !== 'none' && (
+                <div className="space-y-3">
+                  <div>
+                    <div className="text-[10px] text-neutral-500 mb-1.5">Border Width</div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min="1"
+                        max="500"
+                        value={styleOptions.borderWidth}
+                        onChange={(e) => {
+                          const val = Math.max(1, Math.min(500, parseInt(e.target.value) || 1));
+                          setStyleOptions(prev => ({ ...prev, borderWidth: val }));
+                        }}
+                        className="w-20 px-2 py-1 text-[11px] bg-neutral-800 border border-neutral-700 rounded text-white text-center focus:outline-none focus:border-emerald-500"
+                      />
+                      <span className="text-[10px] text-neutral-500">px</span>
+                      <span className="text-[9px] text-neutral-600 ml-auto">
+                        {cropArea ? `≈${((styleOptions.borderWidth / Math.min(cropArea.width, cropArea.height)) * 100).toFixed(1)}%` : ''}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Border Color - for outline and border styles */}
+                  {(styleOptions.frameStyle === 'outline' || styleOptions.frameStyle === 'border') && (
+                    <div>
+                      <div className="text-[10px] text-neutral-500 mb-1.5">Border Color</div>
+                      <div className="grid grid-cols-5 gap-1.5">
+                        {['#ffffff', '#000000', '#6366f1', '#ec4899', '#22c55e'].map((color) => (
+                          <button
+                            key={color}
+                            onClick={() => setStyleOptions(prev => ({ ...prev, borderColor: color }))}
+                            className={`h-6 rounded border-2 ${
+                              styleOptions.borderColor === color
+                                ? 'border-emerald-500'
+                                : 'border-neutral-700 hover:border-neutral-600'
+                            }`}
+                            style={{ background: color }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
