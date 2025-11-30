@@ -820,73 +820,30 @@ export default function CropEditor({
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex bg-neutral-950">
-      {/* Main Canvas Area - Takes maximum space */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Minimal top bar */}
-        <div className="flex items-center justify-between px-4 py-2 bg-neutral-900/50">
-          <div className="flex items-center gap-2">
-            <h2 className="text-white text-sm font-medium">Crop</h2>
-            {imageSize.width > 0 && (
-              <span className="text-neutral-500 text-xs">
-                {imageSize.width} × {imageSize.height}
-              </span>
-            )}
-          </div>
-          <button onClick={onClose} className="text-neutral-400 hover:text-white">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Canvas */}
-        <div ref={containerRef} className="flex-1 flex items-center justify-center p-4 min-h-0 overflow-auto">
-          {imageLoaded ? (
-            <canvas
-              ref={canvasRef}
-              onMouseDown={handleMouseDown}
-              className="max-w-full max-h-full"
-              style={{
-                cursor: isDragging
-                  ? 'grabbing'
-                  : isResizing
-                  ? (imageResizeHandle === 'nw' || imageResizeHandle === 'se' ? 'nwse-resize' :
-                     imageResizeHandle === 'ne' || imageResizeHandle === 'sw' ? 'nesw-resize' : 'nwse-resize')
-                  : dragMode === 'image'
-                  ? 'grab'
-                  : 'crosshair'
-              }}
-            />
-          ) : (
-            <div className="text-neutral-500 flex items-center gap-2">
-              <div className="w-5 h-5 border-2 border-neutral-500 border-t-transparent rounded-full animate-spin" />
-              Loading...
-            </div>
-          )}
-        </div>
-
-        {/* Bottom info bar */}
-        <div className="px-4 py-2 bg-neutral-900/50 text-xs text-neutral-400">
-          {cropArea && (
-            <span>
-              Selection: <span className="text-white">{Math.round(cropArea.width)} × {Math.round(cropArea.height)}</span>
-              {selectedSize && (
-                <span className="ml-3">
-                  Output: <span className="text-emerald-400">{Math.min(selectedSize.width, Math.round(cropArea.width))} × {Math.min(selectedSize.height, Math.round(cropArea.height))}</span>
-                </span>
-              )}
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Right Sidebar */}
-      <div className="w-64 bg-neutral-900 border-l border-neutral-800 flex flex-col">
+      {/* Left Sidebar */}
+      <div className="w-64 bg-neutral-900 border-r border-neutral-800 flex flex-col">
         {/* Sidebar Header */}
         <div className="p-4 border-b border-neutral-800">
           <h3 className="text-white text-sm font-medium">Settings</h3>
         </div>
 
-        {/* Sidebar Content - Scrollable */}
-        <div className="flex-1 overflow-y-auto">
+        {/* Sidebar Content - Scrollable with minimal scrollbar */}
+        <div className="flex-1 overflow-y-auto scrollbar-thin">
+          <style>{`
+            .scrollbar-thin::-webkit-scrollbar {
+              width: 4px;
+            }
+            .scrollbar-thin::-webkit-scrollbar-track {
+              background: transparent;
+            }
+            .scrollbar-thin::-webkit-scrollbar-thumb {
+              background: rgba(255, 255, 255, 0.1);
+              border-radius: 4px;
+            }
+            .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+              background: rgba(255, 255, 255, 0.2);
+            }
+          `}</style>
           {/* Drag Mode Toggle */}
           <div className="p-4 border-b border-neutral-800">
             <h4 className="text-neutral-400 text-xs uppercase tracking-wide mb-3">Edit Mode</h4>
@@ -1161,6 +1118,64 @@ export default function CropEditor({
             <Check className="w-4 h-4 mr-2" />
             Apply Crop
           </Button>
+        </div>
+      </div>
+
+      {/* Main Canvas Area - Takes maximum space */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Minimal top bar */}
+        <div className="flex items-center justify-between px-4 py-2 bg-neutral-900/50">
+          <div className="flex items-center gap-2">
+            <h2 className="text-white text-sm font-medium">Crop</h2>
+            {imageSize.width > 0 && (
+              <span className="text-neutral-500 text-xs">
+                {imageSize.width} × {imageSize.height}
+              </span>
+            )}
+          </div>
+          <button onClick={onClose} className="text-neutral-400 hover:text-white">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Canvas */}
+        <div ref={containerRef} className="flex-1 flex items-center justify-center p-4 min-h-0 overflow-auto">
+          {imageLoaded ? (
+            <canvas
+              ref={canvasRef}
+              onMouseDown={handleMouseDown}
+              className="max-w-full max-h-full"
+              style={{
+                cursor: isDragging
+                  ? 'grabbing'
+                  : isResizing
+                  ? (imageResizeHandle === 'nw' || imageResizeHandle === 'se' ? 'nwse-resize' :
+                     imageResizeHandle === 'ne' || imageResizeHandle === 'sw' ? 'nesw-resize' : 'nwse-resize')
+                  : dragMode === 'image'
+                  ? 'grab'
+                  : 'crosshair'
+              }}
+            />
+          ) : (
+            <div className="text-neutral-500 flex items-center gap-2">
+              <div className="w-5 h-5 border-2 border-neutral-500 border-t-transparent rounded-full animate-spin" />
+              Loading...
+            </div>
+          )}
+        </div>
+
+        {/* Bottom info bar */}
+        <div className="px-4 py-2 bg-neutral-900/50 text-xs text-neutral-400">
+          {cropArea && (
+            <span>
+              Selection: <span className="text-white">{Math.round(cropArea.width)} × {Math.round(cropArea.height)}</span>
+              {selectedSize && (
+                <span className="ml-3">
+                  Output: <span className="text-emerald-400">{Math.min(selectedSize.width, Math.round(cropArea.width))} × {Math.min(selectedSize.height, Math.round(cropArea.height))}</span>
+                </span>
+              )}
+            </span>
+          )}
         </div>
       </div>
     </div>,
