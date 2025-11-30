@@ -191,8 +191,8 @@ export default function BatchRenameDialog({
             </button>
           </div>
 
-          {/* Content */}
-          <div className="space-y-4">
+          {/* Content - min height to prevent resize when switching tabs */}
+          <div className="space-y-4 min-h-[380px]">
             {/* Mode Selection - Crop modal style buttons */}
             <div>
               <label className="text-xs uppercase tracking-wide text-neutral-400 mb-2 block">Rename Mode</label>
