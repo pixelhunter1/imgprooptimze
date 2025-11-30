@@ -4,6 +4,11 @@
   "version": "1.0.10",
   "type": "module",
   "main": "out/main/index.js",
+  "description": "Professional image optimization tool with batch processing, format conversion, and quality controls",
+  "author": {
+    "name": "Image Optimizer Pro",
+    "email": "support@imgoptimizerpro.com"
+  },
   "scripts": {
     "dev": "vite",
     "prebuild": "node scripts/build-version.js",
@@ -20,7 +25,11 @@
     "electron:dev": "electron-vite dev",
     "electron:build": "electron-vite build",
     "electron:preview": "electron-vite preview",
-    "electron:dist": "electron-vite build && electron-builder --mac"
+    "electron:dist": "electron-vite build && electron-builder",
+    "electron:dist:mac": "electron-vite build && electron-builder --mac",
+    "electron:dist:win": "electron-vite build && electron-builder --win",
+    "electron:dist:linux": "electron-vite build && electron-builder --linux",
+    "electron:dist:all": "electron-vite build && electron-builder --mac --win --linux"
   },
   "dependencies": {
     "@base-ui-components/react": "^1.0.0-beta.2",
