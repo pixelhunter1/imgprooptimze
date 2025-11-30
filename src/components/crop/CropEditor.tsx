@@ -124,9 +124,10 @@ export default function CropEditor({
   const handleSizeSelect = useCallback((size: SizePreset) => {
     setSelectedSize(size);
 
-    if (!imageRef.current) return;
+    if (!imageRef.current || !containerRef.current) return;
 
     const img = imageRef.current;
+    const container = containerRef.current;
     const ratio = size.width / size.height;
 
     let cropW, cropH;
@@ -150,6 +151,14 @@ export default function CropEditor({
 
     const x = (img.width - cropW) / 2;
     const y = (img.height - cropH) / 2;
+
+    // Recalculate displayScale to ensure the crop fits in the visible area
+    const maxWidth = container.clientWidth - 32;
+    const maxHeight = container.clientHeight - 32;
+
+    // We need to fit the entire image in the container, considering the crop might be anywhere
+    const newScale = Math.min(maxWidth / img.width, maxHeight / img.height, 1);
+    setDisplayScale(newScale);
 
     setCropArea({ x, y, width: cropW, height: cropH });
   }, []);
@@ -183,16 +192,31 @@ export default function CropEditor({
       const container = containerRef.current;
       if (!container) return;
 
-      // Fixed canvas size based on container
-      const canvasW = Math.min(container.clientWidth - 32, 800);
-      const canvasH = Math.min(container.clientHeight - 32, 600);
+      // Calculate canvas size based on container
+      const maxCanvasW = container.clientWidth - 32;
+      const maxCanvasH = container.clientHeight - 32;
+
+      // Calculate the scale needed to fit the crop area in the canvas with some padding
+      const padding = 100; // Extra space around crop for image manipulation
+      const scaleToFitCrop = Math.min(
+        (maxCanvasW - padding) / cropArea.width,
+        (maxCanvasH - padding) / cropArea.height,
+        1 // Don't scale up
+      );
+
+      // Canvas size should accommodate the crop at the calculated scale
+      const cropW = cropArea.width * scaleToFitCrop;
+      const cropH = cropArea.height * scaleToFitCrop;
+
+      // Canvas is larger than crop to allow image manipulation
+      const canvasW = Math.min(maxCanvasW, cropW + padding);
+      const canvasH = Math.min(maxCanvasH, cropH + padding);
 
       canvas.width = canvasW;
       canvas.height = canvasH;
 
-      // Crop is ALWAYS centered in canvas
-      const cropW = cropArea.width * displayScale;
-      const cropH = cropArea.height * displayScale;
+      // Use the calculated scale for this render (temporarily override displayScale for image mode)
+      const effectiveScale = scaleToFitCrop;
       const cropX = (canvasW - cropW) / 2;
       const cropY = (canvasH - cropH) / 2;
 
@@ -202,10 +226,10 @@ export default function CropEditor({
 
       // Calculate image position relative to centered crop
       // imageTransform.x/y are relative to crop origin (0,0)
-      const imgW = img.width * imageTransform.scale * displayScale;
-      const imgH = img.height * imageTransform.scale * displayScale;
-      const imgX = cropX + imageTransform.x * displayScale;
-      const imgY = cropY + imageTransform.y * displayScale;
+      const imgW = img.width * imageTransform.scale * effectiveScale;
+      const imgH = img.height * imageTransform.scale * effectiveScale;
+      const imgX = cropX + imageTransform.x * effectiveScale;
+      const imgY = cropY + imageTransform.y * effectiveScale;
 
       // Draw the image
       ctx.drawImage(img, imgX, imgY, imgW, imgH);
@@ -344,9 +368,10 @@ export default function CropEditor({
 
       ctx.setLineDash([]);
 
-      // Store crop position for hit testing
+      // Store crop position and scale for hit testing
       canvas.dataset.cropX = String(cropX);
       canvas.dataset.cropY = String(cropY);
+      canvas.dataset.effectiveScale = String(effectiveScale);
     } else {
       // Crop mode: normal behavior
       const dw = img.width * displayScale;
@@ -447,20 +472,23 @@ export default function CropEditor({
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
 
-    // Get crop position from dataset
+    // Get crop position and effective scale from dataset
     const cropCanvasX = parseFloat(canvas.dataset.cropX || '0');
     const cropCanvasY = parseFloat(canvas.dataset.cropY || '0');
+    const effectiveScale = parseFloat(canvas.dataset.effectiveScale || String(displayScale));
 
-    // Mouse position on canvas
-    const canvasMouseX = mouseX - rect.left;
-    const canvasMouseY = mouseY - rect.top;
+    // Mouse position on canvas (account for CSS scaling)
+    const cssScaleX = rect.width / canvas.width;
+    const cssScaleY = rect.height / canvas.height;
+    const canvasMouseX = (mouseX - rect.left) / cssScaleX;
+    const canvasMouseY = (mouseY - rect.top) / cssScaleY;
 
     // Image position on canvas
     const img = imageRef.current;
-    const imgW = img.width * imageTransform.scale * displayScale;
-    const imgH = img.height * imageTransform.scale * displayScale;
-    const imgX = cropCanvasX + imageTransform.x * displayScale;
-    const imgY = cropCanvasY + imageTransform.y * displayScale;
+    const imgW = img.width * imageTransform.scale * effectiveScale;
+    const imgH = img.height * imageTransform.scale * effectiveScale;
+    const imgX = cropCanvasX + imageTransform.x * effectiveScale;
+    const imgY = cropCanvasY + imageTransform.y * effectiveScale;
 
     const t = 18; // Tolerance for handle hit
     const handles: Record<string, [number, number]> = {
@@ -484,15 +512,19 @@ export default function CropEditor({
 
     const cropCanvasX = parseFloat(canvas.dataset.cropX || '0');
     const cropCanvasY = parseFloat(canvas.dataset.cropY || '0');
+    const effectiveScale = parseFloat(canvas.dataset.effectiveScale || String(displayScale));
 
-    const canvasMouseX = mouseX - rect.left;
-    const canvasMouseY = mouseY - rect.top;
+    // Account for CSS scaling
+    const cssScaleX = rect.width / canvas.width;
+    const cssScaleY = rect.height / canvas.height;
+    const canvasMouseX = (mouseX - rect.left) / cssScaleX;
+    const canvasMouseY = (mouseY - rect.top) / cssScaleY;
 
     const img = imageRef.current;
-    const imgW = img.width * imageTransform.scale * displayScale;
-    const imgH = img.height * imageTransform.scale * displayScale;
-    const imgX = cropCanvasX + imageTransform.x * displayScale;
-    const imgY = cropCanvasY + imageTransform.y * displayScale;
+    const imgW = img.width * imageTransform.scale * effectiveScale;
+    const imgH = img.height * imageTransform.scale * effectiveScale;
+    const imgX = cropCanvasX + imageTransform.x * effectiveScale;
+    const imgY = cropCanvasY + imageTransform.y * effectiveScale;
 
     return canvasMouseX >= imgX && canvasMouseX <= imgX + imgW &&
            canvasMouseY >= imgY && canvasMouseY <= imgY + imgH;
@@ -531,8 +563,12 @@ export default function CropEditor({
     if (!cropArea || !imageRef.current) return;
 
     if (dragMode === 'image') {
-      const dx = (e.clientX - dragStart.x) / displayScale;
-      const dy = (e.clientY - dragStart.y) / displayScale;
+      // Get effective scale from canvas dataset (set during render)
+      const canvas = canvasRef.current;
+      const effectiveScale = canvas ? parseFloat(canvas.dataset.effectiveScale || String(displayScale)) : displayScale;
+
+      const dx = (e.clientX - dragStart.x) / effectiveScale;
+      const dy = (e.clientY - dragStart.y) / effectiveScale;
 
       if (isResizing && imageResizeHandle) {
         // Resize the image by changing scale
