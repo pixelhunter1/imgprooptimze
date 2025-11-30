@@ -607,11 +607,17 @@ export default function CropEditor({
     const cropCanvasY = parseFloat(canvas.dataset.cropY || '0');
     const effectiveScale = parseFloat(canvas.dataset.effectiveScale || String(displayScale));
 
-    // Mouse position on canvas (account for CSS scaling)
-    const cssScaleX = rect.width / canvas.width;
-    const cssScaleY = rect.height / canvas.height;
-    const canvasMouseX = (mouseX - rect.left) / cssScaleX;
-    const canvasMouseY = (mouseY - rect.top) / cssScaleY;
+    // Mouse position relative to canvas CSS size (rect.width/height is the CSS size)
+    const canvasMouseX = mouseX - rect.left;
+    const canvasMouseY = mouseY - rect.top;
+
+    // Convert to logical canvas coordinates (canvas style width, not canvas.width which includes DPR)
+    const styleWidth = parseFloat(canvas.style.width) || rect.width;
+    const styleHeight = parseFloat(canvas.style.height) || rect.height;
+    const scaleX = styleWidth / rect.width;
+    const scaleY = styleHeight / rect.height;
+    const logicalX = canvasMouseX * scaleX;
+    const logicalY = canvasMouseY * scaleY;
 
     // Image position on canvas
     const img = imageRef.current;
@@ -629,7 +635,7 @@ export default function CropEditor({
     };
 
     for (const [h, [hx, hy]] of Object.entries(handles)) {
-      if (Math.abs(canvasMouseX - hx) < t && Math.abs(canvasMouseY - hy) < t) return h;
+      if (Math.abs(logicalX - hx) < t && Math.abs(logicalY - hy) < t) return h;
     }
     return null;
   }, [cropArea, displayScale, imageTransform]);
@@ -644,11 +650,17 @@ export default function CropEditor({
     const cropCanvasY = parseFloat(canvas.dataset.cropY || '0');
     const effectiveScale = parseFloat(canvas.dataset.effectiveScale || String(displayScale));
 
-    // Account for CSS scaling
-    const cssScaleX = rect.width / canvas.width;
-    const cssScaleY = rect.height / canvas.height;
-    const canvasMouseX = (mouseX - rect.left) / cssScaleX;
-    const canvasMouseY = (mouseY - rect.top) / cssScaleY;
+    // Mouse position relative to canvas CSS size
+    const canvasMouseX = mouseX - rect.left;
+    const canvasMouseY = mouseY - rect.top;
+
+    // Convert to logical canvas coordinates
+    const styleWidth = parseFloat(canvas.style.width) || rect.width;
+    const styleHeight = parseFloat(canvas.style.height) || rect.height;
+    const scaleX = styleWidth / rect.width;
+    const scaleY = styleHeight / rect.height;
+    const logicalX = canvasMouseX * scaleX;
+    const logicalY = canvasMouseY * scaleY;
 
     const img = imageRef.current;
     const imgW = img.width * imageTransform.scale * effectiveScale;
@@ -656,8 +668,8 @@ export default function CropEditor({
     const imgX = cropCanvasX + imageTransform.x * effectiveScale;
     const imgY = cropCanvasY + imageTransform.y * effectiveScale;
 
-    return canvasMouseX >= imgX && canvasMouseX <= imgX + imgW &&
-           canvasMouseY >= imgY && canvasMouseY <= imgY + imgH;
+    return logicalX >= imgX && logicalX <= imgX + imgW &&
+           logicalY >= imgY && logicalY <= imgY + imgH;
   }, [cropArea, displayScale, imageTransform]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -671,8 +683,8 @@ export default function CropEditor({
         setIsResizing(true);
         setImageResizeHandle(handle);
         setDragStart({ x: e.clientX, y: e.clientY });
-      } else if (isInsideImage(e.clientX, e.clientY)) {
-        // Dragging the image
+      } else {
+        // Allow dragging from anywhere on the canvas in image mode
         setIsDragging(true);
         setDragStart({ x: e.clientX, y: e.clientY });
       }
