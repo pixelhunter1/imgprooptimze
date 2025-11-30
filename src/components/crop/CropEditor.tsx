@@ -207,6 +207,24 @@ export default function CropEditor({
 
     const img = imageRef.current;
 
+    // Helper function to draw checkered background (Figma style)
+    const drawCheckerboard = (x: number, y: number, w: number, h: number, size: number = 8) => {
+      const lightColor = '#3a3a3a';
+      const darkColor = '#2a2a2a';
+
+      for (let row = 0; row < Math.ceil(h / size); row++) {
+        for (let col = 0; col < Math.ceil(w / size); col++) {
+          const isLight = (row + col) % 2 === 0;
+          ctx.fillStyle = isLight ? lightColor : darkColor;
+          const cellX = x + col * size;
+          const cellY = y + row * size;
+          const cellW = Math.min(size, x + w - cellX);
+          const cellH = Math.min(size, y + h - cellY);
+          ctx.fillRect(cellX, cellY, cellW, cellH);
+        }
+      }
+    };
+
     if (dragMode === 'image') {
       // Image mode: FIXED canvas size, crop centered, image moves behind
       const container = containerRef.current;
@@ -240,9 +258,11 @@ export default function CropEditor({
       const cropX = (canvasW - cropW) / 2;
       const cropY = (canvasH - cropH) / 2;
 
-      // Draw dark background
-      ctx.fillStyle = '#0a0a0a';
-      ctx.fillRect(0, 0, canvasW, canvasH);
+      // Disable image smoothing for crisp rendering
+      ctx.imageSmoothingEnabled = false;
+
+      // Draw checkered background (Figma style)
+      drawCheckerboard(0, 0, canvasW, canvasH, 10);
 
       // Calculate image position relative to centered crop
       // imageTransform.x/y are relative to crop origin (0,0)
@@ -277,83 +297,40 @@ export default function CropEditor({
         ctx.strokeRect(cx - handleSize / 2, cy - handleSize / 2, handleSize, handleSize);
       });
 
-      // Draw semi-transparent overlay OVER the image, except inside crop area
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
-      // Top
-      ctx.fillRect(0, 0, canvasW, cropY);
-      // Bottom
-      ctx.fillRect(0, cropY + cropH, canvasW, canvasH - cropY - cropH);
-      // Left
-      ctx.fillRect(0, cropY, cropX, cropH);
-      // Right
-      ctx.fillRect(cropX + cropW, cropY, canvasW - cropX - cropW, cropH);
+      // Re-enable image smoothing for high quality image rendering
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
 
       // Preview style effects inside crop area
-      if (styleOptions.padding > 0 || styleOptions.borderRadius > 0 || styleOptions.bgColor !== 'transparent') {
-        const previewPadding = styleOptions.padding * effectiveScale * 0.5; // Scale down for preview
-        const previewRadius = Math.min(styleOptions.borderRadius * effectiveScale * 0.5, (cropW - previewPadding * 2) / 2, (cropH - previewPadding * 2) / 2);
+      const previewPadding = styleOptions.padding * effectiveScale * 0.5;
+      const previewRadius = Math.min(styleOptions.borderRadius * effectiveScale * 0.5, (cropW - previewPadding * 2) / 2, (cropH - previewPadding * 2) / 2);
 
-        // Draw background color in padding area
-        if (styleOptions.bgColor !== 'transparent' && styleOptions.padding > 0) {
-          ctx.fillStyle = styleOptions.bgColor;
-          ctx.fillRect(cropX, cropY, cropW, cropH);
-
-          // Re-draw the image inside the padded area
-          ctx.save();
-          if (previewRadius > 0) {
-            ctx.beginPath();
-            const rx = cropX + previewPadding;
-            const ry = cropY + previewPadding;
-            const rw = cropW - previewPadding * 2;
-            const rh = cropH - previewPadding * 2;
-            ctx.moveTo(rx + previewRadius, ry);
-            ctx.lineTo(rx + rw - previewRadius, ry);
-            ctx.quadraticCurveTo(rx + rw, ry, rx + rw, ry + previewRadius);
-            ctx.lineTo(rx + rw, ry + rh - previewRadius);
-            ctx.quadraticCurveTo(rx + rw, ry + rh, rx + rw - previewRadius, ry + rh);
-            ctx.lineTo(rx + previewRadius, ry + rh);
-            ctx.quadraticCurveTo(rx, ry + rh, rx, ry + rh - previewRadius);
-            ctx.lineTo(rx, ry + previewRadius);
-            ctx.quadraticCurveTo(rx, ry, rx + previewRadius, ry);
-            ctx.closePath();
-            ctx.clip();
-          }
-          // Re-draw image clipped
-          ctx.drawImage(img, imgX, imgY, imgW, imgH);
-          ctx.restore();
-        } else if (previewRadius > 0) {
-          // Just border radius, no padding
-          ctx.save();
-          ctx.beginPath();
-          ctx.moveTo(cropX + previewRadius, cropY);
-          ctx.lineTo(cropX + cropW - previewRadius, cropY);
-          ctx.quadraticCurveTo(cropX + cropW, cropY, cropX + cropW, cropY + previewRadius);
-          ctx.lineTo(cropX + cropW, cropY + cropH - previewRadius);
-          ctx.quadraticCurveTo(cropX + cropW, cropY + cropH, cropX + cropW - previewRadius, cropY + cropH);
-          ctx.lineTo(cropX + previewRadius, cropY + cropH);
-          ctx.quadraticCurveTo(cropX, cropY + cropH, cropX, cropY + cropH - previewRadius);
-          ctx.lineTo(cropX, cropY + previewRadius);
-          ctx.quadraticCurveTo(cropX, cropY, cropX + previewRadius, cropY);
-          ctx.closePath();
-          ctx.clip();
-          ctx.drawImage(img, imgX, imgY, imgW, imgH);
-          ctx.restore();
-
-          // Redraw overlay outside rounded corners
-          ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
-          ctx.fillRect(cropX, cropY, previewRadius, previewRadius);
-          ctx.fillRect(cropX + cropW - previewRadius, cropY, previewRadius, previewRadius);
-          ctx.fillRect(cropX, cropY + cropH - previewRadius, previewRadius, previewRadius);
-          ctx.fillRect(cropX + cropW - previewRadius, cropY + cropH - previewRadius, previewRadius, previewRadius);
-        }
+      // Draw background color if set
+      if (styleOptions.bgColor !== 'transparent') {
+        ctx.fillStyle = styleOptions.bgColor;
+        ctx.fillRect(cropX, cropY, cropW, cropH);
       }
 
-      // Draw crop border (green, fixed in center)
-      ctx.strokeStyle = '#10b981';
-      ctx.lineWidth = 3;
-      if (styleOptions.borderRadius > 0) {
-        const previewRadius = Math.min(styleOptions.borderRadius * effectiveScale * 0.5, cropW / 2, cropH / 2);
-        ctx.beginPath();
+      // Draw the image inside crop area (clipped)
+      ctx.save();
+      ctx.beginPath();
+      if (previewRadius > 0 && styleOptions.padding > 0) {
+        // Rounded rect clip with padding
+        const rx = cropX + previewPadding;
+        const ry = cropY + previewPadding;
+        const rw = cropW - previewPadding * 2;
+        const rh = cropH - previewPadding * 2;
+        ctx.moveTo(rx + previewRadius, ry);
+        ctx.lineTo(rx + rw - previewRadius, ry);
+        ctx.quadraticCurveTo(rx + rw, ry, rx + rw, ry + previewRadius);
+        ctx.lineTo(rx + rw, ry + rh - previewRadius);
+        ctx.quadraticCurveTo(rx + rw, ry + rh, rx + rw - previewRadius, ry + rh);
+        ctx.lineTo(rx + previewRadius, ry + rh);
+        ctx.quadraticCurveTo(rx, ry + rh, rx, ry + rh - previewRadius);
+        ctx.lineTo(rx, ry + previewRadius);
+        ctx.quadraticCurveTo(rx, ry, rx + previewRadius, ry);
+      } else if (previewRadius > 0) {
+        // Rounded rect clip without padding
         ctx.moveTo(cropX + previewRadius, cropY);
         ctx.lineTo(cropX + cropW - previewRadius, cropY);
         ctx.quadraticCurveTo(cropX + cropW, cropY, cropX + cropW, cropY + previewRadius);
@@ -363,53 +340,34 @@ export default function CropEditor({
         ctx.quadraticCurveTo(cropX, cropY + cropH, cropX, cropY + cropH - previewRadius);
         ctx.lineTo(cropX, cropY + previewRadius);
         ctx.quadraticCurveTo(cropX, cropY, cropX + previewRadius, cropY);
+      } else {
+        // Simple rect clip
+        ctx.rect(cropX, cropY, cropW, cropH);
+      }
+      ctx.closePath();
+      ctx.clip();
+      ctx.drawImage(img, imgX, imgY, imgW, imgH);
+      ctx.restore();
+
+      // Draw simple crop border (green)
+      ctx.strokeStyle = '#10b981';
+      ctx.lineWidth = 2;
+      if (styleOptions.borderRadius > 0) {
+        const r = Math.min(styleOptions.borderRadius * effectiveScale * 0.5, cropW / 2, cropH / 2);
+        ctx.beginPath();
+        ctx.moveTo(cropX + r, cropY);
+        ctx.lineTo(cropX + cropW - r, cropY);
+        ctx.quadraticCurveTo(cropX + cropW, cropY, cropX + cropW, cropY + r);
+        ctx.lineTo(cropX + cropW, cropY + cropH - r);
+        ctx.quadraticCurveTo(cropX + cropW, cropY + cropH, cropX + cropW - r, cropY + cropH);
+        ctx.lineTo(cropX + r, cropY + cropH);
+        ctx.quadraticCurveTo(cropX, cropY + cropH, cropX, cropY + cropH - r);
+        ctx.lineTo(cropX, cropY + r);
+        ctx.quadraticCurveTo(cropX, cropY, cropX + r, cropY);
         ctx.closePath();
         ctx.stroke();
       } else {
         ctx.strokeRect(cropX, cropY, cropW, cropH);
-      }
-
-      // Draw corner highlights on crop
-      const cornerLen = 20;
-      ctx.strokeStyle = '#10b981';
-      ctx.lineWidth = 4;
-      // Top-left
-      ctx.beginPath();
-      ctx.moveTo(cropX, cropY + cornerLen);
-      ctx.lineTo(cropX, cropY);
-      ctx.lineTo(cropX + cornerLen, cropY);
-      ctx.stroke();
-      // Top-right
-      ctx.beginPath();
-      ctx.moveTo(cropX + cropW - cornerLen, cropY);
-      ctx.lineTo(cropX + cropW, cropY);
-      ctx.lineTo(cropX + cropW, cropY + cornerLen);
-      ctx.stroke();
-      // Bottom-left
-      ctx.beginPath();
-      ctx.moveTo(cropX, cropY + cropH - cornerLen);
-      ctx.lineTo(cropX, cropY + cropH);
-      ctx.lineTo(cropX + cornerLen, cropY + cropH);
-      ctx.stroke();
-      // Bottom-right
-      ctx.beginPath();
-      ctx.moveTo(cropX + cropW - cornerLen, cropY + cropH);
-      ctx.lineTo(cropX + cropW, cropY + cropH);
-      ctx.lineTo(cropX + cropW, cropY + cropH - cornerLen);
-      ctx.stroke();
-
-      // Draw grid inside crop
-      ctx.strokeStyle = 'rgba(255,255,255,0.25)';
-      ctx.lineWidth = 1;
-      for (let i = 1; i < 3; i++) {
-        ctx.beginPath();
-        ctx.moveTo(cropX + (cropW / 3) * i, cropY);
-        ctx.lineTo(cropX + (cropW / 3) * i, cropY + cropH);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(cropX, cropY + (cropH / 3) * i);
-        ctx.lineTo(cropX + cropW, cropY + (cropH / 3) * i);
-        ctx.stroke();
       }
 
       // Draw snap guide lines when active
@@ -476,6 +434,13 @@ export default function CropEditor({
       canvas.width = dw;
       canvas.height = dh;
 
+      // Draw checkered background
+      drawCheckerboard(0, 0, dw, dh, 10);
+
+      // Enable high quality image rendering
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+
       ctx.drawImage(img, 0, 0, dw, dh);
 
       ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
@@ -488,7 +453,10 @@ export default function CropEditor({
         h: cropArea.height * displayScale,
       };
 
-      ctx.clearRect(sc.x, sc.y, sc.w, sc.h);
+      // Draw checkered pattern in crop area first
+      drawCheckerboard(sc.x, sc.y, sc.w, sc.h, 8);
+
+      // Then draw the cropped image on top
       ctx.drawImage(img, cropArea.x, cropArea.y, cropArea.width, cropArea.height, sc.x, sc.y, sc.w, sc.h);
 
       ctx.strokeStyle = '#10b981';
@@ -509,9 +477,12 @@ export default function CropEditor({
       }
 
       ctx.fillStyle = '#10b981';
-      const hs = 8;
+      const hs = 10;
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
       [[sc.x, sc.y], [sc.x + sc.w, sc.y], [sc.x, sc.y + sc.h], [sc.x + sc.w, sc.y + sc.h]].forEach(([hx, hy]) => {
         ctx.fillRect(hx - hs / 2, hy - hs / 2, hs, hs);
+        ctx.strokeRect(hx - hs / 2, hy - hs / 2, hs, hs);
       });
     }
   }, [cropArea, imageLoaded, displayScale, dragMode, imageTransform, activeGuides, styleOptions]);
