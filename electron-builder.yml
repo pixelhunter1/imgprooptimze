@@ -1,0 +1,49 @@
+appId: com.imgoptimizerpro.app
+productName: Image Optimizer Pro
+copyright: Copyright 2024
+
+directories:
+  output: release
+  buildResources: build
+
+files:
+  - "out/**/*"
+
+mac:
+  category: public.app-category.photography
+  icon: public/icons/icon-512x512.png
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+    - target: zip
+      arch:
+        - x64
+        - arm64
+
+dmg:
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications
+  window:
+    width: 540
+    height: 380
+
+fileAssociations:
+  - ext: png
+    name: PNG Image
+    role: Editor
+  - ext: jpg
+    name: JPEG Image
+    role: Editor
+  - ext: jpeg
+    name: JPEG Image
+    role: Editor
+  - ext: webp
+    name: WebP Image
+    role: Editor

@@ -58,6 +58,10 @@ import JSZip from 'jszip';
 import piexif from 'piexifjs';
 import { detectBrowser, getBrowserCapabilities } from './browserDetection';
 import { type CropArea } from '@/types/crop';
+import '@/types/electron.d.ts';
+
+// Check if running in Electron
+const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
 
 export interface OptimizationOptions {
   format: 'webp' | 'jpeg' | 'png';
@@ -1072,10 +1076,23 @@ export class ImageProcessor {
   }
 
   static async downloadFile(file: File, filename?: string): Promise<void> {
+    const finalFilename = filename || file.name;
+
+    // Use native Electron dialog if available
+    if (isElectron && window.electronAPI) {
+      const buffer = await file.arrayBuffer();
+      const result = await window.electronAPI.saveFile(buffer, finalFilename);
+      if (!result.success && !result.canceled) {
+        throw new Error(result.error || 'Failed to save file');
+      }
+      return;
+    }
+
+    // Fallback to browser download
     const url = URL.createObjectURL(file);
     const link = document.createElement('a');
     link.href = url;
-    link.download = filename || file.name;
+    link.download = finalFilename;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -1125,9 +1142,20 @@ export class ImageProcessor {
 
     // Generate ZIP file
     if (onProgress) onProgress(90);
-    const zipBlob = await zip.generateAsync({ type: 'blob' });
 
-    // Download the ZIP
+    // Use native Electron dialog if available
+    if (isElectron && window.electronAPI) {
+      const zipArrayBuffer = await zip.generateAsync({ type: 'arraybuffer' });
+      if (onProgress) onProgress(100);
+      const result = await window.electronAPI.saveZip(zipArrayBuffer, `${zipFilename}.zip`);
+      if (!result.success && !result.canceled) {
+        throw new Error(result.error || 'Failed to save ZIP file');
+      }
+      return;
+    }
+
+    // Fallback to browser download
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
     if (onProgress) onProgress(100);
     const zipFile = new File([zipBlob], `${zipFilename}.zip`, { type: 'application/zip' });
     await this.downloadFile(zipFile, `${zipFilename}.zip`);
