@@ -191,7 +191,22 @@ export default function BatchRenameDialog({
         </div>
 
         {/* Content - fixed height to prevent resize when switching tabs */}
-        <div className="p-4 space-y-4 h-[340px] overflow-y-auto">
+        <div className="p-4 space-y-4 h-[340px] overflow-y-auto scrollbar-thin">
+          <style>{`
+            .scrollbar-thin::-webkit-scrollbar {
+              width: 4px;
+            }
+            .scrollbar-thin::-webkit-scrollbar-track {
+              background: transparent;
+            }
+            .scrollbar-thin::-webkit-scrollbar-thumb {
+              background: rgba(255, 255, 255, 0.1);
+              border-radius: 4px;
+            }
+            .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+              background: rgba(255, 255, 255, 0.2);
+            }
+          `}</style>
             {/* Mode Selection - Crop modal style buttons */}
             <div>
               <label className="text-xs uppercase tracking-wide text-neutral-400 mb-2 block">Rename Mode</label>
