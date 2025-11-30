@@ -36,11 +36,6 @@ export default defineConfig({
     // Generate manifest for PWA
     manifest: true,
     rollupOptions: {
-      // Ensure service worker is copied to dist
-      input: {
-        main: './index.html',
-        sw: './public/sw.js'
-      },
       output: {
         // Add content hash to filenames for cache busting
         entryFileNames: `assets/[name]-[hash].js`,

@@ -36,24 +36,6 @@ const versionInfo = {
 fs.writeFileSync('./public/version.json', JSON.stringify(versionInfo, null, 2));
 console.log('✅ Generated public/version.json');
 
-// Update service worker with version info
-const swPath = './public/sw.js';
-let swContent = fs.readFileSync(swPath, 'utf-8');
-
-// Replace version placeholders
-swContent = swContent.replace(
-  /const APP_VERSION = '[^']*';/,
-  `const APP_VERSION = '${version}';`
-);
-
-swContent = swContent.replace(
-  /const BUILD_HASH = '[^']*';/,
-  `const BUILD_HASH = '${buildHash.slice(0, 8)}';`
-);
-
-fs.writeFileSync(swPath, swContent);
-console.log('✅ Updated service worker with version info');
-
 // Create version.json for dist directory (will be copied during build)
 const distVersionPath = './dist/version.json';
 if (fs.existsSync('./dist')) {

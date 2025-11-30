@@ -107,18 +107,6 @@ export function useAutoUpdate(options: UseAutoUpdateOptions = {}): UseAutoUpdate
     return () => window.removeEventListener('focus', handleFocus);
   }, [enableFocusCheck, checkInterval, checkNow]);
 
-  // Listen for service worker updates
-  useEffect(() => {
-    const handleServiceWorkerUpdate = (event: CustomEvent) => {
-      console.log('Service worker update detected:', event.detail);
-      // Trigger update check when service worker updates
-      setTimeout(() => checkNow(), 1000);
-    };
-
-    window.addEventListener('sw-updated', handleServiceWorkerUpdate as EventListener);
-    return () => window.removeEventListener('sw-updated', handleServiceWorkerUpdate as EventListener);
-  }, [checkNow]);
-
   // Listen for online/offline events
   useEffect(() => {
     const handleOnline = () => {
@@ -151,17 +139,6 @@ export function useUpdateManager() {
       if ('caches' in window) {
         const cacheNames = await caches.keys();
         await Promise.all(cacheNames.map(name => caches.delete(name)));
-      }
-
-      // Update service worker
-      if ('serviceWorker' in navigator) {
-        const registration = await navigator.serviceWorker.getRegistration();
-        if (registration) {
-          await registration.update();
-          if (registration.waiting) {
-            registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-          }
-        }
       }
 
       // Reload the page

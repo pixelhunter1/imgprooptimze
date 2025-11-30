@@ -273,32 +273,29 @@ export default function CropEditor({
     };
 
     if (dragMode === 'image') {
-      // Image mode: FIXED canvas size, crop centered, image moves behind
+      // Image mode: FIXED canvas size (full container), crop centered, image moves behind
       const container = containerRef.current;
       if (!container) return;
 
-      // Calculate canvas size based on container
-      const maxCanvasW = container.clientWidth - 32;
-      const maxCanvasH = container.clientHeight - 32;
+      // Canvas ALWAYS fills the available container space
+      const canvasW = container.clientWidth - 32;
+      const canvasH = container.clientHeight - 32;
 
-      // Calculate the scale needed to fit the crop area in the canvas with some padding
-      const padding = 100; // Extra space around crop for image manipulation
+      // Calculate the scale needed to fit the crop area in the canvas with some margin
+      const margin = 60; // Margin around crop for image manipulation
       const scaleToFitCrop = Math.min(
-        (maxCanvasW - padding) / cropArea.width,
-        (maxCanvasH - padding) / cropArea.height,
+        (canvasW - margin * 2) / cropArea.width,
+        (canvasH - margin * 2) / cropArea.height,
         1 // Don't scale up
       );
 
-      // Canvas size should accommodate the crop at the calculated scale
+      // Crop dimensions at the calculated scale
       const cropW = cropArea.width * scaleToFitCrop;
       const cropH = cropArea.height * scaleToFitCrop;
 
-      // Canvas is larger than crop to allow image manipulation
-      const canvasW = Math.min(maxCanvasW, cropW + padding);
-      const canvasH = Math.min(maxCanvasH, cropH + padding);
-
-      // Use the calculated scale for this render (temporarily override displayScale for image mode)
+      // Use the calculated scale for this render
       const effectiveScale = scaleToFitCrop;
+      // Center the crop area in the full canvas
       const cropX = (canvasW - cropW) / 2;
       const cropY = (canvasH - cropH) / 2;
 
@@ -314,8 +311,9 @@ export default function CropEditor({
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';
 
-      // Draw checkered background (Figma style)
-      drawCheckerboard(0, 0, canvasW, canvasH, 10);
+      // Fill the entire canvas with a solid dark background (matching UI)
+      ctx.fillStyle = '#171717';
+      ctx.fillRect(0, 0, canvasW, canvasH);
 
       // Calculate image position relative to centered crop
       // imageTransform.x/y are relative to crop origin (0,0)
