@@ -816,6 +816,7 @@ export default function CropEditor({
   const socialSizes = availableSizes.filter(s => s.category === 'social');
   const videoSizes = availableSizes.filter(s => s.category === 'video');
   const webSizes = availableSizes.filter(s => s.category === 'web');
+  const ecommerceSizes = availableSizes.filter(s => s.category === 'ecommerce');
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex bg-neutral-950">
@@ -1050,7 +1051,29 @@ export default function CropEditor({
             )}
           </div>
 
-          {/* Size Presets */}
+          {/* Size Presets - E-commerce first */}
+          {ecommerceSizes.length > 0 && (
+            <div className="p-4 border-b border-neutral-800">
+              <h4 className="text-neutral-400 text-xs uppercase tracking-wide mb-3">E-commerce</h4>
+              <div className="space-y-1">
+                {ecommerceSizes.map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => handleSizeSelect(s)}
+                    className={`w-full text-left px-3 py-2 text-xs rounded flex justify-between items-center ${
+                      selectedSize?.id === s.id
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
+                    }`}
+                  >
+                    <span>{s.label}</span>
+                    <span className="opacity-60">{s.width}×{s.height}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {socialSizes.length > 0 && (
             <div className="p-4 border-b border-neutral-800">
               <h4 className="text-neutral-400 text-xs uppercase tracking-wide mb-3">Social Media</h4>

@@ -21,7 +21,7 @@ export interface SizePreset {
   label: string;
   width: number;
   height: number;
-  category: 'social' | 'video' | 'print' | 'web';
+  category: 'social' | 'video' | 'print' | 'web' | 'ecommerce';
   description: string;
 }
 
@@ -64,6 +64,17 @@ export const SIZE_PRESETS: SizePreset[] = [
   { id: 'web-og', label: 'Open Graph', width: 1200, height: 630, category: 'web', description: 'Social share' },
   { id: 'favicon-lg', label: 'Favicon Large', width: 512, height: 512, category: 'web', description: 'PWA icon' },
   { id: 'avatar', label: 'Avatar', width: 400, height: 400, category: 'web', description: 'Profile picture' },
+
+  // E-commerce (WooCommerce)
+  { id: 'woo-single', label: 'WooCommerce Single', width: 600, height: 600, category: 'ecommerce', description: 'Product page' },
+  { id: 'woo-catalog', label: 'WooCommerce Catalog', width: 300, height: 300, category: 'ecommerce', description: 'Shop/category' },
+  { id: 'woo-thumbnail', label: 'WooCommerce Thumb', width: 100, height: 100, category: 'ecommerce', description: 'Gallery thumb' },
+  { id: 'woo-large', label: 'WooCommerce Large', width: 1200, height: 1200, category: 'ecommerce', description: 'Zoom/lightbox' },
+  { id: 'shopify-product', label: 'Shopify Product', width: 2048, height: 2048, category: 'ecommerce', description: 'Product image' },
+  { id: 'shopify-collection', label: 'Shopify Collection', width: 1024, height: 1024, category: 'ecommerce', description: 'Collection' },
+  { id: 'amazon-main', label: 'Amazon Main', width: 1500, height: 1500, category: 'ecommerce', description: 'Main product' },
+  { id: 'amazon-zoom', label: 'Amazon Zoom', width: 2000, height: 2000, category: 'ecommerce', description: 'Zoom ready' },
+  { id: 'ebay-product', label: 'eBay Product', width: 1600, height: 1600, category: 'ecommerce', description: 'Listing image' },
 ];
 
 // Group size presets by category
@@ -71,6 +82,7 @@ export const SIZE_PRESETS_BY_CATEGORY = {
   social: SIZE_PRESETS.filter(p => p.category === 'social'),
   video: SIZE_PRESETS.filter(p => p.category === 'video'),
   web: SIZE_PRESETS.filter(p => p.category === 'web'),
+  ecommerce: SIZE_PRESETS.filter(p => p.category === 'ecommerce'),
 };
 
 export interface CropSettings {
