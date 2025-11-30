@@ -46,7 +46,7 @@ export default function Modal({ isOpen, onClose, children, className = '' }: Mod
             >
                 <button
                     onClick={onClose}
-                    className="absolute top-4 right-4 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors z-50"
+                    className="absolute top-4 right-4 p-2 rounded-full bg-neutral-800 text-neutral-400 hover:bg-neutral-700 hover:text-white transition-colors z-50"
                     aria-label="Close modal"
                 >
                     <X className="w-5 h-5" />

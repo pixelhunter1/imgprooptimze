@@ -278,33 +278,30 @@ const ImageUpload = forwardRef<ImageUploadRef, ImageUploadProps>(({
   return (
     <div className={cn('w-full max-w-4xl', className)}>
       {/* Image Grid - Moved to top */}
-      <div className="mb-6">
+      <div className="mb-4">
         {/* Uploaded images grid */}
         {images.length > 0 && (
-          <div className="grid grid-cols-4 gap-2.5">
+          <div className="grid grid-cols-4 gap-2">
             {images.map((imageFile, index) => (
-              <Card
+              <div
                 key={imageFile.id}
-                className="flex items-center justify-center rounded-md bg-accent/50 shadow-none shrink-0 relative group"
+                className="relative group rounded overflow-hidden bg-neutral-800 border border-neutral-700"
               >
                 <img
                   src={imageFile.preview}
-                  className="h-[120px] w-full object-cover rounded-md"
+                  className="h-[100px] w-full object-cover"
                   alt={`Product view ${index + 1}`}
                 />
 
                 {/* Remove Button Overlay */}
-                <Button
+                <button
                   onClick={() => removeImage(imageFile.id)}
-                  variant="outline"
-                  size="sm"
-                  mode="icon"
-                  className="absolute top-2 end-2 opacity-0 group-hover:opacity-100 rounded-full bg-background/80 backdrop-blur-sm"
+                  className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 p-1 rounded bg-neutral-900/80 text-neutral-400 hover:text-white hover:bg-neutral-800"
                   title="Remove image"
                 >
-                  <XIcon className="size-3.5" />
-                </Button>
-              </Card>
+                  <XIcon className="size-3" />
+                </button>
+              </div>
             ))}
           </div>
         )}
@@ -313,10 +310,10 @@ const ImageUpload = forwardRef<ImageUploadRef, ImageUploadProps>(({
       {/* Upload Area */}
       <div
         className={cn(
-          "relative border-2 border-dashed rounded-xl p-8 transition-all duration-300 ease-in-out cursor-pointer overflow-hidden group",
+          "relative border border-dashed rounded-lg p-6 cursor-pointer",
           isDragging
-            ? "border-primary bg-primary/5 scale-[1.02] shadow-lg"
-            : "border-border hover:border-primary/50 hover:bg-muted/50"
+            ? "border-emerald-600 bg-emerald-600/10"
+            : "border-neutral-700 hover:border-neutral-600 hover:bg-neutral-800/50"
         )}
         onDragEnter={handleDragEnter}
         onDragLeave={handleDragLeave}
@@ -324,27 +321,24 @@ const ImageUpload = forwardRef<ImageUploadRef, ImageUploadProps>(({
         onDrop={handleDrop}
         onClick={openFileDialog}
       >
-        {/* Background Pattern */}
-        <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[radial-gradient(#000_1px,transparent_1px)] [background-size:16px_16px]" />
-
-        <div className="flex flex-col items-center justify-center text-center space-y-4 relative z-10">
+        <div className="flex flex-col items-center justify-center text-center space-y-3">
           <div className={cn(
-            "p-4 rounded-full transition-all duration-300 group-hover:scale-110 group-hover:rotate-3",
-            isDragging ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary"
+            "p-3 rounded-full",
+            isDragging ? "bg-emerald-600/20 text-emerald-500" : "bg-neutral-800 text-neutral-400"
           )}>
-            <CloudUpload className="h-8 w-8" />
+            <CloudUpload className="h-6 w-6" />
           </div>
 
-          <div className="space-y-2">
-            <p className="text-lg font-medium text-foreground">
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-white">
               {isDragging ? "Drop images here" : "Drag & drop images here"}
             </p>
-            <p className="text-sm text-muted-foreground max-w-xs mx-auto">
+            <p className="text-xs text-neutral-500">
               or click to select files (PNG, JPG, WebP)
             </p>
           </div>
 
-          <div className="flex gap-2 text-xs text-muted-foreground/60">
+          <div className="flex gap-2 text-[10px] text-neutral-600">
             <span>Max {formatBytes(maxSize)}</span>
             <span>•</span>
             <span>Up to {maxFiles} files</span>
@@ -354,71 +348,64 @@ const ImageUpload = forwardRef<ImageUploadRef, ImageUploadProps>(({
 
       {/* Upload Progress Cards */}
       {images.length > 0 && (
-        <div className="mt-6 space-y-3">
+        <div className="mt-4 space-y-2">
           {images.map((imageFile) => (
-            <Card key={imageFile.id} className="shadow-none rounded-md">
-              <CardContent className="flex items-center gap-2 p-3">
-                <div className="flex items-center justify-center size-[32px] rounded-md border border-border shrink-0">
-                  <ImageIcon className="size-4 text-muted-foreground" />
-                </div>
-                <div className="flex flex-col gap-1.5 w-full">
-                  <div className="flex items-center justify-between gap-2.5 -mt-2 w-full">
-                    <div className="flex items-center gap-2.5">
-                      <span className="text-xs text-foreground font-medium leading-none">{imageFile.file.name}</span>
-                      <span className="text-xs text-muted-foreground font-normal leading-none">
-                        {formatBytes(imageFile.file.size)}
-                      </span>
-                      {imageFile.status === 'uploading' && (
-                        <p className="text-xs text-muted-foreground">Uploading... {Math.round(imageFile.progress)}%</p>
-                      )}
-                    </div>
-                    <Button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        removeImage(imageFile.id);
-                      }}
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0"
-                    >
-                      <CircleX className="size-3.5" />
-                    </Button>
+            <div key={imageFile.id} className="flex items-center gap-3 p-2 rounded bg-neutral-800 border border-neutral-700">
+              <div className="flex items-center justify-center size-8 rounded bg-neutral-700 shrink-0">
+                <ImageIcon className="size-4 text-neutral-400" />
+              </div>
+              <div className="flex flex-col gap-1 w-full min-w-0">
+                <div className="flex items-center justify-between gap-2 w-full">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-xs text-white font-medium truncate">{imageFile.file.name}</span>
+                    <span className="text-[10px] text-neutral-500 shrink-0">
+                      {formatBytes(imageFile.file.size)}
+                    </span>
+                    {imageFile.status === 'uploading' && (
+                      <span className="text-[10px] text-neutral-500 shrink-0">{Math.round(imageFile.progress)}%</span>
+                    )}
                   </div>
-
-                  <Progress
-                    value={imageFile.progress}
-                    className={cn('h-1 transition-all duration-300', '[&>div]:bg-primary')}
-                  />
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeImage(imageFile.id);
+                    }}
+                    className="p-1 text-neutral-500 hover:text-white shrink-0"
+                  >
+                    <CircleX className="size-3.5" />
+                  </button>
                 </div>
-              </CardContent>
-            </Card>
+
+                <Progress
+                  value={imageFile.progress}
+                  className={cn('h-1', '[&>div]:bg-emerald-600')}
+                />
+              </div>
+            </div>
           ))}
         </div>
       )}
 
       {/* Validation Error Messages */}
       {validationErrors.length > 0 && (
-        <Alert variant="destructive" className="mt-5 bg-destructive/5 border-destructive/20 text-destructive">
+        <Alert variant="destructive" className="mt-4 bg-red-950/30 border-red-900/30 text-red-400">
           <AlertIcon>
-            <AlertCircle className="h-4 w-4" />
+            <AlertCircle className="h-3.5 w-3.5" />
           </AlertIcon>
           <AlertContent>
-            <AlertTitle className="text-sm font-semibold">File Validation Errors</AlertTitle>
+            <AlertTitle className="text-xs font-medium">File Validation Errors</AlertTitle>
             <AlertDescription>
-              <div className="space-y-2 mt-1">
-                <p className="text-sm font-medium">
+              <div className="space-y-1 mt-1">
+                <p className="text-[10px] text-red-400/80">
                   {validationErrors.length} file(s) rejected:
                 </p>
-                <ul className="text-sm space-y-1 ml-2 list-disc list-inside">
+                <ul className="text-[10px] text-red-400/70 space-y-0.5 ml-2 list-disc list-inside">
                   {validationErrors.map((error, index) => (
                     <li key={index}>
-                      <span className="font-medium">{error.fileName}:</span> {error.error}
+                      <span className="text-red-400">{error.fileName}:</span> {error.error}
                     </li>
                   ))}
                 </ul>
-                <p className="text-xs mt-2 opacity-80">
-                  Only PNG, WebP, and JPEG/JPG images are allowed.
-                </p>
               </div>
             </AlertDescription>
           </AlertContent>
@@ -427,13 +414,13 @@ const ImageUpload = forwardRef<ImageUploadRef, ImageUploadProps>(({
 
       {/* General Error Messages */}
       {errors.length > 0 && (
-        <Alert variant="destructive" className="mt-5 bg-destructive/5 border-destructive/20 text-destructive">
+        <Alert variant="destructive" className="mt-4 bg-red-950/30 border-red-900/30 text-red-400">
           <AlertIcon>
-            <TriangleAlert className="h-4 w-4" />
+            <TriangleAlert className="h-3.5 w-3.5" />
           </AlertIcon>
           <AlertContent>
-            <AlertTitle className="text-sm font-semibold">File upload error(s)</AlertTitle>
-            <AlertDescription className="text-sm mt-1">
+            <AlertTitle className="text-xs font-medium">File upload error(s)</AlertTitle>
+            <AlertDescription className="text-[10px] text-red-400/80 mt-1">
               {errors.map((error, index) => (
                 <p key={index} className="last:mb-0">
                   {error}

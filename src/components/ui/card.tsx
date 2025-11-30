@@ -22,12 +22,12 @@ const useCardContext = () => {
   return context;
 };
 
-// Variants
-const cardVariants = cva('flex flex-col items-stretch text-card-foreground rounded-xl', {
+// Variants - matching crop modal style (neutral-900 bg, neutral-800 border)
+const cardVariants = cva('flex flex-col items-stretch text-white rounded-lg', {
   variants: {
     variant: {
-      default: 'bg-card border border-border',
-      accent: 'bg-muted p-1',
+      default: 'bg-neutral-900 border border-neutral-800',
+      accent: 'bg-neutral-800 p-1',
     },
   },
   defaultVariants: {
@@ -35,10 +35,10 @@ const cardVariants = cva('flex flex-col items-stretch text-card-foreground round
   },
 });
 
-const cardHeaderVariants = cva('flex items-center justify-between flex-wrap px-5 min-h-14 gap-2.5', {
+const cardHeaderVariants = cva('flex items-center justify-between flex-wrap px-4 min-h-12 gap-2.5', {
   variants: {
     variant: {
-      default: 'border-b border-border',
+      default: 'border-b border-neutral-800',
       accent: '',
     },
   },
@@ -47,11 +47,11 @@ const cardHeaderVariants = cva('flex items-center justify-between flex-wrap px-5
   },
 });
 
-const cardContentVariants = cva('grow p-5', {
+const cardContentVariants = cva('grow p-4', {
   variants: {
     variant: {
       default: '',
-      accent: 'bg-card rounded-t-xl [&:last-child]:rounded-b-xl',
+      accent: 'bg-neutral-900 rounded-t-lg [&:last-child]:rounded-b-lg',
     },
   },
   defaultVariants: {
@@ -63,7 +63,7 @@ const cardTableVariants = cva('grid grow', {
   variants: {
     variant: {
       default: '',
-      accent: 'bg-card rounded-xl',
+      accent: 'bg-neutral-900 rounded-lg',
     },
   },
   defaultVariants: {
@@ -71,11 +71,11 @@ const cardTableVariants = cva('grid grow', {
   },
 });
 
-const cardFooterVariants = cva('flex items-center px-5 min-h-14', {
+const cardFooterVariants = cva('flex items-center px-4 min-h-12', {
   variants: {
     variant: {
-      default: 'border-t border-border',
-      accent: 'bg-card rounded-b-xl mt-[2px]',
+      default: 'border-t border-neutral-800',
+      accent: 'bg-neutral-900 rounded-b-lg mt-[2px]',
     },
   },
   defaultVariants: {
@@ -133,14 +133,14 @@ function CardTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingElem
   return (
     <h3
       data-slot="card-title"
-      className={cn('text-base font-semibold leading-none tracking-tight', className)}
+      className={cn('text-sm font-medium text-white leading-none', className)}
       {...props}
     />
   );
 }
 
 function CardDescription({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div data-slot="card-description" className={cn('text-sm text-muted-foreground', className)} {...props} />;
+  return <div data-slot="card-description" className={cn('text-sm text-neutral-400', className)} {...props} />;
 }
 
 // Exports

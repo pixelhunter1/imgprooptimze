@@ -56,16 +56,16 @@ export default function OptimizationControls({
 
   return (
     <Card className="w-full">
-      <CardContent className="p-6 space-y-6">
+      <CardContent className="p-4 space-y-4">
         {/* Header */}
         <div className="flex items-center gap-2">
-          <Settings className="h-5 w-5" />
-          <h3 className="text-lg font-semibold">Optimization Settings</h3>
+          <Settings className="h-4 w-4 text-neutral-400" />
+          <h3 className="text-sm font-medium text-white">Optimization Settings</h3>
         </div>
 
         {/* Format Selection */}
         <div className="space-y-3">
-          <label className="text-sm font-medium text-foreground">Output Format</label>
+          <label className="text-xs uppercase tracking-wide text-neutral-400">Output Format</label>
           <div className="flex gap-2">
             {formatOptions.map((format) => (
               <Button
@@ -86,21 +86,21 @@ export default function OptimizationControls({
             ))}
           </div>
           {!capabilities.canUseWebP && options.format === 'webp' && (
-            <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded border border-amber-200">
+            <p className="text-[10px] text-amber-500/80 bg-amber-950/30 p-2 rounded border border-amber-900/30">
               WebP not supported in {browserInfo.name}. JPEG will be used instead.
             </p>
           )}
           {options.format === 'jpeg' && (
-            <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded border border-amber-200">
-              <strong>JPEG Note:</strong> JPEG doesn't support transparency. PNG/WebP images with transparency will have a white background.
+            <p className="text-[10px] text-amber-500/80 bg-amber-950/30 p-2 rounded border border-amber-900/30">
+              <strong className="text-amber-500">JPEG Note:</strong> JPEG doesn't support transparency. PNG/WebP images with transparency will have a white background.
             </p>
           )}
           {options.format === 'png' && (
-            <div className="space-y-2">
-              <p className="text-xs text-blue-600 bg-blue-50 p-2 rounded border border-blue-200">
-                <strong>PNG Info:</strong> PNG is lossless - quality slider affects compression level, not visual quality. Images always maintain perfect quality.
+            <div className="space-y-1.5">
+              <p className="text-[10px] text-blue-400/80 bg-blue-950/30 p-2 rounded border border-blue-900/30">
+                <strong className="text-blue-400">PNG Info:</strong> PNG is lossless - quality slider affects compression level, not visual quality.
               </p>
-              <p className="text-xs text-blue-600 bg-blue-50 p-2 rounded border border-blue-200">
+              <p className="text-[10px] text-blue-400/80 bg-blue-950/30 p-2 rounded border border-blue-900/30">
                 Smart PNG conversion: If PNG increases file size by more than 5%, original format will be kept automatically.
               </p>
             </div>
@@ -108,12 +108,10 @@ export default function OptimizationControls({
         </div>
 
         {/* Quality Control */}
-        <div className="space-y-4">
+        <div className="space-y-3">
           <div className="flex justify-between items-center">
-            <label className="text-sm font-medium text-foreground">Quality</label>
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-foreground">{Math.round(options.quality * 100)}%</span>
-            </div>
+            <label className="text-xs uppercase tracking-wide text-neutral-400">Quality</label>
+            <span className="text-xs text-neutral-300">{Math.round(options.quality * 100)}%</span>
           </div>
 
           <Slider
@@ -146,19 +144,19 @@ export default function OptimizationControls({
 
           {/* Quality mapping info for 100% */}
           {options.quality >= 1.0 && options.format !== 'png' && (
-            <p className="text-xs text-blue-600 bg-blue-50 p-2 rounded border border-blue-200">
-              <strong>Smart optimization:</strong> To prevent file size increases, 100% quality is processed at 90% internally for optimal results.
+            <p className="text-[10px] text-blue-400/80 bg-blue-950/30 p-2 rounded border border-blue-900/30">
+              <strong className="text-blue-400">Smart optimization:</strong> To prevent file size increases, 100% quality is processed at 90% internally.
             </p>
           )}
         </div>
 
         {/* Advanced Options */}
-        <div className="space-y-4 border-t border-border pt-6">
-          <h4 className="text-sm font-medium text-foreground">Advanced Options</h4>
+        <div className="space-y-3 border-t border-neutral-800 pt-4">
+          <h4 className="text-xs uppercase tracking-wide text-neutral-400">Advanced Options</h4>
 
           {/* Max File Size */}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">Maximum File Size (optional)</label>
+            <label className="text-xs text-neutral-400">Maximum File Size (optional)</label>
             <div className="flex items-center gap-2">
               <input
                 type="number"
@@ -171,12 +169,12 @@ export default function OptimizationControls({
                   ...options,
                   maxSizeMB: e.target.value ? parseFloat(e.target.value) : undefined
                 })}
-                className="flex-1 px-3 py-2 text-sm border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                className="flex-1 px-3 py-2 text-sm rounded bg-neutral-800 text-neutral-300 border-none focus:outline-none focus:ring-1 focus:ring-emerald-600"
               />
-              <span className="text-sm text-muted-foreground">MB</span>
+              <span className="text-xs text-neutral-500">MB</span>
             </div>
             {options.maxSizeMB && (
-              <p className="text-xs text-muted-foreground">
+              <p className="text-[10px] text-neutral-500">
                 Images will be compressed to stay under {options.maxSizeMB} MB
               </p>
             )}
@@ -190,9 +188,9 @@ export default function OptimizationControls({
                 id="preserveExif"
                 checked={options.preserveExif || false}
                 onChange={(e) => onOptionsChange({ ...options, preserveExif: e.target.checked })}
-                className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                className="h-4 w-4 rounded bg-neutral-800 border-neutral-700 text-emerald-600 focus:ring-emerald-600 focus:ring-offset-0"
               />
-              <label htmlFor="preserveExif" className="text-sm text-foreground cursor-pointer">
+              <label htmlFor="preserveExif" className="text-xs text-neutral-300 cursor-pointer">
                 Preserve EXIF metadata (camera, GPS, copyright)
               </label>
             </div>
@@ -206,9 +204,9 @@ export default function OptimizationControls({
                 id="losslessWebP"
                 checked={options.losslessWebP || false}
                 onChange={(e) => onOptionsChange({ ...options, losslessWebP: e.target.checked })}
-                className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                className="h-4 w-4 rounded bg-neutral-800 border-neutral-700 text-emerald-600 focus:ring-emerald-600 focus:ring-offset-0"
               />
-              <label htmlFor="losslessWebP" className="text-sm text-foreground cursor-pointer">
+              <label htmlFor="losslessWebP" className="text-xs text-neutral-300 cursor-pointer">
                 Lossless WebP (larger files, perfect quality)
               </label>
             </div>
@@ -217,18 +215,18 @@ export default function OptimizationControls({
 
         {/* Browser Compatibility Info */}
         {capabilities.showCompatibilityWarning && (
-          <div className="pt-4 border-t border-border">
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+          <div className="pt-3 border-t border-neutral-800">
+            <div className="bg-amber-950/30 border border-amber-900/30 rounded p-3">
               <div className="flex items-center gap-2 mb-2">
-                <AlertTriangle className="h-4 w-4 text-amber-600" />
-                <span className="text-sm font-medium text-amber-800">
+                <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                <span className="text-xs font-medium text-amber-500">
                   Limited Browser Support
                 </span>
               </div>
-              <p className="text-xs text-amber-700 mb-2">
+              <p className="text-[10px] text-amber-500/80 mb-1">
                 {browserInfo.name} has reduced performance. For best results, use Chrome, Firefox, or Edge.
               </p>
-              <div className="text-xs text-amber-600">
+              <div className="text-[10px] text-amber-500/60">
                 Quality limited to {Math.round(capabilities.maxQualityRecommended * 100)}%
               </div>
             </div>
@@ -236,11 +234,11 @@ export default function OptimizationControls({
         )}
 
         {/* Action Button */}
-        <div className="pt-6 border-t border-border">
+        <div className="pt-4 border-t border-neutral-800">
           <Button
             onClick={onOptimize}
             disabled={!hasImages || isProcessing}
-            className="w-full flex items-center justify-center gap-2"
+            className="w-full"
             size="lg"
             variant="primary"
           >

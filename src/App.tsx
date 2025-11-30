@@ -213,30 +213,30 @@ function App() {
   // }
 
   return (
-    <div className="min-h-screen bg-background py-8 px-4">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="min-h-screen bg-neutral-950 py-6 px-4">
+      <div className="max-w-7xl mx-auto space-y-4">
 
         {/* Browser Compatibility Alert */}
         <BrowserCompatibilityAlert />
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:items-start">
           {/* Left Column: Upload + Settings stacked */}
-          <div className="space-y-6 lg:sticky lg:top-8 self-start">
-            <Card className="bg-card border border-border rounded-lg">
-              <CardContent className="p-6 space-y-4">
-                <h2 className="text-xl font-semibold text-foreground">Upload Images</h2>
-                <p className="text-sm text-muted-foreground">Drag and drop or click to select images.</p>
-                <ImageUpload
-                  ref={imageUploadRef}
-                  onImagesChange={handleImagesUploaded}
-                  onUploadComplete={() => { }}
-                  onValidationError={handleValidationError}
-                  maxFiles={10}
-                  maxSize={50 * 1024 * 1024} // 50MB
-                  accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"
-                />
-              </CardContent>
-            </Card>
+          <div className="space-y-4 lg:sticky lg:top-6 self-start">
+            <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-medium text-white">Upload Images</h2>
+              </div>
+              <p className="text-xs text-neutral-500">Drag and drop or click to select images.</p>
+              <ImageUpload
+                ref={imageUploadRef}
+                onImagesChange={handleImagesUploaded}
+                onUploadComplete={() => { }}
+                onValidationError={handleValidationError}
+                maxFiles={10}
+                maxSize={50 * 1024 * 1024} // 50MB
+                accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"
+              />
+            </div>
 
             {uploadedImages.length > 0 && (
               <OptimizationControls
@@ -253,53 +253,46 @@ function App() {
 
           {/* Right Column: Results only */}
           <div className="space-y-4">
-            <Card className="bg-card border border-border rounded-lg">
-              <CardContent className="p-6 space-y-4">
-                <h2 className="text-xl font-semibold text-foreground">Optimized Images</h2>
+            <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-4 space-y-3">
+              <h2 className="text-sm font-medium text-white">Optimized Images</h2>
 
-                {/* Action Buttons - Moved below text */}
-                {processedImages.length > 0 && (
-                  <div className="flex flex-col gap-3 pt-2">
-                    <div className="flex flex-col sm:flex-row gap-3">
-                      <Button
-                        variant="outline"
-                        onClick={() => setShowBatchRenameDialog(true)}
-                        className="flex items-center justify-center gap-2 flex-1"
-                        size="lg"
-                      >
-                        <Edit3 className="h-4 w-4" />
-                        Rename All
-                      </Button>
-                      <Button
-                        variant="primary"
-                        onClick={handleDownloadAll}
-                        className="flex items-center justify-center gap-2 flex-1"
-                        size="lg"
-                      >
-                        <Package className="h-4 w-4" />
-                        Download ZIP ({processedImages.length})
-                      </Button>
-                      {/* Reset Project button - icon only with destructive styling */}
-                      <Button
-                        variant="destructive"
-                        onClick={() => setShowResetProjectDialog(true)}
-                        className="flex items-center justify-center"
-                        size="lg"
-                        title="Reset Project"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-
+              {/* Action Buttons - Moved below text */}
+              {processedImages.length > 0 && (
+                <div className="flex gap-2">
+                  <Button
+                    variant="secondary"
+                    onClick={() => setShowBatchRenameDialog(true)}
+                    className="flex-1"
+                    size="sm"
+                  >
+                    <Edit3 className="h-3.5 w-3.5" />
+                    Rename All
+                  </Button>
+                  <Button
+                    variant="primary"
+                    onClick={handleDownloadAll}
+                    className="flex-1"
+                    size="sm"
+                  >
+                    <Package className="h-3.5 w-3.5" />
+                    Download ZIP ({processedImages.length})
+                  </Button>
+                  {/* Reset Project button - icon only with destructive styling */}
+                  <Button
+                    variant="destructive"
+                    onClick={() => setShowResetProjectDialog(true)}
+                    size="sm"
+                    title="Reset Project"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              )}
+            </div>
 
             {/* Show processed images or skeleton loading as default empty state */}
             {processedImages.length > 0 ? (
-              <div className="grid gap-6 grid-cols-1 md:grid-cols-2">
+              <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
                 {processedImages.map((img) => (
                   <ImagePreview
                     key={img.id}

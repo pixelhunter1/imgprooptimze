@@ -43,31 +43,29 @@ export default function ZipDownloadDialog({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-md bg-card border border-border">
-        <CardContent className="p-6">
+    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+      <div className="w-full max-w-md bg-neutral-900 border border-neutral-800 rounded-lg">
+        <div className="p-4">
           {/* Header */}
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <FileArchive className="h-5 w-5 text-primary" />
-              <h2 className="text-lg font-semibold">Download All Images</h2>
+              <FileArchive className="h-4 w-4 text-emerald-500" />
+              <h2 className="text-sm font-medium text-white">Download All Images</h2>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
+            <button
               onClick={onClose}
               disabled={isDownloading}
-              className="h-8 w-8 p-0"
+              className="p-1 text-neutral-500 hover:text-white rounded hover:bg-neutral-800"
             >
               <X className="h-4 w-4" />
-            </Button>
+            </button>
           </div>
 
           {/* Content */}
-          <div className="space-y-6">
+          <div className="space-y-4">
             {/* Filename Input */}
-            <div className="space-y-3">
-              <label htmlFor="zip-filename" className="text-sm font-medium">
+            <div className="space-y-2">
+              <label htmlFor="zip-filename" className="text-xs text-neutral-400">
                 Name your ZIP file
               </label>
               <div className="flex gap-2">
@@ -77,10 +75,10 @@ export default function ZipDownloadDialog({
                   value={zipFilename}
                   onChange={(e) => setZipFilename(e.target.value)}
                   disabled={isDownloading}
-                  className="flex-1 px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                  className="flex-1 px-3 py-2 text-sm rounded bg-neutral-800 text-white border-none focus:outline-none focus:ring-1 focus:ring-emerald-600"
                   placeholder="ZIP filename"
                 />
-                <span className="px-3 py-2 bg-muted text-muted-foreground rounded-md text-sm">
+                <span className="px-3 py-2 bg-neutral-800 text-neutral-500 rounded text-sm">
                   .zip
                 </span>
               </div>
@@ -89,22 +87,22 @@ export default function ZipDownloadDialog({
             {/* Progress */}
             {isDownloading && (
               <div className="space-y-2">
-                <div className="flex justify-between text-sm">
+                <div className="flex justify-between text-xs text-neutral-400">
                   <span>Creating ZIP file...</span>
                   <span>{progress}%</span>
                 </div>
-                <Progress value={progress} className="w-full" />
+                <Progress value={progress} className="w-full h-1 [&>div]:bg-emerald-600" />
               </div>
             )}
 
             {/* Actions */}
-            <div className="flex gap-3 pt-6 border-t border-border">
+            <div className="flex gap-2 pt-4 border-t border-neutral-800">
               <Button
-                variant="outline"
+                variant="secondary"
                 onClick={onClose}
                 disabled={isDownloading}
                 className="flex-1"
-                size="lg"
+                size="sm"
               >
                 Cancel
               </Button>
@@ -112,16 +110,16 @@ export default function ZipDownloadDialog({
                 variant="primary"
                 onClick={handleDownload}
                 disabled={isDownloading || !zipFilename.trim()}
-                className="flex-1 flex items-center gap-2"
-                size="lg"
+                className="flex-1"
+                size="sm"
               >
-                <Download className="h-4 w-4" />
-                {isDownloading ? 'Creating ZIP...' : `Download ${fileCount} Images`}
+                <Download className="h-3.5 w-3.5" />
+                {isDownloading ? 'Creating...' : `Download ${fileCount}`}
               </Button>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }

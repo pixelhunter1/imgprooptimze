@@ -174,7 +174,7 @@ export default function BatchRenameDialog({
   const previews = generatePreview();
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
       <Card className="w-full max-w-4xl bg-card border border-border">
         <CardContent className="p-8">
           {/* Header */}

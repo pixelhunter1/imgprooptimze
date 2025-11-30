@@ -6,23 +6,23 @@ import { Slot } from '@radix-ui/react-slot';
 import { cn } from '@/lib/utils';
 
 const buttonVariants = cva(
-  'cursor-pointer group whitespace-nowrap focus-visible:outline-hidden inline-flex items-center justify-center has-data-[arrow=true]:justify-between whitespace-nowrap text-sm font-medium ring-offset-background transition-colors disabled:pointer-events-none disabled:opacity-60 [&_svg]:shrink-0',
+  'cursor-pointer group whitespace-nowrap focus-visible:outline-none inline-flex items-center justify-center has-data-[arrow=true]:justify-between whitespace-nowrap text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50 [&_svg]:shrink-0',
   {
     variants: {
       variant: {
-        primary: 'bg-primary text-primary-foreground hover:bg-primary/90 data-[state=open]:bg-primary/90',
-        mono: 'bg-zinc-950 text-white dark:bg-zinc-300 dark:text-black hover:bg-zinc-950/90 dark:hover:bg-zinc-300/90 data-[state=open]:bg-zinc-950/90 dark:data-[state=open]:bg-zinc-300/90',
-        destructive:
-          'bg-destructive text-destructive-foreground hover:bg-destructive/90 data-[state=open]:bg-destructive/90',
-        secondary: 'bg-secondary text-secondary-foreground border border-border hover:bg-accent hover:text-accent-foreground data-[state=open]:bg-accent data-[state=open]:text-accent-foreground',
-        outline: 'bg-background text-foreground border border-border hover:bg-accent hover:text-accent-foreground data-[state=open]:bg-accent data-[state=open]:text-accent-foreground',
-        dashed:
-          'text-accent-foreground border border-input border-dashed bg-background hover:bg-accent hover:text-accent-foreground data-[state=open]:text-accent-foreground',
-        ghost:
-          'text-foreground hover:bg-accent hover:text-accent-foreground data-[state=open]:bg-accent data-[state=open]:text-accent-foreground border border-transparent hover:border-border',
-        dim: 'text-muted-foreground hover:bg-muted hover:text-foreground data-[state=open]:bg-muted data-[state=open]:text-foreground border border-border/50',
-        foreground: 'text-foreground hover:bg-accent hover:text-accent-foreground border border-border/30',
-        inverse: 'bg-foreground text-background hover:bg-foreground/90 border border-foreground',
+        // Primary: emerald-600 bg, white text, darker on hover (like crop modal)
+        primary: 'bg-emerald-600 text-white hover:bg-emerald-700',
+        mono: 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700',
+        destructive: 'bg-red-600 text-white hover:bg-red-700',
+        // Secondary: neutral-800 bg, neutral-300 text, neutral-700 on hover (crop modal style)
+        secondary: 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700',
+        // Outline: transparent bg with border, neutral-700 on hover
+        outline: 'bg-transparent text-neutral-300 border border-neutral-700 hover:bg-neutral-800 hover:text-white',
+        dashed: 'text-neutral-400 border border-neutral-700 border-dashed bg-transparent hover:bg-neutral-800 hover:text-neutral-300',
+        ghost: 'text-neutral-400 hover:bg-neutral-800 hover:text-white',
+        dim: 'text-neutral-500 hover:bg-neutral-800 hover:text-neutral-300',
+        foreground: 'text-white hover:bg-neutral-800',
+        inverse: 'bg-white text-neutral-950 hover:bg-neutral-200',
       },
       appearance: {
         default: '',
