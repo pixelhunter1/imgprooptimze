@@ -40,7 +40,7 @@ export default function CropEditor({
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
   // Mode: 'crop' = move crop area, 'image' = move/scale image within fixed crop
-  const [dragMode, setDragMode] = useState<'crop' | 'image'>('crop');
+  const [dragMode, setDragMode] = useState<'crop' | 'image'>('image');
 
   // Image transform state (for 'image' mode) - x, y are image position, scale is zoom
   const [imageTransform, setImageTransform] = useState({ x: 0, y: 0, scale: 1 });
@@ -101,11 +101,23 @@ export default function CropEditor({
         if (!initialCropArea) {
           const cropW = img.width * 0.8;
           const cropH = img.height * 0.8;
-          setCropArea({
+          const newCropArea = {
             x: (img.width - cropW) / 2,
             y: (img.height - cropH) / 2,
             width: cropW,
             height: cropH,
+          };
+          setCropArea(newCropArea);
+
+          // Initialize image transform for 'image' mode (Fit Image is default)
+          const scaleToFill = Math.max(
+            cropW / img.width,
+            cropH / img.height
+          );
+          setImageTransform({
+            x: (cropW - img.width * scaleToFill) / 2,
+            y: (cropH - img.height * scaleToFill) / 2,
+            scale: scaleToFill,
           });
         }
       }
