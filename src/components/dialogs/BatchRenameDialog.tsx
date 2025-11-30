@@ -175,24 +175,23 @@ export default function BatchRenameDialog({
 
   return (
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-      <div className="w-full max-w-2xl bg-neutral-900 border border-neutral-800 rounded-lg">
-        <div className="p-4">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Edit3 className="h-4 w-4 text-emerald-500" />
-              <h2 className="text-sm font-medium text-white">Rename All Images</h2>
-            </div>
-            <button
-              onClick={onClose}
-              className="p-1 text-neutral-500 hover:text-white rounded hover:bg-neutral-800"
-            >
-              <X className="h-4 w-4" />
-            </button>
+      <div className="w-full max-w-2xl bg-neutral-900 border border-neutral-800 rounded-lg flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-neutral-800">
+          <div className="flex items-center gap-2">
+            <Edit3 className="h-4 w-4 text-emerald-500" />
+            <h2 className="text-sm font-medium text-white">Rename All Images</h2>
           </div>
+          <button
+            onClick={onClose}
+            className="p-1 text-neutral-500 hover:text-white rounded hover:bg-neutral-800"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
 
-          {/* Content - min height to prevent resize when switching tabs */}
-          <div className="space-y-4 min-h-[380px]">
+        {/* Content - fixed height to prevent resize when switching tabs */}
+        <div className="p-4 space-y-4 h-[340px] overflow-y-auto">
             {/* Mode Selection - Crop modal style buttons */}
             <div>
               <label className="text-xs uppercase tracking-wide text-neutral-400 mb-2 block">Rename Mode</label>
@@ -349,33 +348,32 @@ export default function BatchRenameDialog({
                 </div>
               </div>
             )}
+        </div>
 
-            {/* Actions */}
-            <div className="flex gap-2 pt-3 border-t border-neutral-800">
-              <button
-                onClick={onClose}
-                className="flex-1 px-3 py-2 text-xs rounded bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleApply}
-                disabled={
-                  (mode === 'numbered' && !baseName.trim()) ||
-                  (mode === 'individual' && customNames.some(name => !name.trim()))
-                }
-                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs rounded ${
-                  (mode === 'numbered' && !baseName.trim()) ||
-                  (mode === 'individual' && customNames.some(name => !name.trim()))
-                    ? 'bg-neutral-800 text-neutral-500 cursor-not-allowed'
-                    : 'bg-emerald-600 text-white hover:bg-emerald-700'
-                }`}
-              >
-                <Edit3 className="h-3.5 w-3.5" />
-                Rename {images.length} Images
-              </button>
-            </div>
-          </div>
+        {/* Actions - Fixed at bottom */}
+        <div className="flex gap-2 p-4 border-t border-neutral-800">
+          <button
+            onClick={onClose}
+            className="flex-1 px-3 py-2 text-xs rounded bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleApply}
+            disabled={
+              (mode === 'numbered' && !baseName.trim()) ||
+              (mode === 'individual' && customNames.some(name => !name.trim()))
+            }
+            className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs rounded ${
+              (mode === 'numbered' && !baseName.trim()) ||
+              (mode === 'individual' && customNames.some(name => !name.trim()))
+                ? 'bg-neutral-800 text-neutral-500 cursor-not-allowed'
+                : 'bg-emerald-600 text-white hover:bg-emerald-700'
+            }`}
+          >
+            <Edit3 className="h-3.5 w-3.5" />
+            Rename {images.length} Images
+          </button>
         </div>
       </div>
     </div>
