@@ -57,6 +57,7 @@ import imageCompression from 'browser-image-compression';
 import JSZip from 'jszip';
 import piexif from 'piexifjs';
 import { detectBrowser, getBrowserCapabilities } from './browserDetection';
+import { type CropArea } from '@/types/crop';
 
 export interface OptimizationOptions {
   format: 'webp' | 'jpeg' | 'png';
@@ -67,6 +68,7 @@ export interface OptimizationOptions {
   progressiveJpeg?: boolean; // Create progressive JPEG (better web loading)
   losslessWebP?: boolean; // Use lossless WebP compression
   pngCompressionLevel?: number; // PNG compression level 0-9 (higher = smaller but slower)
+  cropArea?: CropArea; // Optional crop area to apply before optimization
 }
 
 // File validation types and constants
@@ -108,6 +110,91 @@ export interface ProcessedImage {
 }
 
 export class ImageProcessor {
+  /**
+   * Crops an image file based on the provided crop area
+   * @param file The image file to crop
+   * @param cropArea The crop area coordinates and dimensions
+   * @returns A new cropped File
+   */
+  static async cropImage(file: File, cropArea: CropArea): Promise<File> {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const imageUrl = URL.createObjectURL(file);
+
+      img.onload = () => {
+        URL.revokeObjectURL(imageUrl);
+
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+
+        if (!ctx) {
+          reject(new Error('Could not get canvas context'));
+          return;
+        }
+
+        // Set canvas dimensions to crop size
+        canvas.width = cropArea.width;
+        canvas.height = cropArea.height;
+
+        // Enable high-quality rendering
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+
+        // Draw the cropped region
+        ctx.drawImage(
+          img,
+          cropArea.x, cropArea.y, cropArea.width, cropArea.height,
+          0, 0, cropArea.width, cropArea.height
+        );
+
+        // Convert to blob and create new file
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              reject(new Error('Failed to create cropped image'));
+              return;
+            }
+
+            const croppedFile = new File([blob], file.name, {
+              type: file.type,
+              lastModified: Date.now(),
+            });
+
+            console.log(`✂️ Image cropped: ${cropArea.width}x${cropArea.height} from ${img.width}x${img.height}`);
+            resolve(croppedFile);
+          },
+          file.type,
+          1.0 // Use maximum quality for crop to avoid double compression
+        );
+      };
+
+      img.onerror = () => {
+        URL.revokeObjectURL(imageUrl);
+        reject(new Error('Failed to load image for cropping'));
+      };
+
+      img.src = imageUrl;
+    });
+  }
+
+  /**
+   * Converts a data URL to a File object
+   * @param dataUrl The data URL string
+   * @param filename The filename for the resulting File
+   * @returns A File object
+   */
+  static dataUrlToFile(dataUrl: string, filename: string): File {
+    const arr = dataUrl.split(',');
+    const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/png';
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new File([u8arr], filename, { type: mime });
+  }
+
   /**
    * Extracts EXIF data from an image file
    * @param file The image file
@@ -503,19 +590,28 @@ export class ImageProcessor {
       const browserInfo = detectBrowser();
       const capabilities = getBrowserCapabilities(browserInfo);
 
+      // Apply crop if specified
+      let workingFile = file;
+      if (options.cropArea) {
+        if (onProgress) onProgress(2);
+        console.log('✂️ Applying crop before optimization...');
+        workingFile = await this.cropImage(file, options.cropArea);
+        if (onProgress) onProgress(5);
+      }
+
       // Extract EXIF data if preservation is enabled (JPEG/TIFF only)
       let exifData: string | null = null;
-      if (options.preserveExif && (file.type === 'image/jpeg' || file.type === 'image/tiff')) {
-        exifData = await this.extractExifData(file);
+      if (options.preserveExif && (workingFile.type === 'image/jpeg' || workingFile.type === 'image/tiff')) {
+        exifData = await this.extractExifData(workingFile);
         if (exifData) {
           console.log('📸 EXIF data extracted successfully');
         }
       }
 
       // Check if we can skip processing entirely
-      if (this.shouldSkipProcessing(file, options)) {
+      if (this.shouldSkipProcessing(workingFile, options)) {
         if (onProgress) onProgress(100);
-        return this.createUnprocessedResult(file, options);
+        return this.createUnprocessedResult(workingFile, options);
       }
 
       // Map quality for internal processing (100% -> 90% to prevent size increases)
@@ -538,7 +634,7 @@ export class ImageProcessor {
       let finalFile: File;
 
       // Choose optimization method based on format, quality, and browser capabilities
-      finalFile = await this.selectOptimizationMethod(file, optimizedOptions, capabilities, onProgress);
+      finalFile = await this.selectOptimizationMethod(workingFile, optimizedOptions, capabilities, onProgress);
 
       // Insert EXIF data back if it was extracted and output is JPEG
       if (exifData && options.preserveExif && options.format === 'jpeg') {
@@ -551,10 +647,11 @@ export class ImageProcessor {
       // Exception: If user specifically requested 100% quality, they might accept a size increase,
       // but generally "optimization" implies size reduction.
       // We'll be safe: if it's bigger and same format, keep original.
-      const inputFormat = this.getFormatFromMimeType(file.type);
-      if (finalFile.size > file.size && inputFormat === options.format) {
-        console.log(`⚠️ Optimized file is larger (${this.formatFileSize(finalFile.size)} > ${this.formatFileSize(file.size)}). Keeping original.`);
-        finalFile = file;
+      // Note: If crop was applied, we compare against the cropped file, not the original
+      const inputFormat = this.getFormatFromMimeType(workingFile.type);
+      if (finalFile.size > workingFile.size && inputFormat === options.format && !options.cropArea) {
+        console.log(`⚠️ Optimized file is larger (${this.formatFileSize(finalFile.size)} > ${this.formatFileSize(workingFile.size)}). Keeping original.`);
+        finalFile = workingFile;
         // We also need to ensure the "optimized" URL points to the original
         // This is handled below where we create URLs from finalFile
       }

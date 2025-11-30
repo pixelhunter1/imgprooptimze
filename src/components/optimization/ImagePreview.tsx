@@ -1,18 +1,21 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Download, Zap, Edit2, X, Maximize2 } from 'lucide-react';
+import { Download, Zap, Edit2, X, Maximize2, Crop } from 'lucide-react';
 import ImageComparison from './ImageComparison';
 import Modal from '@/components/ui/modal';
 import { Badge } from '@/components/ui/base-badge';
 import { type ProcessedImage, ImageProcessor } from '@/lib/imageProcessor';
+import CropEditor from '@/components/crop/CropEditor';
+import { type CropArea } from '@/types/crop';
 
 interface ImagePreviewProps {
   processedImage: ProcessedImage;
   onDownload: (image: ProcessedImage) => void;
   onRename: (id: string, newFilename: string) => void;
   onRemove?: (id: string) => void;
+  onCrop?: (id: string, croppedFile: File, croppedUrl: string) => void;
   isProcessing?: boolean;
   processingProgress?: number;
 }
@@ -22,12 +25,31 @@ export default function ImagePreview({
   onDownload,
   onRename,
   onRemove,
+  onCrop,
   isProcessing = false,
   processingProgress = 0,
 }: ImagePreviewProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedFilename, setEditedFilename] = useState('');
   const [showModal, setShowModal] = useState(false);
+  const [showCropEditor, setShowCropEditor] = useState(false);
+
+  // Handle crop completion
+  const handleCropComplete = useCallback(
+    (_cropArea: CropArea | null, croppedImageUrl: string, _outputSize?: { width: number; height: number }) => {
+      if (!onCrop) return;
+
+      // Convert cropped image URL to File
+      const croppedFile = ImageProcessor.dataUrlToFile(
+        croppedImageUrl,
+        processedImage.optimizedFile.name
+      );
+
+      onCrop(processedImage.id, croppedFile, croppedImageUrl);
+      setShowCropEditor(false);
+    },
+    [onCrop, processedImage]
+  );
 
   const {
     originalFile,
@@ -149,16 +171,35 @@ export default function ImagePreview({
 
 
 
-              {/* Remove Button */}
-              {onRemove && (
-                <button
-                  onClick={() => onRemove(processedImage.id)}
-                  className="absolute top-2 right-2 h-8 w-8 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center shadow-lg transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 z-20"
-                  title="Remove image"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              )}
+              {/* Action Buttons */}
+              <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 z-20">
+                {/* Crop Button */}
+                {onCrop && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowCropEditor(true);
+                    }}
+                    className="h-8 w-8 rounded-full bg-blue-500 hover:bg-blue-600 text-white flex items-center justify-center shadow-lg"
+                    title="Crop image"
+                  >
+                    <Crop className="h-4 w-4" />
+                  </button>
+                )}
+                {/* Remove Button */}
+                {onRemove && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRemove(processedImage.id);
+                    }}
+                    className="h-8 w-8 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center shadow-lg"
+                    title="Remove image"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
               {/* Simple Format Badge */}
               <div className="absolute bottom-3 right-3 pointer-events-none z-20">
                 <Badge appearance="light" variant="secondary" size="sm" className="bg-background/90 backdrop-blur-sm shadow-sm">
@@ -274,6 +315,15 @@ export default function ImagePreview({
           </>
         )}
       </CardContent>
+
+      {/* Crop Editor Modal */}
+      <CropEditor
+        isOpen={showCropEditor}
+        onClose={() => setShowCropEditor(false)}
+        imageUrl={processedImage.optimizedUrl}
+        imageName={processedImage.optimizedFile.name}
+        onCropComplete={handleCropComplete}
+      />
     </Card>
   );
 }

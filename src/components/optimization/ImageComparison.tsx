@@ -146,7 +146,7 @@ export default function ImageComparison({
             >
                 <img
                     src={optimizedUrl}
-                    alt="Optimized"
+                    alt=""
                     className="max-w-full max-h-full object-contain"
                     draggable={false}
                 />
@@ -171,7 +171,7 @@ export default function ImageComparison({
                 >
                     <img
                         src={originalUrl}
-                        alt="Original"
+                        alt=""
                         className="max-w-full max-h-full object-contain"
                         draggable={false}
                     />

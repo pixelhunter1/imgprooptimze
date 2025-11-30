@@ -165,6 +165,28 @@ function App() {
     setProcessedImages(prev => prev.filter(img => img.id !== imageId));
   }, [processedImages]);
 
+  const handleCropImage = useCallback((imageId: string, croppedFile: File, croppedUrl: string) => {
+    setProcessedImages(prev =>
+      prev.map(img => {
+        if (img.id === imageId) {
+          // Revoke old optimized URL to prevent memory leak
+          if (img.optimizedUrl) {
+            URL.revokeObjectURL(img.optimizedUrl);
+          }
+          return {
+            ...img,
+            optimizedFile: croppedFile,
+            optimizedUrl: croppedUrl,
+            optimizedSize: croppedFile.size,
+            // Recalculate compression ratio
+            compressionRatio: ((img.originalSize - croppedFile.size) / img.originalSize) * 100,
+          };
+        }
+        return img;
+      })
+    );
+  }, []);
+
   const handleResetProject = useCallback(() => {
     // Clean up blob URLs from processed images to prevent memory leaks
     ImageProcessor.cleanupProcessedImages(processedImages);
@@ -285,6 +307,7 @@ function App() {
                     onDownload={handleDownloadImage}
                     onRename={handleRenameImage}
                     onRemove={handleRemoveImage}
+                    onCrop={handleCropImage}
                   />
                 ))}
               </div>
