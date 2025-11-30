@@ -15,7 +15,6 @@ interface ImagePreviewProps {
   onRemove?: (id: string) => void;
   isProcessing?: boolean;
   processingProgress?: number;
-  viewMode?: 'grid' | 'list';
 }
 
 export default function ImagePreview({
@@ -25,7 +24,6 @@ export default function ImagePreview({
   onRemove,
   isProcessing = false,
   processingProgress = 0,
-  viewMode = 'grid',
 }: ImagePreviewProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedFilename, setEditedFilename] = useState('');
@@ -36,7 +34,6 @@ export default function ImagePreview({
     originalSize,
     optimizedSize,
     compressionRatio,
-    optimizedUrl,
     format,
     customFilename,
   } = processedImage;
@@ -98,88 +95,6 @@ export default function ImagePreview({
 
 
 
-
-  if (viewMode === 'list') {
-    return (
-      <Card className="bg-card border border-border rounded-lg w-full overflow-hidden hover:border-primary/50 transition-colors">
-        <CardContent className="p-4 flex items-center gap-4">
-          {/* Thumbnail */}
-          <div className="relative w-24 h-24 shrink-0 bg-muted/50 rounded-md overflow-hidden">
-            {isProcessing ? (
-              <div className="w-full h-full flex items-center justify-center">
-                <Zap className="h-6 w-6 animate-pulse text-primary" />
-              </div>
-            ) : (
-              <img
-                src={optimizedUrl}
-                alt="Thumbnail"
-                className="w-full h-full object-cover"
-              />
-            )}
-          </div>
-
-          {/* Info */}
-          <div className="flex-1 min-w-0 grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
-            <div className="space-y-1">
-              <h3 className="font-medium text-foreground truncate" title={originalFile.name}>
-                {originalFile.name}
-              </h3>
-              <div className="flex items-center gap-2">
-                <Badge appearance="light" variant="secondary" size="sm">
-                  {format.toUpperCase()}
-                </Badge>
-                {isProcessing && <span className="text-xs text-muted-foreground">{processingProgress}%</span>}
-              </div>
-            </div>
-
-            {!isProcessing && (
-              <div className="flex flex-col text-sm text-muted-foreground">
-                <span>{ImageProcessor.formatFileSize(originalSize)} → {ImageProcessor.formatFileSize(optimizedSize)}</span>
-                <span className={`font-medium ${getCompressionColor(compressionRatio)}`}>
-                  {getCompressionDisplay(compressionRatio)}
-                </span>
-              </div>
-            )}
-
-            {/* Actions */}
-            <div className="flex items-center justify-end gap-2">
-              {!isProcessing && (
-                <>
-                  <Button variant="ghost" size="sm" onClick={handleStartEdit}>
-                    <Edit2 className="h-4 w-4" />
-                  </Button>
-                  <Button variant="primary" size="sm" onClick={() => onDownload(processedImage)}>
-                    <Download className="h-4 w-4 mr-2" /> Download
-                  </Button>
-                  {onRemove && (
-                    <Button variant="ghost" size="sm" onClick={() => onRemove(processedImage.id)} className="text-destructive hover:text-destructive">
-                      <X className="h-4 w-4" />
-                    </Button>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* Rename Input Overlay for List View */}
-          {isEditing && (
-            <div className="absolute inset-0 bg-background/95 flex items-center px-4 gap-2 z-10">
-              <input
-                type="text"
-                value={editedFilename}
-                onChange={(e) => setEditedFilename(e.target.value)}
-                onKeyDown={handleKeyPress}
-                className="flex-1 px-3 py-2 text-sm border border-border rounded-md"
-                autoFocus
-              />
-              <Button size="sm" onClick={handleSaveEdit}>Save</Button>
-              <Button size="sm" variant="ghost" onClick={handleCancelEdit}>Cancel</Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    );
-  }
 
   return (
     <Card className="bg-card border border-border rounded-xl w-full overflow-hidden shadow-sm hover:shadow-md transition-shadow">
