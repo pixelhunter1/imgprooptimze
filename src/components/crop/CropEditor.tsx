@@ -250,16 +250,22 @@ export default function CropEditor({
       const canvasW = Math.min(maxCanvasW, cropW + padding);
       const canvasH = Math.min(maxCanvasH, cropH + padding);
 
-      canvas.width = canvasW;
-      canvas.height = canvasH;
-
       // Use the calculated scale for this render (temporarily override displayScale for image mode)
       const effectiveScale = scaleToFitCrop;
       const cropX = (canvasW - cropW) / 2;
       const cropY = (canvasH - cropH) / 2;
 
-      // Disable image smoothing for crisp rendering
-      ctx.imageSmoothingEnabled = false;
+      // Use device pixel ratio for high DPI displays (crisp rendering)
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = canvasW * dpr;
+      canvas.height = canvasH * dpr;
+      canvas.style.width = canvasW + 'px';
+      canvas.style.height = canvasH + 'px';
+      ctx.scale(dpr, dpr);
+
+      // Enable high quality rendering
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
 
       // Draw checkered background (Figma style)
       drawCheckerboard(0, 0, canvasW, canvasH, 10);
@@ -276,13 +282,13 @@ export default function CropEditor({
 
       // Draw image border (blue dotted)
       ctx.strokeStyle = '#3b82f6';
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 1.5;
       ctx.setLineDash([6, 4]);
-      ctx.strokeRect(imgX, imgY, imgW, imgH);
+      ctx.strokeRect(imgX + 0.5, imgY + 0.5, imgW, imgH);
       ctx.setLineDash([]);
 
-      // Draw resize handles on image corners (blue squares)
-      const handleSize = 14;
+      // Draw resize handles on image corners (blue circles for smoother look)
+      const handleSize = 12;
       ctx.fillStyle = '#3b82f6';
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 2;
@@ -293,13 +299,11 @@ export default function CropEditor({
         [imgX + imgW, imgY + imgH], // se
       ];
       corners.forEach(([cx, cy]) => {
-        ctx.fillRect(cx - handleSize / 2, cy - handleSize / 2, handleSize, handleSize);
-        ctx.strokeRect(cx - handleSize / 2, cy - handleSize / 2, handleSize, handleSize);
+        ctx.beginPath();
+        ctx.arc(cx, cy, handleSize / 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
       });
-
-      // Re-enable image smoothing for high quality image rendering
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'high';
 
       // Preview style effects inside crop area
       const previewPadding = styleOptions.padding * effectiveScale * 0.5;
@@ -431,15 +435,20 @@ export default function CropEditor({
       const dw = img.width * displayScale;
       const dh = img.height * displayScale;
 
-      canvas.width = dw;
-      canvas.height = dh;
+      // Use device pixel ratio for high DPI displays
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = dw * dpr;
+      canvas.height = dh * dpr;
+      canvas.style.width = dw + 'px';
+      canvas.style.height = dh + 'px';
+      ctx.scale(dpr, dpr);
+
+      // Enable high quality rendering
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
 
       // Draw checkered background
       drawCheckerboard(0, 0, dw, dh, 10);
-
-      // Enable high quality image rendering
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'high';
 
       ctx.drawImage(img, 0, 0, dw, dh);
 
@@ -461,7 +470,7 @@ export default function CropEditor({
 
       ctx.strokeStyle = '#10b981';
       ctx.lineWidth = 2;
-      ctx.strokeRect(sc.x, sc.y, sc.w, sc.h);
+      ctx.strokeRect(sc.x + 0.5, sc.y + 0.5, sc.w, sc.h);
 
       ctx.strokeStyle = 'rgba(255,255,255,0.3)';
       ctx.lineWidth = 1;
@@ -476,13 +485,16 @@ export default function CropEditor({
         ctx.stroke();
       }
 
+      // Draw corner handles as circles
       ctx.fillStyle = '#10b981';
-      const hs = 10;
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 2;
+      const hs = 10;
       [[sc.x, sc.y], [sc.x + sc.w, sc.y], [sc.x, sc.y + sc.h], [sc.x + sc.w, sc.y + sc.h]].forEach(([hx, hy]) => {
-        ctx.fillRect(hx - hs / 2, hy - hs / 2, hs, hs);
-        ctx.strokeRect(hx - hs / 2, hy - hs / 2, hs, hs);
+        ctx.beginPath();
+        ctx.arc(hx, hy, hs / 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
       });
     }
   }, [cropArea, imageLoaded, displayScale, dragMode, imageTransform, activeGuides, styleOptions]);
@@ -1177,7 +1189,6 @@ export default function CropEditor({
               <canvas
                 ref={canvasRef}
                 onMouseDown={handleMouseDown}
-                className="max-w-full max-h-full"
                 style={{
                   cursor: isDragging
                     ? 'grabbing'
