@@ -117,15 +117,13 @@ export default function CropEditor({
           };
           setCropArea(newCropArea);
 
-          // Initialize image transform for 'image' mode (Fit Image is default)
-          const scaleToFill = Math.max(
-            cropW / img.width,
-            cropH / img.height
-          );
+          // Initialize image transform for 'image' mode
+          // When no preset is selected, we want the full image visible within the crop area
+          // Use scale of 1.0 so the crop area shows a portion of the full-size image
           setImageTransform({
-            x: (cropW - img.width * scaleToFill) / 2,
-            y: (cropH - img.height * scaleToFill) / 2,
-            scale: scaleToFill,
+            x: 0,
+            y: 0,
+            scale: 1,
           });
         }
       }
@@ -1032,16 +1030,48 @@ export default function CropEditor({
 
     // Step 4: Draw the image
     if (dragMode === 'image') {
-      // Image mode: image is transformed within the crop area
-      const scaleRatio = outW / cropArea.width;
-      const drawX = padding + imageTransform.x * scaleRatio;
-      const drawY = padding + imageTransform.y * scaleRatio;
-      const drawW = img.width * imageTransform.scale * scaleRatio;
-      const drawH = img.height * imageTransform.scale * scaleRatio;
+      // Image mode: the image is positioned/scaled within the crop area as a viewport
+      // imageTransform.x/y = offset of image from crop area origin (0,0)
+      // imageTransform.scale = scale of the image relative to original size
 
-      ctx.drawImage(img, drawX, drawY, drawW, drawH);
+      // The crop area acts as a "window" - we see the portion of the scaled image
+      // that falls within (0, 0, cropArea.width, cropArea.height) in crop-area coordinates
+
+      // What we see in the crop window (in image-transform space):
+      // - Image starts at (imageTransform.x, imageTransform.y) with size (img.width * scale, img.height * scale)
+      // - Crop window shows (0, 0) to (cropArea.width, cropArea.height)
+
+      // Convert crop window bounds to source image coordinates:
+      // Point (cx, cy) in crop space corresponds to ((cx - imageTransform.x) / scale, (cy - imageTransform.y) / scale) in source image
+      const srcX = (0 - imageTransform.x) / imageTransform.scale;
+      const srcY = (0 - imageTransform.y) / imageTransform.scale;
+      const srcW = cropArea.width / imageTransform.scale;
+      const srcH = cropArea.height / imageTransform.scale;
+
+      // Clamp to valid source image bounds and calculate destination adjustments
+      const clampedSrcX = Math.max(0, Math.min(srcX, img.width));
+      const clampedSrcY = Math.max(0, Math.min(srcY, img.height));
+      const clampedSrcRight = Math.max(0, Math.min(srcX + srcW, img.width));
+      const clampedSrcBottom = Math.max(0, Math.min(srcY + srcH, img.height));
+      const clampedSrcW = clampedSrcRight - clampedSrcX;
+      const clampedSrcH = clampedSrcBottom - clampedSrcY;
+
+      // Calculate where to draw on the output canvas
+      const scaleRatio = outW / cropArea.width;
+      const destX = padding + (clampedSrcX - srcX) * imageTransform.scale * scaleRatio;
+      const destY = padding + (clampedSrcY - srcY) * imageTransform.scale * scaleRatio;
+      const destW = clampedSrcW * imageTransform.scale * scaleRatio;
+      const destH = clampedSrcH * imageTransform.scale * scaleRatio;
+
+      if (clampedSrcW > 0 && clampedSrcH > 0) {
+        ctx.drawImage(
+          img,
+          clampedSrcX, clampedSrcY, clampedSrcW, clampedSrcH,
+          destX, destY, destW, destH
+        );
+      }
     } else {
-      // Crop mode: direct crop from source image
+      // Crop mode: direct crop from source image at cropArea position
       ctx.drawImage(
         img,
         cropArea.x, cropArea.y, cropArea.width, cropArea.height,
