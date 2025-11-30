@@ -218,17 +218,25 @@ function App() {
     setProcessedImages(prev =>
       prev.map(img => {
         if (img.id === imageId) {
-          // Revoke old optimized URL to prevent memory leak
+          // Revoke old URLs to prevent memory leak
           if (img.optimizedUrl) {
             URL.revokeObjectURL(img.optimizedUrl);
           }
+          if (img.originalUrl) {
+            URL.revokeObjectURL(img.originalUrl);
+          }
           return {
             ...img,
+            // Update both original and optimized to the cropped version
+            // This ensures Before/After comparison shows the same dimensions
+            originalFile: croppedFile,
+            originalUrl: croppedUrl,
+            originalSize: croppedFile.size,
             optimizedFile: croppedFile,
             optimizedUrl: croppedUrl,
             optimizedSize: croppedFile.size,
-            // Recalculate compression ratio
-            compressionRatio: ((img.originalSize - croppedFile.size) / img.originalSize) * 100,
+            // After crop, compression ratio is 0% until re-optimized
+            compressionRatio: 0,
           };
         }
         return img;

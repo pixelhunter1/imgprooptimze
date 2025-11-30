@@ -13,6 +13,7 @@ files:
 mac:
   category: public.app-category.photography
   icon: public/icons/icon-512x512.png
+  identity: null
   target:
     - target: dmg
       arch:
