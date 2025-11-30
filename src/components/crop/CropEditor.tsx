@@ -1111,7 +1111,7 @@ export default function CropEditor({
 
               {/* Floating toolbar - only in image mode */}
               {dragMode === 'image' && (
-                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-2 bg-neutral-900/95 backdrop-blur-sm rounded-lg border border-neutral-800 shadow-lg">
+                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-2 bg-neutral-900/95 backdrop-blur-sm rounded-lg border border-neutral-800 shadow-lg z-50">
                   {/* Quick action buttons */}
                   <button
                     onClick={() => {
