@@ -1450,36 +1450,39 @@ export default function CropEditor({
           <div className="p-4 border-b border-neutral-800">
             <h4 className="text-neutral-400 text-xs uppercase tracking-wide mb-3">Style</h4>
 
-            {/* Padding */}
-            <div className="mb-4">
-              <div className="flex justify-between text-[10px] text-neutral-500 mb-1.5">
-                <span>Padding</span>
-                <span>{styleOptions.padding}px</span>
+            {/* Padding & Corner Radius in a row */}
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              {/* Padding */}
+              <div>
+                <label className="text-[10px] text-neutral-500 mb-1.5 block">Padding</label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min="0"
+                    max="200"
+                    value={styleOptions.padding}
+                    onChange={(e) => setStyleOptions(prev => ({ ...prev, padding: Math.max(0, parseInt(e.target.value) || 0) }))}
+                    className="w-full bg-neutral-800 border border-neutral-700 rounded px-2 py-1.5 text-xs text-white focus:border-emerald-500 focus:outline-none"
+                  />
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-neutral-500">px</span>
+                </div>
               </div>
-              <input
-                type="range"
-                min="0"
-                max="100"
-                value={styleOptions.padding}
-                onChange={(e) => setStyleOptions(prev => ({ ...prev, padding: parseInt(e.target.value) }))}
-                className="w-full h-1 bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-              />
-            </div>
 
-            {/* Border Radius */}
-            <div className="mb-4">
-              <div className="flex justify-between text-[10px] text-neutral-500 mb-1.5">
-                <span>Corner Radius</span>
-                <span>{styleOptions.borderRadius}px</span>
+              {/* Corner Radius */}
+              <div>
+                <label className="text-[10px] text-neutral-500 mb-1.5 block">Corner Radius</label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min="0"
+                    max="500"
+                    value={styleOptions.borderRadius}
+                    onChange={(e) => setStyleOptions(prev => ({ ...prev, borderRadius: Math.max(0, parseInt(e.target.value) || 0) }))}
+                    className="w-full bg-neutral-800 border border-neutral-700 rounded px-2 py-1.5 text-xs text-white focus:border-emerald-500 focus:outline-none"
+                  />
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-neutral-500">px</span>
+                </div>
               </div>
-              <input
-                type="range"
-                min="0"
-                max="100"
-                value={styleOptions.borderRadius}
-                onChange={(e) => setStyleOptions(prev => ({ ...prev, borderRadius: parseInt(e.target.value) }))}
-                className="w-full h-1 bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-              />
             </div>
 
             {/* Background Color */}
