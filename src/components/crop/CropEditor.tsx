@@ -63,6 +63,9 @@ export default function CropEditor({
   const [displayScale, setDisplayScale] = useState(1);
   const [imageSize, setImageSize] = useState({ width: 0, height: 0 });
 
+  // Hover handle for cursor
+  const [hoverHandle, setHoverHandle] = useState<string | null>(null);
+
   // Frame style type (shots.so inspired)
   type FrameStyle = 'none' | 'glass-light' | 'glass-dark' | 'inset-light' | 'inset-dark' | 'outline' | 'border' | 'liquid';
 
@@ -650,17 +653,21 @@ export default function CropEditor({
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
 
-    // Get mouse position relative to canvas
+    // Get mouse position relative to canvas element
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
 
-    // Account for any CSS scaling of the canvas (when max-w-full/max-h-full causes the canvas to be rendered smaller than its internal size)
-    const cssScaleX = rect.width / canvas.width;
-    const cssScaleY = rect.height / canvas.height;
+    // Get the CSS size of the canvas (without DPR)
+    const cssWidth = parseFloat(canvas.style.width) || rect.width;
+    const cssHeight = parseFloat(canvas.style.height) || rect.height;
 
-    // Convert to canvas coordinates, then to image coordinates
-    const canvasX = mouseX / cssScaleX;
-    const canvasY = mouseY / cssScaleY;
+    // Scale factor between rendered size and CSS size
+    const scaleX = cssWidth / rect.width;
+    const scaleY = cssHeight / rect.height;
+
+    // Convert to CSS canvas coordinates
+    const canvasX = mouseX * scaleX;
+    const canvasY = mouseY * scaleY;
 
     // In crop mode, canvas coordinates = image coordinates * displayScale
     // So divide by displayScale to get image coordinates
@@ -672,16 +679,41 @@ export default function CropEditor({
 
   const getHandle = useCallback((x: number, y: number) => {
     if (!cropArea) return null;
-    const t = 12 / displayScale;
-    const handles: Record<string, [number, number]> = {
+    const t = 15 / displayScale; // Tolerance for corner handles
+    const edgeT = 10 / displayScale; // Tolerance for edge handles
+
+    // Corner handles (priority)
+    const corners: Record<string, [number, number]> = {
       nw: [cropArea.x, cropArea.y],
       ne: [cropArea.x + cropArea.width, cropArea.y],
       sw: [cropArea.x, cropArea.y + cropArea.height],
       se: [cropArea.x + cropArea.width, cropArea.y + cropArea.height],
     };
-    for (const [h, [hx, hy]] of Object.entries(handles)) {
+    for (const [h, [hx, hy]] of Object.entries(corners)) {
       if (Math.abs(x - hx) < t && Math.abs(y - hy) < t) return h;
     }
+
+    // Edge handles (for resizing from edges)
+    const cx = cropArea.x + cropArea.width / 2;
+    const cy = cropArea.y + cropArea.height / 2;
+
+    // North edge (top)
+    if (Math.abs(y - cropArea.y) < edgeT && x > cropArea.x + t && x < cropArea.x + cropArea.width - t) {
+      return 'n';
+    }
+    // South edge (bottom)
+    if (Math.abs(y - (cropArea.y + cropArea.height)) < edgeT && x > cropArea.x + t && x < cropArea.x + cropArea.width - t) {
+      return 's';
+    }
+    // West edge (left)
+    if (Math.abs(x - cropArea.x) < edgeT && y > cropArea.y + t && y < cropArea.y + cropArea.height - t) {
+      return 'w';
+    }
+    // East edge (right)
+    if (Math.abs(x - (cropArea.x + cropArea.width)) < edgeT && y > cropArea.y + t && y < cropArea.y + cropArea.height - t) {
+      return 'e';
+    }
+
     return null;
   }, [cropArea, displayScale]);
 
@@ -783,12 +815,14 @@ export default function CropEditor({
         setDragStart({ x: e.clientX, y: e.clientY });
       }
     } else {
+      // Crop mode: move the crop area
       const handle = getHandle(x, y);
       if (handle) {
         setIsResizing(true);
         setResizeHandle(handle);
         setDragStart({ x, y });
-      } else if (isInside(x, y)) {
+      } else {
+        // Allow dragging crop from anywhere in the canvas (not just inside crop area)
         setIsDragging(true);
         setDragStart({ x: x - (cropArea?.x || 0), y: y - (cropArea?.y || 0) });
       }
@@ -1011,6 +1045,20 @@ export default function CropEditor({
       setActiveGuides({ centerX: false, centerY: false, left: false, right: false, top: false, bottom: false });
     }, 300);
   }, []);
+
+  // Handle canvas mouse move for cursor changes (hover detection)
+  const handleCanvasMouseMove = useCallback((e: React.MouseEvent) => {
+    if (isDragging || isResizing) return; // Don't update hover while dragging
+
+    if (dragMode === 'crop') {
+      const { x, y } = getCoords(e);
+      const handle = getHandle(x, y);
+      setHoverHandle(handle);
+    } else {
+      const handle = getImageHandle(e.clientX, e.clientY);
+      setHoverHandle(handle);
+    }
+  }, [isDragging, isResizing, dragMode, getCoords, getHandle, getImageHandle]);
 
   useEffect(() => {
     if (isDragging || isResizing) {
@@ -1458,15 +1506,24 @@ export default function CropEditor({
               <canvas
                 ref={canvasRef}
                 onMouseDown={handleMouseDown}
+                onMouseMove={handleCanvasMouseMove}
+                onMouseLeave={() => setHoverHandle(null)}
                 style={{
                   cursor: isDragging
                     ? 'grabbing'
                     : isResizing
-                    ? (imageResizeHandle === 'nw' || imageResizeHandle === 'se' ? 'nwse-resize' :
-                       imageResizeHandle === 'ne' || imageResizeHandle === 'sw' ? 'nesw-resize' : 'nwse-resize')
+                    ? (resizeHandle === 'nw' || resizeHandle === 'se' || imageResizeHandle === 'nw' || imageResizeHandle === 'se' ? 'nwse-resize' :
+                       resizeHandle === 'ne' || resizeHandle === 'sw' || imageResizeHandle === 'ne' || imageResizeHandle === 'sw' ? 'nesw-resize' :
+                       resizeHandle === 'n' || resizeHandle === 's' ? 'ns-resize' :
+                       resizeHandle === 'e' || resizeHandle === 'w' ? 'ew-resize' : 'nwse-resize')
+                    : hoverHandle
+                    ? (hoverHandle === 'nw' || hoverHandle === 'se' ? 'nwse-resize' :
+                       hoverHandle === 'ne' || hoverHandle === 'sw' ? 'nesw-resize' :
+                       hoverHandle === 'n' || hoverHandle === 's' ? 'ns-resize' :
+                       hoverHandle === 'e' || hoverHandle === 'w' ? 'ew-resize' : 'move')
                     : dragMode === 'image'
                     ? 'grab'
-                    : 'crosshair'
+                    : 'move'
                 }}
               />
 
