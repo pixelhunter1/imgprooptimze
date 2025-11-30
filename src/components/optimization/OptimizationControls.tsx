@@ -66,23 +66,23 @@ export default function OptimizationControls({
         {/* Format Selection */}
         <div className="space-y-3">
           <label className="text-xs uppercase tracking-wide text-neutral-400">Output Format</label>
-          <div className="flex gap-2">
+          <div className="grid grid-cols-3 gap-1.5">
             {formatOptions.map((format) => (
-              <Button
+              <button
                 key={format.value}
-                variant={options.format === format.value ? "primary" : "outline"}
-                size="md"
                 onClick={() => onOptionsChange({ ...options, format: format.value })}
-                className={`flex-1 relative ${!format.supported ? 'opacity-50' : ''}`}
                 disabled={!format.supported}
+                className={`flex items-center justify-center gap-1.5 px-2 py-2 text-xs rounded ${
+                  options.format === format.value
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
+                } ${!format.supported ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
-                <span className="flex items-center gap-1">
-                  {format.label}
-                  {!format.supported && (
-                    <AlertTriangle className="h-3 w-3 text-red-500" />
-                  )}
-                </span>
-              </Button>
+                {format.label}
+                {!format.supported && (
+                  <AlertTriangle className="h-3 w-3 text-red-500" />
+                )}
+              </button>
             ))}
           </div>
           {!capabilities.canUseWebP && options.format === 'webp' && (
@@ -125,20 +125,22 @@ export default function OptimizationControls({
             <SliderThumb />
           </Slider>
 
-          <div className="flex gap-2">
+          <div className="grid grid-cols-5 gap-1.5">
             {qualityPresets.map((preset) => (
-              <Button
+              <button
                 key={preset.value}
-                variant={Math.abs(options.quality - preset.value) < 0.05 ? "secondary" : "outline"}
-                size="md"
                 onClick={() => onOptionsChange({
                   ...options,
                   quality: preset.value
                 })}
-                className="flex-1"
+                className={`px-2 py-1.5 text-[10px] rounded ${
+                  Math.abs(options.quality - preset.value) < 0.05
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
+                }`}
               >
                 {preset.label}
-              </Button>
+              </button>
             ))}
           </div>
 
@@ -235,19 +237,21 @@ export default function OptimizationControls({
 
         {/* Action Button */}
         <div className="pt-4 border-t border-neutral-800">
-          <Button
+          <button
             onClick={onOptimize}
             disabled={!hasImages || isProcessing}
-            className="w-full"
-            size="lg"
-            variant="primary"
+            className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded ${
+              !hasImages || isProcessing
+                ? 'bg-neutral-800 text-neutral-500 cursor-not-allowed'
+                : 'bg-emerald-600 text-white hover:bg-emerald-700'
+            }`}
           >
             <Zap className="h-4 w-4" />
             {isProcessing
               ? `Processing... (${processedCount}/${totalImages})`
               : 'Optimize Images'
             }
-          </Button>
+          </button>
         </div>
       </CardContent>
     </Card>
