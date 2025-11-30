@@ -299,7 +299,8 @@ const ImageUpload = forwardRef<ImageUploadRef, ImageUploadProps>(({
                   variant="outline"
                   size="sm"
                   mode="icon"
-                  className="absolute top-2 end-2 opacity-0 group-hover:opacity-100 rounded-full"
+                  className="absolute top-2 end-2 opacity-0 group-hover:opacity-100 rounded-full bg-background/80 backdrop-blur-sm"
+                  title="Remove image"
                 >
                   <XIcon className="size-3.5" />
                 </Button>
