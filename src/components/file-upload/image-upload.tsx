@@ -2,8 +2,6 @@
 
 import { useCallback, useState, forwardRef, useImperativeHandle, useEffect, useRef } from 'react';
 import { Alert, AlertContent, AlertDescription, AlertIcon, AlertTitle } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { CircleX, CloudUpload, ImageIcon, TriangleAlert, XIcon, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -50,7 +48,7 @@ const ImageUpload = forwardRef<ImageUploadRef, ImageUploadProps>(({
   // Keep track of all blob URLs created for cleanup
   const blobUrlsRef = useRef<Set<string>>(new Set());
 
-  // Cleanup all blob URLs on unmount or page unload
+  // Cleanup all blob URLs on page unload only (NOT on StrictMode remount)
   useEffect(() => {
     const cleanupBlobUrls = () => {
       blobUrlsRef.current.forEach(url => {
@@ -70,7 +68,8 @@ const ImageUpload = forwardRef<ImageUploadRef, ImageUploadProps>(({
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
       window.removeEventListener('pagehide', handleBeforeUnload);
-      cleanupBlobUrls();
+      // DON'T cleanup URLs here - it causes issues with React StrictMode
+      // URLs will be cleaned up on beforeunload/pagehide events instead
     };
   }, []);
 

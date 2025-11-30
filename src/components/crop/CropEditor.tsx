@@ -92,57 +92,87 @@ export default function CropEditor({
     return null;
   }, [selectedSize]);
 
-  // Load image
+  // Load image with retry mechanism for blob URLs
   useEffect(() => {
     if (!isOpen || !imageUrl) return;
 
     setImageLoaded(false);
-    const img = new Image();
+    let isCancelled = false;
+    let retryCount = 0;
+    const maxRetries = 3;
+    const retryDelay = 100; // ms
 
-    if (!imageUrl.startsWith('blob:') && !imageUrl.startsWith('data:')) {
-      img.crossOrigin = 'anonymous';
-    }
+    const loadImage = () => {
+      if (isCancelled) return;
 
-    img.onload = () => {
-      imageRef.current = img;
-      setImageSize({ width: img.width, height: img.height });
-      setImageLoaded(true);
+      const img = new Image();
 
-      const container = containerRef.current;
-      if (container) {
-        const maxWidth = container.clientWidth - 32;
-        const maxHeight = container.clientHeight - 32;
-        const scale = Math.min(maxWidth / img.width, maxHeight / img.height, 1);
-        setDisplayScale(scale);
-
-        // Initialize crop area to 80% of image
-        if (!initialCropArea) {
-          const cropW = img.width * 0.8;
-          const cropH = img.height * 0.8;
-          const newCropArea = {
-            x: (img.width - cropW) / 2,
-            y: (img.height - cropH) / 2,
-            width: cropW,
-            height: cropH,
-          };
-          setCropArea(newCropArea);
-
-          // Initialize image transform for 'image' mode
-          // When no preset is selected, we want the full image visible within the crop area
-          // Use scale of 1.0 so the crop area shows a portion of the full-size image
-          setImageTransform({
-            x: 0,
-            y: 0,
-            scale: 1,
-          });
-        }
+      if (!imageUrl.startsWith('blob:') && !imageUrl.startsWith('data:')) {
+        img.crossOrigin = 'anonymous';
       }
+
+      img.onload = () => {
+        if (isCancelled) return;
+
+        imageRef.current = img;
+        setImageSize({ width: img.width, height: img.height });
+        setImageLoaded(true);
+
+        const container = containerRef.current;
+        if (container) {
+          const maxWidth = container.clientWidth - 32;
+          const maxHeight = container.clientHeight - 32;
+          const scale = Math.min(maxWidth / img.width, maxHeight / img.height, 1);
+          setDisplayScale(scale);
+
+          // Initialize crop area to 80% of image
+          if (!initialCropArea) {
+            const cropW = img.width * 0.8;
+            const cropH = img.height * 0.8;
+            const newCropArea = {
+              x: (img.width - cropW) / 2,
+              y: (img.height - cropH) / 2,
+              width: cropW,
+              height: cropH,
+            };
+            setCropArea(newCropArea);
+
+            // Initialize image transform for 'image' mode
+            // When no preset is selected, we want the full image visible within the crop area
+            // Use scale of 1.0 so the crop area shows a portion of the full-size image
+            setImageTransform({
+              x: 0,
+              y: 0,
+              scale: 1,
+            });
+          }
+        }
+      };
+
+      img.onerror = () => {
+        if (isCancelled) return;
+
+        // Retry loading for blob URLs (may fail on first attempt due to timing)
+        if (imageUrl.startsWith('blob:') && retryCount < maxRetries) {
+          retryCount++;
+          console.log(`Image load failed, retrying (${retryCount}/${maxRetries})...`);
+          setTimeout(loadImage, retryDelay * retryCount);
+        } else {
+          console.error('Failed to load image after retries:', imageUrl);
+          setImageLoaded(false);
+        }
+      };
+
+      img.src = imageUrl;
     };
 
-    img.onerror = () => setImageLoaded(false);
-    img.src = imageUrl;
+    // Small delay before first load to ensure blob URL is ready
+    // This helps with React StrictMode double-effect execution
+    const initialDelay = setTimeout(loadImage, 10);
 
     return () => {
+      isCancelled = true;
+      clearTimeout(initialDelay);
       imageRef.current = null;
       setImageLoaded(false);
     };
@@ -694,8 +724,9 @@ export default function CropEditor({
     }
 
     // Edge handles (for resizing from edges)
-    const cx = cropArea.x + cropArea.width / 2;
-    const cy = cropArea.y + cropArea.height / 2;
+    // Note: cx and cy are available if needed for center-based edge detection
+    // const cx = cropArea.x + cropArea.width / 2;
+    // const cy = cropArea.y + cropArea.height / 2;
 
     // North edge (top)
     if (Math.abs(y - cropArea.y) < edgeT && x > cropArea.x + t && x < cropArea.x + cropArea.width - t) {

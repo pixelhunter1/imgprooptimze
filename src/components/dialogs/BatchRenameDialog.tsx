@@ -1,6 +1,4 @@
-import { useState, memo, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { useState, useEffect, memo } from 'react';
 import { X, Edit3, FileText, Hash, Type } from 'lucide-react';
 import { type ProcessedImage, ImageProcessor } from '@/lib/imageProcessor';
 

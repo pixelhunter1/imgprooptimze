@@ -1,11 +1,9 @@
 import { useState, useCallback } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Download, Zap, Edit2, X, Maximize2, Crop } from 'lucide-react';
 import ImageComparison from './ImageComparison';
 import Modal from '@/components/ui/modal';
-import { Badge } from '@/components/ui/base-badge';
 import { type ProcessedImage, ImageProcessor } from '@/lib/imageProcessor';
 import CropEditor from '@/components/crop/CropEditor';
 import { type CropArea } from '@/types/crop';

@@ -1,6 +1,5 @@
 
 import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Slider, SliderThumb } from '@/components/ui/slider';
 import { Settings, Zap, AlertTriangle } from 'lucide-react';
 import { type OptimizationOptions } from '@/lib/imageProcessor';

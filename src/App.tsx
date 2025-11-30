@@ -1,5 +1,9 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { Analytics } from '@vercel/analytics/react';
+import '@/types/electron.d.ts';
+
+// Detect if running in Electron
+const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
 import ImageUpload, { type ImageUploadRef } from '@/components/file-upload/image-upload';
 import OptimizationControls from '@/components/optimization/OptimizationControls';
 import ImagePreview from '@/components/optimization/ImagePreview';
@@ -13,7 +17,6 @@ import FloatingSupport from '@/components/support/FloatingSupport';
 import UpdateNotification from '@/components/updates/UpdateNotification';
 import VersionDisplay from '@/components/updates/VersionDisplay';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { ImageProcessor, type OptimizationOptions, type ProcessedImage, type FileValidationResult } from '@/lib/imageProcessor';
 import { detectBrowser, getBrowserCapabilities, logBrowserInfo } from '@/lib/browserDetection';
 import { Package, Edit3, Trash2 } from 'lucide-react';
@@ -62,6 +65,9 @@ function App() {
   }, [uploadedImages]);
 
   // Cleanup blob URLs ONLY when page unloads - NOT on every state change
+  // Use a flag to prevent cleanup during React StrictMode double-mount
+  const isUnmountingRef = useRef(false);
+
   useEffect(() => {
     const cleanupAllBlobUrls = () => {
       // Clean up processed images using ref (current values at cleanup time)
@@ -84,18 +90,19 @@ function App() {
 
     // Handle page unload (refresh, close tab, navigate away)
     const handleBeforeUnload = () => {
+      isUnmountingRef.current = true;
       cleanupAllBlobUrls();
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);
     window.addEventListener('pagehide', handleBeforeUnload);
 
-    // Cleanup only on component unmount, NOT on every dependency change
+    // Cleanup only on ACTUAL page unload, not on StrictMode remount
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
       window.removeEventListener('pagehide', handleBeforeUnload);
-      // Only cleanup URLs when component actually unmounts (page navigation/close)
-      cleanupAllBlobUrls();
+      // DON'T cleanup URLs here - it causes issues with StrictMode
+      // URLs will be cleaned up on beforeunload/pagehide events instead
     };
   }, []); // Empty dependency array - only run on mount/unmount
 
@@ -394,11 +401,11 @@ function App() {
           onConfirm={handleResetProject}
         />
 
-        {/* PWA Install Button */}
-        <InstallButton />
+        {/* PWA Install Button - hidden in Electron */}
+        {!isElectron && <InstallButton />}
 
-        {/* Update Notification */}
-        <UpdateNotification />
+        {/* Update Notification - hidden in Electron */}
+        {!isElectron && <UpdateNotification />}
 
         {/* Floating Support Button */}
         <FloatingSupport />
@@ -408,8 +415,8 @@ function App() {
           <VersionDisplay />
         </div>
 
-        {/* Vercel Analytics */}
-        <Analytics />
+        {/* Vercel Analytics - hidden in Electron */}
+        {!isElectron && <Analytics />}
       </div>
     </div>
   );
