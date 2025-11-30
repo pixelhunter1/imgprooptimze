@@ -48,11 +48,24 @@ function App() {
   // const { isMobile, isTablet } = useMobileDetection();
   // const shouldBlockMobile = isMobile || isTablet;
 
-  // Cleanup blob URLs when page unloads (refresh, close, navigate away)
+  // Use refs to track blob URLs for cleanup without causing effect re-runs
+  const processedImagesRef = useRef<ProcessedImage[]>([]);
+  const uploadedImagesRef = useRef<UploadedImage[]>([]);
+
+  // Keep refs in sync with state
+  useEffect(() => {
+    processedImagesRef.current = processedImages;
+  }, [processedImages]);
+
+  useEffect(() => {
+    uploadedImagesRef.current = uploadedImages;
+  }, [uploadedImages]);
+
+  // Cleanup blob URLs ONLY when page unloads - NOT on every state change
   useEffect(() => {
     const cleanupAllBlobUrls = () => {
-      // Clean up processed images
-      processedImages.forEach(img => {
+      // Clean up processed images using ref (current values at cleanup time)
+      processedImagesRef.current.forEach(img => {
         if (img.originalUrl) {
           try { URL.revokeObjectURL(img.originalUrl); } catch (e) { /* ignore */ }
         }
@@ -61,8 +74,8 @@ function App() {
         }
       });
 
-      // Clean up uploaded images
-      uploadedImages.forEach(img => {
+      // Clean up uploaded images using ref
+      uploadedImagesRef.current.forEach(img => {
         if (img.preview) {
           try { URL.revokeObjectURL(img.preview); } catch (e) { /* ignore */ }
         }
@@ -74,27 +87,17 @@ function App() {
       cleanupAllBlobUrls();
     };
 
-    // Handle visibility change (tab switch, minimize)
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') {
-        // Page is being hidden - cleanup if no images are being processed
-        if (!isProcessing && processedImages.length === 0 && uploadedImages.length === 0) {
-          cleanupAllBlobUrls();
-        }
-      }
-    };
-
     window.addEventListener('beforeunload', handleBeforeUnload);
     window.addEventListener('pagehide', handleBeforeUnload);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
 
+    // Cleanup only on component unmount, NOT on every dependency change
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
       window.removeEventListener('pagehide', handleBeforeUnload);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      // Only cleanup URLs when component actually unmounts (page navigation/close)
       cleanupAllBlobUrls();
     };
-  }, [processedImages, uploadedImages, isProcessing]);
+  }, []); // Empty dependency array - only run on mount/unmount
 
   const [optimizationOptions, setOptimizationOptions] = useState<OptimizationOptions>(() => {
     // Set initial options based on browser capabilities
@@ -130,7 +133,8 @@ function App() {
     setProcessedImages([]);
 
     try {
-      const newProcessedImages: ProcessedImage[] = [];
+      // Use a ref-like pattern to accumulate results and update state correctly
+      const accumulatedImages: ProcessedImage[] = [];
 
       for (const uploadedImage of uploadedImages) {
         if (uploadedImage.status !== 'completed') continue;
@@ -141,8 +145,9 @@ function App() {
             optimizationOptions
           );
 
-          newProcessedImages.push(processedImage);
-          setProcessedImages(prev => [...prev, processedImage]);
+          accumulatedImages.push(processedImage);
+          // Update state with a copy of the accumulated array to ensure React sees a new reference
+          setProcessedImages([...accumulatedImages]);
         } catch (err) {
           console.error(`Failed to process ${uploadedImage.file.name}:`, err);
         }

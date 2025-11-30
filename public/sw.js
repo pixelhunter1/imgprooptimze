@@ -1,6 +1,6 @@
 // Version will be injected at build time
-const APP_VERSION = '1.0.10'; // This will be replaced during build
-const BUILD_HASH = '3bd272c9'; // This will be replaced during build
+const APP_VERSION = '1.0.11'; // This will be replaced during build
+const BUILD_HASH = 'fix-blob-urls'; // This will be replaced during build
 const CACHE_NAME = `image-optimizer-v${APP_VERSION}-${BUILD_HASH}`;
 const STATIC_CACHE_NAME = `image-optimizer-static-v${APP_VERSION}-${BUILD_HASH}`;
 
@@ -74,6 +74,11 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   // Skip non-GET requests
   if (event.request.method !== 'GET') {
+    return;
+  }
+
+  // Skip blob URLs - they should be handled directly by the browser
+  if (event.request.url.startsWith('blob:')) {
     return;
   }
 
