@@ -961,10 +961,11 @@ export default function CropEditor({
   const handleApply = useCallback(() => {
     if (!cropArea || !imageRef.current) return;
 
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    const img = imageRef.current;
+    const padding = styleOptions.padding;
+    const borderRadius = styleOptions.borderRadius;
 
+    // Calculate output dimensions
     let outW = Math.round(cropArea.width);
     let outH = Math.round(cropArea.height);
 
@@ -973,78 +974,27 @@ export default function CropEditor({
       outH = Math.min(selectedSize.height, Math.round(cropArea.height));
     }
 
-    // Calculate final dimensions with padding
-    const padding = styleOptions.padding;
+    // Final canvas dimensions (image + padding on all sides)
     const finalW = outW + padding * 2;
     const finalH = outH + padding * 2;
 
+    // Create final canvas
+    const canvas = document.createElement('canvas');
     canvas.width = finalW;
     canvas.height = finalH;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
 
-    // Draw background (for padding area and behind image if transparent parts exist)
+    // Step 1: Fill background color (covers entire canvas including padding)
     if (styleOptions.bgColor !== 'transparent') {
       ctx.fillStyle = styleOptions.bgColor;
       ctx.fillRect(0, 0, finalW, finalH);
     }
 
-    // Create a temporary canvas for the cropped image
-    const tempCanvas = document.createElement('canvas');
-    const tempCtx = tempCanvas.getContext('2d');
-    if (!tempCtx) return;
-
-    tempCanvas.width = outW;
-    tempCanvas.height = outH;
-
-    if (dragMode === 'image') {
-      // Image mode: the crop area is at (0,0) and image is transformed relative to it
-      const img = imageRef.current;
-      const scaleRatio = outW / cropArea.width;
-
-      // Fill with background color
-      if (styleOptions.bgColor !== 'transparent') {
-        tempCtx.fillStyle = styleOptions.bgColor;
-        tempCtx.fillRect(0, 0, outW, outH);
-      }
-
-      // Draw the image with its transform, scaled to output size
-      const drawX = imageTransform.x * scaleRatio;
-      const drawY = imageTransform.y * scaleRatio;
-      const drawW = img.width * imageTransform.scale * scaleRatio;
-      const drawH = img.height * imageTransform.scale * scaleRatio;
-
-      tempCtx.drawImage(img, drawX, drawY, drawW, drawH);
-    } else {
-      // Crop mode: standard crop
-      tempCtx.drawImage(
-        imageRef.current,
-        cropArea.x, cropArea.y, cropArea.width, cropArea.height,
-        0, 0, outW, outH
-      );
-    }
-
-    // Apply border radius if set
-    if (styleOptions.borderRadius > 0) {
-      ctx.save();
-      const radius = Math.min(styleOptions.borderRadius, outW / 2, outH / 2);
-
-      // Create rounded rect path
-      ctx.beginPath();
-      ctx.moveTo(padding + radius, padding);
-      ctx.lineTo(padding + outW - radius, padding);
-      ctx.quadraticCurveTo(padding + outW, padding, padding + outW, padding + radius);
-      ctx.lineTo(padding + outW, padding + outH - radius);
-      ctx.quadraticCurveTo(padding + outW, padding + outH, padding + outW - radius, padding + outH);
-      ctx.lineTo(padding + radius, padding + outH);
-      ctx.quadraticCurveTo(padding, padding + outH, padding, padding + outH - radius);
-      ctx.lineTo(padding, padding + radius);
-      ctx.quadraticCurveTo(padding, padding, padding + radius, padding);
-      ctx.closePath();
-      ctx.clip();
-    }
-
-    // Apply shadow if set
+    // Step 2: Apply shadow if set (draw shadow shape before clipping)
     if (styleOptions.shadow !== 'none') {
       const shadowSizes = {
         sm: { blur: 4, offset: 2, opacity: 0.1 },
@@ -1052,38 +1002,54 @@ export default function CropEditor({
         lg: { blur: 20, offset: 8, opacity: 0.2 },
       };
       const shadowConfig = shadowSizes[styleOptions.shadow];
+
+      ctx.save();
       ctx.shadowColor = `rgba(0, 0, 0, ${shadowConfig.opacity})`;
       ctx.shadowBlur = shadowConfig.blur;
       ctx.shadowOffsetX = 0;
       ctx.shadowOffsetY = shadowConfig.offset;
+      ctx.fillStyle = styleOptions.bgColor !== 'transparent' ? styleOptions.bgColor : '#ffffff';
 
-      // Draw a rect to create shadow effect
-      if (styleOptions.bgColor !== 'transparent') {
-        ctx.fillStyle = styleOptions.bgColor;
-      } else {
-        ctx.fillStyle = '#ffffff';
-      }
-
-      if (styleOptions.borderRadius > 0) {
+      // Draw shadow shape (with border radius if set)
+      if (borderRadius > 0) {
+        const r = Math.min(borderRadius, outW / 2, outH / 2);
+        ctx.beginPath();
+        ctx.roundRect(padding, padding, outW, outH, r);
         ctx.fill();
       } else {
         ctx.fillRect(padding, padding, outW, outH);
       }
-
-      // Reset shadow for image drawing
-      ctx.shadowColor = 'transparent';
-      ctx.shadowBlur = 0;
-      ctx.shadowOffsetX = 0;
-      ctx.shadowOffsetY = 0;
-    }
-
-    // Draw the cropped image onto final canvas
-    ctx.drawImage(tempCanvas, padding, padding);
-
-    if (styleOptions.borderRadius > 0) {
       ctx.restore();
     }
 
+    // Step 3: Apply border radius clipping to the image area
+    if (borderRadius > 0) {
+      const r = Math.min(borderRadius, outW / 2, outH / 2);
+      ctx.beginPath();
+      ctx.roundRect(padding, padding, outW, outH, r);
+      ctx.clip();
+    }
+
+    // Step 4: Draw the image
+    if (dragMode === 'image') {
+      // Image mode: image is transformed within the crop area
+      const scaleRatio = outW / cropArea.width;
+      const drawX = padding + imageTransform.x * scaleRatio;
+      const drawY = padding + imageTransform.y * scaleRatio;
+      const drawW = img.width * imageTransform.scale * scaleRatio;
+      const drawH = img.height * imageTransform.scale * scaleRatio;
+
+      ctx.drawImage(img, drawX, drawY, drawW, drawH);
+    } else {
+      // Crop mode: direct crop from source image
+      ctx.drawImage(
+        img,
+        cropArea.x, cropArea.y, cropArea.width, cropArea.height,
+        padding, padding, outW, outH
+      );
+    }
+
+    // Export
     const url = canvas.toDataURL('image/png', 1.0);
     onCropComplete(dragMode === 'crop' ? cropArea : null, url, { width: finalW, height: finalH });
     onClose();
