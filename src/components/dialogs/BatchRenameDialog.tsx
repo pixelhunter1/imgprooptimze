@@ -174,251 +174,210 @@ export default function BatchRenameDialog({
   const previews = generatePreview();
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-4xl bg-card border border-border">
-        <CardContent className="p-8">
+    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+      <div className="w-full max-w-2xl bg-neutral-900 border border-neutral-800 rounded-lg">
+        <div className="p-4">
           {/* Header */}
-          <div className="flex items-center justify-between mb-8">
-            <div className="flex items-center gap-3">
-              <Edit3 className="h-6 w-6 text-primary" />
-              <h2 className="text-xl font-semibold">Rename All Images</h2>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Edit3 className="h-4 w-4 text-emerald-500" />
+              <h2 className="text-sm font-medium text-white">Rename All Images</h2>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
+            <button
               onClick={onClose}
-              className="h-8 w-8 p-0"
+              className="p-1 text-neutral-500 hover:text-white rounded hover:bg-neutral-800"
             >
               <X className="h-4 w-4" />
-            </Button>
+            </button>
           </div>
 
           {/* Content */}
-          <div className="space-y-8">
-
-            {/* Rename Options */}
-            <div className="space-y-6">
-              {/* Option Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* Keep Original Names */}
-                <div
-                  className={`p-4 border rounded-lg cursor-pointer transition-all ${
-                    mode === 'simple'
-                      ? 'border-primary bg-primary/5 ring-1 ring-primary'
-                      : 'border-border hover:border-primary/50'
-                  }`}
+          <div className="space-y-4">
+            {/* Mode Selection - Crop modal style buttons */}
+            <div>
+              <label className="text-xs uppercase tracking-wide text-neutral-400 mb-2 block">Rename Mode</label>
+              <div className="grid grid-cols-4 gap-1.5">
+                <button
                   onClick={() => setMode('simple')}
-                >
-                  <div className="flex items-center gap-2 mb-2">
-                    <Type className="h-4 w-4 text-primary" />
-                    <span className="font-medium text-sm">Keep Original</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Keep the original filenames unchanged
-                  </p>
-                </div>
-
-                {/* Numbered Names */}
-                <div
-                  className={`p-4 border rounded-lg cursor-pointer transition-all ${
-                    mode === 'numbered'
-                      ? 'border-primary bg-primary/5 ring-1 ring-primary'
-                      : 'border-border hover:border-primary/50'
+                  className={`flex items-center justify-center gap-1.5 px-2 py-2 text-xs rounded ${
+                    mode === 'simple'
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
                   }`}
+                >
+                  <Type className="w-3.5 h-3.5" />
+                  Keep Original
+                </button>
+                <button
                   onClick={() => setMode('numbered')}
-                >
-                  <div className="flex items-center gap-2 mb-2">
-                    <Hash className="h-4 w-4 text-primary" />
-                    <span className="font-medium text-sm">Numbered</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Use a base name with numbers (recommended)
-                  </p>
-                </div>
-
-                {/* Custom Pattern */}
-                <div
-                  className={`p-4 border rounded-lg cursor-pointer transition-all ${
-                    mode === 'custom'
-                      ? 'border-primary bg-primary/5 ring-1 ring-primary'
-                      : 'border-border hover:border-primary/50'
+                  className={`flex items-center justify-center gap-1.5 px-2 py-2 text-xs rounded ${
+                    mode === 'numbered'
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
                   }`}
+                >
+                  <Hash className="w-3.5 h-3.5" />
+                  Numbered
+                </button>
+                <button
                   onClick={() => setMode('custom')}
-                >
-                  <div className="flex items-center gap-2 mb-2">
-                    <Edit3 className="h-4 w-4 text-primary" />
-                    <span className="font-medium text-sm">Custom</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Add prefix and/or suffix to original filename
-                  </p>
-                </div>
-
-                {/* Individual Custom Names */}
-                <div
-                  className={`p-4 border rounded-lg cursor-pointer transition-all ${
-                    mode === 'individual'
-                      ? 'border-primary bg-primary/5 ring-1 ring-primary'
-                      : 'border-border hover:border-primary/50'
+                  className={`flex items-center justify-center gap-1.5 px-2 py-2 text-xs rounded ${
+                    mode === 'custom'
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
                   }`}
-                  onClick={() => setMode('individual')}
                 >
-                  <div className="flex items-center gap-2 mb-2">
-                    <FileText className="h-4 w-4 text-primary" />
-                    <span className="font-medium text-sm">Individual</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Set custom name for each image individually
-                  </p>
+                  <Edit3 className="w-3.5 h-3.5" />
+                  Custom
+                </button>
+                <button
+                  onClick={() => setMode('individual')}
+                  className={`flex items-center justify-center gap-1.5 px-2 py-2 text-xs rounded ${
+                    mode === 'individual'
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
+                  }`}
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  Individual
+                </button>
+              </div>
+            </div>
+
+            {/* Settings for Selected Mode */}
+            {mode === 'numbered' && (
+              <div className="space-y-3 p-3 bg-neutral-800 rounded">
+                <div className="space-y-1.5">
+                  <label className="text-xs text-neutral-400">Base name</label>
+                  <input
+                    type="text"
+                    value={baseName}
+                    onChange={(e) => setBaseName(e.target.value)}
+                    className="w-full px-3 py-2 text-sm rounded bg-neutral-900 text-white border-none focus:outline-none focus:ring-1 focus:ring-emerald-600"
+                    placeholder="image"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs text-neutral-400">Start from number</label>
+                  <input
+                    type="number"
+                    value={startNumber}
+                    onChange={(e) => setStartNumber(parseInt(e.target.value) || 1)}
+                    className="w-full px-3 py-2 text-sm rounded bg-neutral-900 text-white border-none focus:outline-none focus:ring-1 focus:ring-emerald-600"
+                    min="1"
+                  />
                 </div>
               </div>
+            )}
 
-              {/* Settings for Selected Mode */}
-              {mode === 'numbered' && (
-                <div className="space-y-4 p-6 bg-muted/50 rounded-lg">
-                  <div className="space-y-3">
-                    <label className="text-base font-medium">Base name</label>
-                    <input
-                      type="text"
-                      value={baseName}
-                      onChange={(e) => setBaseName(e.target.value)}
-                      className="w-full px-4 py-3 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                      placeholder="Base name"
-                    />
-                  </div>
-                  <div className="space-y-3">
-                    <label className="text-base font-medium">Start from number</label>
-                    <input
-                      type="number"
-                      value={startNumber}
-                      onChange={(e) => setStartNumber(parseInt(e.target.value) || 1)}
-                      className="w-full px-4 py-3 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                      min="1"
-                    />
-                  </div>
+            {mode === 'custom' && (
+              <div className="space-y-3 p-3 bg-neutral-800 rounded">
+                <div className="space-y-1.5">
+                  <label className="text-xs text-neutral-400">Prefix (before filename)</label>
+                  <input
+                    type="text"
+                    value={prefix}
+                    onChange={(e) => setPrefix(e.target.value)}
+                    className="w-full px-3 py-2 text-sm rounded bg-neutral-900 text-white border-none focus:outline-none focus:ring-1 focus:ring-emerald-600"
+                    placeholder="prefix_"
+                  />
                 </div>
-              )}
-
-              {mode === 'custom' && (
-                <div className="space-y-4 p-6 bg-muted/50 rounded-lg">
-                  <div className="space-y-3">
-                    <label className="text-base font-medium">Add before filename (prefix)</label>
-                    <input
-                      type="text"
-                      value={prefix}
-                      onChange={(e) => setPrefix(e.target.value)}
-                      className="w-full px-4 py-3 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                      placeholder="Prefix"
-                    />
-                  </div>
-                  <div className="space-y-3">
-                    <label className="text-base font-medium">Add after filename (suffix)</label>
-                    <input
-                      type="text"
-                      value={suffix}
-                      onChange={(e) => setSuffix(e.target.value)}
-                      className="w-full px-4 py-3 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                      placeholder="Suffix"
-                    />
-                  </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs text-neutral-400">Suffix (after filename)</label>
+                  <input
+                    type="text"
+                    value={suffix}
+                    onChange={(e) => setSuffix(e.target.value)}
+                    className="w-full px-3 py-2 text-sm rounded bg-neutral-900 text-white border-none focus:outline-none focus:ring-1 focus:ring-emerald-600"
+                    placeholder="_suffix"
+                  />
                 </div>
-              )}
+              </div>
+            )}
 
-              {mode === 'individual' && (
-                <div className="space-y-4 p-6 bg-muted/50 rounded-lg max-h-96 overflow-y-auto">
-                  <div className="flex items-center gap-2 mb-4">
-                    <FileText className="h-5 w-5 text-primary" />
-                    <span className="text-base font-medium">Custom names for each image</span>
-                  </div>
-                  <div className="space-y-4">
-                    {images.map((image, index) => (
-                      <div key={`${image.id}-${index}`} className="flex items-center gap-4 p-3 bg-background rounded-lg border border-border">
-                        {/* Image Thumbnail */}
-                        <div className="flex-shrink-0">
-                          <ImageThumbnail image={image} index={index} />
-                        </div>
-
-                        {/* Image Info and Input */}
-                        <div className="flex-1 space-y-2">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-primary">#{index + 1}</span>
-                            <span className="text-xs text-muted-foreground truncate">
-                              Original: {image.originalFile.name}
-                            </span>
-                          </div>
-                          <input
-                            type="text"
-                            value={customNames[index] || ''}
-                            onChange={(e) => {
-                              const newNames = [...customNames];
-                              newNames[index] = e.target.value;
-                              setCustomNames(newNames);
-                            }}
-                            className="w-full px-3 py-2 text-sm border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                            placeholder="Filename"
-                          />
-                        </div>
+            {mode === 'individual' && (
+              <div className="space-y-2 p-3 bg-neutral-800 rounded max-h-60 overflow-y-auto">
+                {images.map((image, index) => (
+                  <div key={`${image.id}-${index}`} className="flex items-center gap-3 p-2 bg-neutral-900 rounded">
+                    <div className="flex-shrink-0">
+                      <ImageThumbnail image={image} index={index} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-[10px] text-emerald-500">#{index + 1}</span>
+                        <span className="text-[10px] text-neutral-500 truncate">
+                          {image.originalFile.name}
+                        </span>
                       </div>
-                    ))}
+                      <input
+                        type="text"
+                        value={customNames[index] || ''}
+                        onChange={(e) => {
+                          const newNames = [...customNames];
+                          newNames[index] = e.target.value;
+                          setCustomNames(newNames);
+                        }}
+                        className="w-full px-2 py-1.5 text-xs rounded bg-neutral-800 text-white border-none focus:outline-none focus:ring-1 focus:ring-emerald-600"
+                        placeholder="New filename"
+                      />
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
+                ))}
+              </div>
+            )}
 
             {/* Preview - Only show for non-individual modes */}
             {mode !== 'individual' && (
-              <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-primary" />
-                  <span className="text-base font-medium">Preview of new filenames</span>
-                </div>
-                <div className="bg-background border border-border rounded-lg p-5 space-y-3">
+              <div className="space-y-2">
+                <label className="text-xs uppercase tracking-wide text-neutral-400">Preview</label>
+                <div className="bg-neutral-800 rounded p-3 space-y-1.5">
                   {previews.map((filename, index) => (
-                    <div key={index} className="flex items-center gap-3 text-sm">
-                      <span className="w-7 h-7 bg-primary/10 text-primary rounded-full flex items-center justify-center text-xs font-medium">
+                    <div key={index} className="flex items-center gap-2 text-xs">
+                      <span className="w-5 h-5 bg-emerald-600/20 text-emerald-500 rounded flex items-center justify-center text-[10px]">
                         {index + 1}
                       </span>
-                      <span className="font-mono bg-muted px-3 py-2 rounded text-foreground">
+                      <span className="font-mono text-neutral-300 bg-neutral-900 px-2 py-1 rounded">
                         {filename}
                       </span>
                     </div>
                   ))}
                   {images.length > 3 && (
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground italic pt-3 border-t border-border">
-                      <span>... and {images.length - 3} more images will be renamed similarly</span>
-                    </div>
+                    <p className="text-[10px] text-neutral-500 pt-2 border-t border-neutral-700">
+                      ... and {images.length - 3} more images
+                    </p>
                   )}
                 </div>
               </div>
             )}
-          </div>
 
-          {/* Actions - Moved to bottom */}
-          <div className="flex gap-3 pt-6 border-t border-border">
-            <Button
-              variant="outline"
-              onClick={onClose}
-              className="flex-1"
-              size="lg"
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              onClick={handleApply}
-              className="flex-1 flex items-center gap-2"
-              size="lg"
-              disabled={
-                (mode === 'numbered' && !baseName.trim()) ||
-                (mode === 'individual' && customNames.some(name => !name.trim()))
-              }
-            >
-              <Edit3 className="h-4 w-4" />
-              Rename {images.length} Images
-            </Button>
+            {/* Actions */}
+            <div className="flex gap-2 pt-3 border-t border-neutral-800">
+              <button
+                onClick={onClose}
+                className="flex-1 px-3 py-2 text-xs rounded bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleApply}
+                disabled={
+                  (mode === 'numbered' && !baseName.trim()) ||
+                  (mode === 'individual' && customNames.some(name => !name.trim()))
+                }
+                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs rounded ${
+                  (mode === 'numbered' && !baseName.trim()) ||
+                  (mode === 'individual' && customNames.some(name => !name.trim()))
+                    ? 'bg-neutral-800 text-neutral-500 cursor-not-allowed'
+                    : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                }`}
+              >
+                <Edit3 className="h-3.5 w-3.5" />
+                Rename {images.length} Images
+              </button>
+            </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }
