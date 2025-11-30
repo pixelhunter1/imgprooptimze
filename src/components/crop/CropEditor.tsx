@@ -63,6 +63,14 @@ export default function CropEditor({
   const [displayScale, setDisplayScale] = useState(1);
   const [imageSize, setImageSize] = useState({ width: 0, height: 0 });
 
+  // Style options (Figma-like)
+  const [styleOptions, setStyleOptions] = useState({
+    padding: 0,
+    borderRadius: 0,
+    bgColor: 'transparent', // 'transparent', '#ffffff', '#000000', or custom hex
+    shadow: 'none' as 'none' | 'sm' | 'md' | 'lg',
+  });
+
   // Snap threshold in pixels
   const SNAP_THRESHOLD = 8;
 
@@ -280,10 +288,86 @@ export default function CropEditor({
       // Right
       ctx.fillRect(cropX + cropW, cropY, canvasW - cropX - cropW, cropH);
 
+      // Preview style effects inside crop area
+      if (styleOptions.padding > 0 || styleOptions.borderRadius > 0 || styleOptions.bgColor !== 'transparent') {
+        const previewPadding = styleOptions.padding * effectiveScale * 0.5; // Scale down for preview
+        const previewRadius = Math.min(styleOptions.borderRadius * effectiveScale * 0.5, (cropW - previewPadding * 2) / 2, (cropH - previewPadding * 2) / 2);
+
+        // Draw background color in padding area
+        if (styleOptions.bgColor !== 'transparent' && styleOptions.padding > 0) {
+          ctx.fillStyle = styleOptions.bgColor;
+          ctx.fillRect(cropX, cropY, cropW, cropH);
+
+          // Re-draw the image inside the padded area
+          ctx.save();
+          if (previewRadius > 0) {
+            ctx.beginPath();
+            const rx = cropX + previewPadding;
+            const ry = cropY + previewPadding;
+            const rw = cropW - previewPadding * 2;
+            const rh = cropH - previewPadding * 2;
+            ctx.moveTo(rx + previewRadius, ry);
+            ctx.lineTo(rx + rw - previewRadius, ry);
+            ctx.quadraticCurveTo(rx + rw, ry, rx + rw, ry + previewRadius);
+            ctx.lineTo(rx + rw, ry + rh - previewRadius);
+            ctx.quadraticCurveTo(rx + rw, ry + rh, rx + rw - previewRadius, ry + rh);
+            ctx.lineTo(rx + previewRadius, ry + rh);
+            ctx.quadraticCurveTo(rx, ry + rh, rx, ry + rh - previewRadius);
+            ctx.lineTo(rx, ry + previewRadius);
+            ctx.quadraticCurveTo(rx, ry, rx + previewRadius, ry);
+            ctx.closePath();
+            ctx.clip();
+          }
+          // Re-draw image clipped
+          ctx.drawImage(img, imgX, imgY, imgW, imgH);
+          ctx.restore();
+        } else if (previewRadius > 0) {
+          // Just border radius, no padding
+          ctx.save();
+          ctx.beginPath();
+          ctx.moveTo(cropX + previewRadius, cropY);
+          ctx.lineTo(cropX + cropW - previewRadius, cropY);
+          ctx.quadraticCurveTo(cropX + cropW, cropY, cropX + cropW, cropY + previewRadius);
+          ctx.lineTo(cropX + cropW, cropY + cropH - previewRadius);
+          ctx.quadraticCurveTo(cropX + cropW, cropY + cropH, cropX + cropW - previewRadius, cropY + cropH);
+          ctx.lineTo(cropX + previewRadius, cropY + cropH);
+          ctx.quadraticCurveTo(cropX, cropY + cropH, cropX, cropY + cropH - previewRadius);
+          ctx.lineTo(cropX, cropY + previewRadius);
+          ctx.quadraticCurveTo(cropX, cropY, cropX + previewRadius, cropY);
+          ctx.closePath();
+          ctx.clip();
+          ctx.drawImage(img, imgX, imgY, imgW, imgH);
+          ctx.restore();
+
+          // Redraw overlay outside rounded corners
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+          ctx.fillRect(cropX, cropY, previewRadius, previewRadius);
+          ctx.fillRect(cropX + cropW - previewRadius, cropY, previewRadius, previewRadius);
+          ctx.fillRect(cropX, cropY + cropH - previewRadius, previewRadius, previewRadius);
+          ctx.fillRect(cropX + cropW - previewRadius, cropY + cropH - previewRadius, previewRadius, previewRadius);
+        }
+      }
+
       // Draw crop border (green, fixed in center)
       ctx.strokeStyle = '#10b981';
       ctx.lineWidth = 3;
-      ctx.strokeRect(cropX, cropY, cropW, cropH);
+      if (styleOptions.borderRadius > 0) {
+        const previewRadius = Math.min(styleOptions.borderRadius * effectiveScale * 0.5, cropW / 2, cropH / 2);
+        ctx.beginPath();
+        ctx.moveTo(cropX + previewRadius, cropY);
+        ctx.lineTo(cropX + cropW - previewRadius, cropY);
+        ctx.quadraticCurveTo(cropX + cropW, cropY, cropX + cropW, cropY + previewRadius);
+        ctx.lineTo(cropX + cropW, cropY + cropH - previewRadius);
+        ctx.quadraticCurveTo(cropX + cropW, cropY + cropH, cropX + cropW - previewRadius, cropY + cropH);
+        ctx.lineTo(cropX + previewRadius, cropY + cropH);
+        ctx.quadraticCurveTo(cropX, cropY + cropH, cropX, cropY + cropH - previewRadius);
+        ctx.lineTo(cropX, cropY + previewRadius);
+        ctx.quadraticCurveTo(cropX, cropY, cropX + previewRadius, cropY);
+        ctx.closePath();
+        ctx.stroke();
+      } else {
+        ctx.strokeRect(cropX, cropY, cropW, cropH);
+      }
 
       // Draw corner highlights on crop
       const cornerLen = 20;
@@ -430,7 +514,7 @@ export default function CropEditor({
         ctx.fillRect(hx - hs / 2, hy - hs / 2, hs, hs);
       });
     }
-  }, [cropArea, imageLoaded, displayScale, dragMode, imageTransform, activeGuides]);
+  }, [cropArea, imageLoaded, displayScale, dragMode, imageTransform, activeGuides, styleOptions]);
 
   // Mouse handlers
   const getCoords = useCallback((e: React.MouseEvent | MouseEvent) => {
@@ -817,6 +901,14 @@ export default function CropEditor({
       y: (h - img.height * scaleToFill) / 2,
       scale: scaleToFill,
     });
+
+    // Reset style options
+    setStyleOptions({
+      padding: 0,
+      borderRadius: 0,
+      bgColor: 'transparent',
+      shadow: 'none',
+    });
   }, []);
 
   // Apply
@@ -835,19 +927,40 @@ export default function CropEditor({
       outH = Math.min(selectedSize.height, Math.round(cropArea.height));
     }
 
-    canvas.width = outW;
-    canvas.height = outH;
+    // Calculate final dimensions with padding
+    const padding = styleOptions.padding;
+    const finalW = outW + padding * 2;
+    const finalH = outH + padding * 2;
+
+    canvas.width = finalW;
+    canvas.height = finalH;
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
+
+    // Draw background (for padding area and behind image if transparent parts exist)
+    if (styleOptions.bgColor !== 'transparent') {
+      ctx.fillStyle = styleOptions.bgColor;
+      ctx.fillRect(0, 0, finalW, finalH);
+    }
+
+    // Create a temporary canvas for the cropped image
+    const tempCanvas = document.createElement('canvas');
+    const tempCtx = tempCanvas.getContext('2d');
+    if (!tempCtx) return;
+
+    tempCanvas.width = outW;
+    tempCanvas.height = outH;
 
     if (dragMode === 'image') {
       // Image mode: the crop area is at (0,0) and image is transformed relative to it
       const img = imageRef.current;
-      const scaleRatio = outW / cropArea.width; // Scale to output size
+      const scaleRatio = outW / cropArea.width;
 
       // Fill with background color
-      ctx.fillStyle = '#000000';
-      ctx.fillRect(0, 0, outW, outH);
+      if (styleOptions.bgColor !== 'transparent') {
+        tempCtx.fillStyle = styleOptions.bgColor;
+        tempCtx.fillRect(0, 0, outW, outH);
+      }
 
       // Draw the image with its transform, scaled to output size
       const drawX = imageTransform.x * scaleRatio;
@@ -855,20 +968,80 @@ export default function CropEditor({
       const drawW = img.width * imageTransform.scale * scaleRatio;
       const drawH = img.height * imageTransform.scale * scaleRatio;
 
-      ctx.drawImage(img, drawX, drawY, drawW, drawH);
+      tempCtx.drawImage(img, drawX, drawY, drawW, drawH);
     } else {
       // Crop mode: standard crop
-      ctx.drawImage(
+      tempCtx.drawImage(
         imageRef.current,
         cropArea.x, cropArea.y, cropArea.width, cropArea.height,
         0, 0, outW, outH
       );
     }
 
+    // Apply border radius if set
+    if (styleOptions.borderRadius > 0) {
+      ctx.save();
+      const radius = Math.min(styleOptions.borderRadius, outW / 2, outH / 2);
+
+      // Create rounded rect path
+      ctx.beginPath();
+      ctx.moveTo(padding + radius, padding);
+      ctx.lineTo(padding + outW - radius, padding);
+      ctx.quadraticCurveTo(padding + outW, padding, padding + outW, padding + radius);
+      ctx.lineTo(padding + outW, padding + outH - radius);
+      ctx.quadraticCurveTo(padding + outW, padding + outH, padding + outW - radius, padding + outH);
+      ctx.lineTo(padding + radius, padding + outH);
+      ctx.quadraticCurveTo(padding, padding + outH, padding, padding + outH - radius);
+      ctx.lineTo(padding, padding + radius);
+      ctx.quadraticCurveTo(padding, padding, padding + radius, padding);
+      ctx.closePath();
+      ctx.clip();
+    }
+
+    // Apply shadow if set
+    if (styleOptions.shadow !== 'none') {
+      const shadowSizes = {
+        sm: { blur: 4, offset: 2, opacity: 0.1 },
+        md: { blur: 10, offset: 4, opacity: 0.15 },
+        lg: { blur: 20, offset: 8, opacity: 0.2 },
+      };
+      const shadowConfig = shadowSizes[styleOptions.shadow];
+      ctx.shadowColor = `rgba(0, 0, 0, ${shadowConfig.opacity})`;
+      ctx.shadowBlur = shadowConfig.blur;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = shadowConfig.offset;
+
+      // Draw a rect to create shadow effect
+      if (styleOptions.bgColor !== 'transparent') {
+        ctx.fillStyle = styleOptions.bgColor;
+      } else {
+        ctx.fillStyle = '#ffffff';
+      }
+
+      if (styleOptions.borderRadius > 0) {
+        ctx.fill();
+      } else {
+        ctx.fillRect(padding, padding, outW, outH);
+      }
+
+      // Reset shadow for image drawing
+      ctx.shadowColor = 'transparent';
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
+    }
+
+    // Draw the cropped image onto final canvas
+    ctx.drawImage(tempCanvas, padding, padding);
+
+    if (styleOptions.borderRadius > 0) {
+      ctx.restore();
+    }
+
     const url = canvas.toDataURL('image/png', 1.0);
-    onCropComplete(dragMode === 'crop' ? cropArea : null, url, { width: outW, height: outH });
+    onCropComplete(dragMode === 'crop' ? cropArea : null, url, { width: finalW, height: finalH });
     onClose();
-  }, [cropArea, selectedSize, dragMode, imageTransform, onCropComplete, onClose]);
+  }, [cropArea, selectedSize, dragMode, imageTransform, styleOptions, onCropComplete, onClose]);
 
   // Escape
   useEffect(() => {
@@ -917,57 +1090,6 @@ export default function CropEditor({
               background: rgba(255, 255, 255, 0.2);
             }
           `}</style>
-          {/* Drag Mode Toggle */}
-          <div className="p-4 border-b border-neutral-800">
-            <h4 className="text-neutral-400 text-xs uppercase tracking-wide mb-3">Edit Mode</h4>
-            <div className="grid grid-cols-2 gap-1.5">
-              <button
-                onClick={() => {
-                  setDragMode('image');
-                  // Initialize image transform to center the image in crop
-                  if (cropArea && imageRef.current) {
-                    const img = imageRef.current;
-                    // Start with image filling the crop area
-                    const scaleToFit = Math.max(
-                      cropArea.width / img.width,
-                      cropArea.height / img.height
-                    );
-                    setImageTransform({
-                      x: (cropArea.width - img.width * scaleToFit) / 2,
-                      y: (cropArea.height - img.height * scaleToFit) / 2,
-                      scale: scaleToFit,
-                    });
-                  }
-                }}
-                className={`flex items-center justify-center gap-1.5 px-2 py-2 text-xs rounded ${
-                  dragMode === 'image'
-                    ? 'bg-emerald-600 text-white'
-                    : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
-                }`}
-              >
-                <Move className="w-3.5 h-3.5" />
-                Fit Image
-              </button>
-              <button
-                onClick={() => setDragMode('crop')}
-                className={`flex items-center justify-center gap-1.5 px-2 py-2 text-xs rounded ${
-                  dragMode === 'crop'
-                    ? 'bg-emerald-600 text-white'
-                    : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
-                }`}
-              >
-                <Crop className="w-3.5 h-3.5" />
-                Move Crop
-              </button>
-            </div>
-            <p className="text-neutral-500 text-[10px] mt-2">
-              {dragMode === 'image'
-                ? 'Drag image to position. Resize from corners.'
-                : 'Drag the crop area over the image. Resize from corners.'}
-            </p>
-
-          </div>
-
           {/* Size Presets - E-commerce first */}
           {ecommerceSizes.length > 0 && (
             <div className="p-4 border-b border-neutral-800">
@@ -1058,27 +1180,6 @@ export default function CropEditor({
           )}
         </div>
 
-        {/* Sidebar Footer - Actions */}
-        <div className="p-4 border-t border-neutral-800 space-y-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleReset}
-            className="w-full text-neutral-400 hover:text-white hover:bg-neutral-800"
-          >
-            <RotateCcw className="w-4 h-4 mr-2" />
-            Reset
-          </Button>
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={handleApply}
-            className="w-full bg-emerald-600 hover:bg-emerald-700"
-          >
-            <Check className="w-4 h-4 mr-2" />
-            Apply Crop
-          </Button>
-        </div>
       </div>
 
       {/* Main Canvas Area - Takes maximum space */}
@@ -1118,117 +1219,6 @@ export default function CropEditor({
                 }}
               />
 
-              {/* Floating toolbar - only in image mode */}
-              {dragMode === 'image' && (
-                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-2 bg-neutral-900/95 backdrop-blur-sm rounded-lg border border-neutral-800 shadow-lg z-50">
-                  {/* Quick action buttons */}
-                  <button
-                    onClick={() => {
-                      if (!imageRef.current || !cropArea) return;
-                      const img = imageRef.current;
-                      const imgW = img.width * imageTransform.scale;
-                      const imgH = img.height * imageTransform.scale;
-                      setImageTransform(prev => ({
-                        ...prev,
-                        x: (cropArea.width - imgW) / 2,
-                        y: (cropArea.height - imgH) / 2,
-                      }));
-                    }}
-                    className="px-3 py-1.5 text-xs rounded bg-neutral-800 text-neutral-300 hover:bg-neutral-700 hover:text-white"
-                  >
-                    Center
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (!imageRef.current || !cropArea) return;
-                      const img = imageRef.current;
-                      const scaleToFill = Math.max(
-                        cropArea.width / img.width,
-                        cropArea.height / img.height
-                      );
-                      const imgW = img.width * scaleToFill;
-                      const imgH = img.height * scaleToFill;
-                      setImageTransform({
-                        x: (cropArea.width - imgW) / 2,
-                        y: (cropArea.height - imgH) / 2,
-                        scale: scaleToFill,
-                      });
-                    }}
-                    className="px-3 py-1.5 text-xs rounded bg-neutral-800 text-neutral-300 hover:bg-neutral-700 hover:text-white"
-                  >
-                    Fill
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (!imageRef.current || !cropArea) return;
-                      const img = imageRef.current;
-                      const scaleToFit = Math.min(
-                        cropArea.width / img.width,
-                        cropArea.height / img.height
-                      );
-                      const imgW = img.width * scaleToFit;
-                      const imgH = img.height * scaleToFit;
-                      setImageTransform({
-                        x: (cropArea.width - imgW) / 2,
-                        y: (cropArea.height - imgH) / 2,
-                        scale: scaleToFit,
-                      });
-                    }}
-                    className="px-3 py-1.5 text-xs rounded bg-neutral-800 text-neutral-300 hover:bg-neutral-700 hover:text-white"
-                  >
-                    Fit
-                  </button>
-
-                  {/* Divider */}
-                  <div className="w-px h-5 bg-neutral-700" />
-
-                  {/* Zoom slider */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-neutral-500 w-8">{Math.round(imageTransform.scale * 100)}%</span>
-                    <input
-                      type="range"
-                      min="0.1"
-                      max="3"
-                      step="0.01"
-                      value={imageTransform.scale}
-                      onChange={(e) => {
-                        const newScale = parseFloat(e.target.value);
-                        setImageTransform(prev => {
-                          const oldCenterX = prev.x + (imageRef.current?.width || 0) * prev.scale / 2;
-                          const oldCenterY = prev.y + (imageRef.current?.height || 0) * prev.scale / 2;
-                          const newCenterX = (imageRef.current?.width || 0) * newScale / 2;
-                          const newCenterY = (imageRef.current?.height || 0) * newScale / 2;
-                          return {
-                            x: oldCenterX - newCenterX,
-                            y: oldCenterY - newCenterY,
-                            scale: newScale,
-                          };
-                        });
-                      }}
-                      className="w-24 h-1 bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-                    />
-                  </div>
-
-                  {/* Divider */}
-                  <div className="w-px h-5 bg-neutral-700" />
-
-                  {/* Reset button */}
-                  <button
-                    onClick={() => {
-                      if (!imageRef.current || !cropArea) return;
-                      const img = imageRef.current;
-                      setImageTransform({
-                        x: (cropArea.width - img.width) / 2,
-                        y: (cropArea.height - img.height) / 2,
-                        scale: 1,
-                      });
-                    }}
-                    className="px-3 py-1.5 text-xs rounded bg-neutral-800 text-neutral-300 hover:bg-neutral-700 hover:text-white"
-                  >
-                    Reset
-                  </button>
-                </div>
-              )}
             </>
           ) : (
             <div className="text-neutral-500 flex items-center gap-2">
@@ -1250,6 +1240,319 @@ export default function CropEditor({
               )}
             </span>
           )}
+        </div>
+      </div>
+
+      {/* Right Sidebar - Style & Image Controls */}
+      <div className="w-64 bg-neutral-900 border-l border-neutral-800 flex flex-col">
+        <div className="p-4 border-b border-neutral-800">
+          <h3 className="text-white text-sm font-medium">Design</h3>
+        </div>
+
+        <div className="flex-1 overflow-y-auto scrollbar-thin">
+          {/* Drag Mode Toggle */}
+          <div className="p-4 border-b border-neutral-800">
+            <h4 className="text-neutral-400 text-xs uppercase tracking-wide mb-3">Edit Mode</h4>
+            <div className="grid grid-cols-2 gap-1.5">
+              <button
+                onClick={() => {
+                  setDragMode('image');
+                  // Initialize image transform to center the image in crop
+                  if (cropArea && imageRef.current) {
+                    const img = imageRef.current;
+                    // Start with image filling the crop area
+                    const scaleToFit = Math.max(
+                      cropArea.width / img.width,
+                      cropArea.height / img.height
+                    );
+                    setImageTransform({
+                      x: (cropArea.width - img.width * scaleToFit) / 2,
+                      y: (cropArea.height - img.height * scaleToFit) / 2,
+                      scale: scaleToFit,
+                    });
+                  }
+                }}
+                className={`flex items-center justify-center gap-1.5 px-2 py-2 text-xs rounded ${
+                  dragMode === 'image'
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
+                }`}
+              >
+                <Move className="w-3.5 h-3.5" />
+                Fit Image
+              </button>
+              <button
+                onClick={() => setDragMode('crop')}
+                className={`flex items-center justify-center gap-1.5 px-2 py-2 text-xs rounded ${
+                  dragMode === 'crop'
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
+                }`}
+              >
+                <Crop className="w-3.5 h-3.5" />
+                Move Crop
+              </button>
+            </div>
+            <p className="text-neutral-500 text-[10px] mt-2">
+              {dragMode === 'image'
+                ? 'Drag image to position. Resize from corners.'
+                : 'Drag the crop area over the image. Resize from corners.'}
+            </p>
+          </div>
+
+          {/* Image Position Controls - Only in image mode */}
+          {dragMode === 'image' && (
+            <div className="p-4 border-b border-neutral-800">
+              <h4 className="text-neutral-400 text-xs uppercase tracking-wide mb-3">Position</h4>
+
+              {/* Quick position buttons */}
+              <div className="grid grid-cols-4 gap-1.5 mb-3">
+                <button
+                  onClick={() => {
+                    if (!imageRef.current || !cropArea) return;
+                    const img = imageRef.current;
+                    const imgW = img.width * imageTransform.scale;
+                    const imgH = img.height * imageTransform.scale;
+                    setImageTransform(prev => ({
+                      ...prev,
+                      x: (cropArea.width - imgW) / 2,
+                      y: (cropArea.height - imgH) / 2,
+                    }));
+                  }}
+                  className="px-2 py-1.5 text-[10px] rounded bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
+                >
+                  Center
+                </button>
+                <button
+                  onClick={() => {
+                    if (!imageRef.current || !cropArea) return;
+                    const img = imageRef.current;
+                    const scaleToFill = Math.max(cropArea.width / img.width, cropArea.height / img.height);
+                    setImageTransform({
+                      x: (cropArea.width - img.width * scaleToFill) / 2,
+                      y: (cropArea.height - img.height * scaleToFill) / 2,
+                      scale: scaleToFill,
+                    });
+                  }}
+                  className="px-2 py-1.5 text-[10px] rounded bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
+                >
+                  Fill
+                </button>
+                <button
+                  onClick={() => {
+                    if (!imageRef.current || !cropArea) return;
+                    const img = imageRef.current;
+                    const scaleToFit = Math.min(cropArea.width / img.width, cropArea.height / img.height);
+                    setImageTransform({
+                      x: (cropArea.width - img.width * scaleToFit) / 2,
+                      y: (cropArea.height - img.height * scaleToFit) / 2,
+                      scale: scaleToFit,
+                    });
+                  }}
+                  className="px-2 py-1.5 text-[10px] rounded bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
+                >
+                  Fit
+                </button>
+                <button
+                  onClick={() => {
+                    if (!imageRef.current || !cropArea) return;
+                    const img = imageRef.current;
+                    setImageTransform({
+                      x: (cropArea.width - img.width) / 2,
+                      y: (cropArea.height - img.height) / 2,
+                      scale: 1,
+                    });
+                  }}
+                  className="px-2 py-1.5 text-[10px] rounded bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
+                >
+                  100%
+                </button>
+              </div>
+
+              {/* Zoom slider */}
+              <div>
+                <div className="flex justify-between text-[10px] text-neutral-500 mb-1.5">
+                  <span>Scale</span>
+                  <span>{Math.round(imageTransform.scale * 100)}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.1"
+                  max="3"
+                  step="0.01"
+                  value={imageTransform.scale}
+                  onChange={(e) => {
+                    const newScale = parseFloat(e.target.value);
+                    setImageTransform(prev => {
+                      const oldCenterX = prev.x + (imageRef.current?.width || 0) * prev.scale / 2;
+                      const oldCenterY = prev.y + (imageRef.current?.height || 0) * prev.scale / 2;
+                      const newCenterX = (imageRef.current?.width || 0) * newScale / 2;
+                      const newCenterY = (imageRef.current?.height || 0) * newScale / 2;
+                      return {
+                        x: oldCenterX - newCenterX,
+                        y: oldCenterY - newCenterY,
+                        scale: newScale,
+                      };
+                    });
+                  }}
+                  className="w-full h-1 bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Style Options */}
+          <div className="p-4 border-b border-neutral-800">
+            <h4 className="text-neutral-400 text-xs uppercase tracking-wide mb-3">Style</h4>
+
+            {/* Padding */}
+            <div className="mb-4">
+              <div className="flex justify-between text-[10px] text-neutral-500 mb-1.5">
+                <span>Padding</span>
+                <span>{styleOptions.padding}px</span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={styleOptions.padding}
+                onChange={(e) => setStyleOptions(prev => ({ ...prev, padding: parseInt(e.target.value) }))}
+                className="w-full h-1 bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+              />
+            </div>
+
+            {/* Border Radius */}
+            <div className="mb-4">
+              <div className="flex justify-between text-[10px] text-neutral-500 mb-1.5">
+                <span>Corner Radius</span>
+                <span>{styleOptions.borderRadius}px</span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={styleOptions.borderRadius}
+                onChange={(e) => setStyleOptions(prev => ({ ...prev, borderRadius: parseInt(e.target.value) }))}
+                className="w-full h-1 bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+              />
+            </div>
+
+            {/* Background Color */}
+            <div className="mb-4">
+              <div className="text-[10px] text-neutral-500 mb-1.5">Background</div>
+              <div className="grid grid-cols-5 gap-1.5">
+                <button
+                  onClick={() => setStyleOptions(prev => ({ ...prev, bgColor: 'transparent' }))}
+                  className={`h-7 rounded border-2 ${
+                    styleOptions.bgColor === 'transparent'
+                      ? 'border-emerald-500'
+                      : 'border-neutral-700 hover:border-neutral-600'
+                  }`}
+                  style={{
+                    background: 'linear-gradient(45deg, #374151 25%, transparent 25%), linear-gradient(-45deg, #374151 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #374151 75%), linear-gradient(-45deg, transparent 75%, #374151 75%)',
+                    backgroundSize: '8px 8px',
+                    backgroundPosition: '0 0, 0 4px, 4px -4px, -4px 0px'
+                  }}
+                  title="Transparent"
+                />
+                <button
+                  onClick={() => setStyleOptions(prev => ({ ...prev, bgColor: '#ffffff' }))}
+                  className={`h-7 rounded border-2 bg-white ${
+                    styleOptions.bgColor === '#ffffff'
+                      ? 'border-emerald-500'
+                      : 'border-neutral-700 hover:border-neutral-600'
+                  }`}
+                  title="White"
+                />
+                <button
+                  onClick={() => setStyleOptions(prev => ({ ...prev, bgColor: '#000000' }))}
+                  className={`h-7 rounded border-2 bg-black ${
+                    styleOptions.bgColor === '#000000'
+                      ? 'border-emerald-500'
+                      : 'border-neutral-700 hover:border-neutral-600'
+                  }`}
+                  title="Black"
+                />
+                <button
+                  onClick={() => setStyleOptions(prev => ({ ...prev, bgColor: '#1a1a1a' }))}
+                  className={`h-7 rounded border-2 ${
+                    styleOptions.bgColor === '#1a1a1a'
+                      ? 'border-emerald-500'
+                      : 'border-neutral-700 hover:border-neutral-600'
+                  }`}
+                  style={{ background: '#1a1a1a' }}
+                  title="Dark Gray"
+                />
+                <div className="relative">
+                  <input
+                    type="color"
+                    value={styleOptions.bgColor.startsWith('#') ? styleOptions.bgColor : '#ffffff'}
+                    onChange={(e) => setStyleOptions(prev => ({ ...prev, bgColor: e.target.value }))}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  />
+                  <div
+                    className={`h-7 rounded border-2 flex items-center justify-center ${
+                      !['transparent', '#ffffff', '#000000', '#1a1a1a'].includes(styleOptions.bgColor)
+                        ? 'border-emerald-500'
+                        : 'border-neutral-700 hover:border-neutral-600'
+                    }`}
+                    style={{
+                      background: !['transparent', '#ffffff', '#000000', '#1a1a1a'].includes(styleOptions.bgColor)
+                        ? styleOptions.bgColor
+                        : 'linear-gradient(135deg, #ef4444 0%, #f59e0b 25%, #22c55e 50%, #3b82f6 75%, #a855f7 100%)'
+                    }}
+                    title="Custom Color"
+                  >
+                    {['transparent', '#ffffff', '#000000', '#1a1a1a'].includes(styleOptions.bgColor) && (
+                      <span className="text-[8px] text-white font-bold drop-shadow-sm">+</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Shadow */}
+            <div>
+              <div className="text-[10px] text-neutral-500 mb-1.5">Shadow</div>
+              <div className="grid grid-cols-4 gap-1.5">
+                {(['none', 'sm', 'md', 'lg'] as const).map((shadow) => (
+                  <button
+                    key={shadow}
+                    onClick={() => setStyleOptions(prev => ({ ...prev, shadow }))}
+                    className={`px-2 py-1.5 text-[10px] rounded ${
+                      styleOptions.shadow === shadow
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
+                    }`}
+                  >
+                    {shadow === 'none' ? 'None' : shadow.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Sidebar Footer - Actions */}
+        <div className="p-4 border-t border-neutral-800 space-y-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleReset}
+            className="w-full text-neutral-400 hover:text-white hover:bg-neutral-800"
+          >
+            <RotateCcw className="w-4 h-4 mr-2" />
+            Reset
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={handleApply}
+            className="w-full bg-emerald-600 hover:bg-emerald-700"
+          >
+            <Check className="w-4 h-4 mr-2" />
+            Apply Crop
+          </Button>
         </div>
       </div>
     </div>,
