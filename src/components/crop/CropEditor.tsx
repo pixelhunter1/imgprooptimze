@@ -1217,21 +1217,72 @@ export default function CropEditor({
       ctx.clip();
     }
 
-    // Step 4: Draw the image
+    // Step 4: Draw the image with high-quality step-down resizing
+    // Helper function for high-quality downscaling using step-down algorithm
+    const highQualityResize = (
+      sourceImg: HTMLImageElement | HTMLCanvasElement,
+      srcX: number, srcY: number, srcW: number, srcH: number,
+      destX: number, destY: number, destW: number, destH: number
+    ) => {
+      // Calculate effective scale (how much we're reducing)
+      const effectiveScale = Math.min(destW / srcW, destH / srcH);
+
+      // If scale is >= 0.5 (reducing by less than 50%), direct draw is fine
+      if (effectiveScale >= 0.5 || effectiveScale <= 0) {
+        ctx.drawImage(sourceImg, srcX, srcY, srcW, srcH, destX, destY, destW, destH);
+        return;
+      }
+
+      // For larger reductions, use step-down resizing for better quality
+      // Each step reduces by 50% until we're close to target size
+      let tempCanvas = document.createElement('canvas');
+      let tempCtx = tempCanvas.getContext('2d');
+      if (!tempCtx) {
+        ctx.drawImage(sourceImg, srcX, srcY, srcW, srcH, destX, destY, destW, destH);
+        return;
+      }
+
+      // First, extract the source region to a temporary canvas
+      tempCanvas.width = Math.round(srcW);
+      tempCanvas.height = Math.round(srcH);
+      tempCtx.imageSmoothingEnabled = true;
+      tempCtx.imageSmoothingQuality = 'high';
+      tempCtx.drawImage(sourceImg, srcX, srcY, srcW, srcH, 0, 0, srcW, srcH);
+
+      // Step-down resize: reduce by 50% each step until we're within 50% of target
+      let currentW = srcW;
+      let currentH = srcH;
+
+      while (currentW * 0.5 > destW && currentH * 0.5 > destH) {
+        const nextW = Math.round(currentW * 0.5);
+        const nextH = Math.round(currentH * 0.5);
+
+        const stepCanvas = document.createElement('canvas');
+        stepCanvas.width = nextW;
+        stepCanvas.height = nextH;
+        const stepCtx = stepCanvas.getContext('2d');
+        if (!stepCtx) break;
+
+        stepCtx.imageSmoothingEnabled = true;
+        stepCtx.imageSmoothingQuality = 'high';
+        stepCtx.drawImage(tempCanvas, 0, 0, currentW, currentH, 0, 0, nextW, nextH);
+
+        tempCanvas = stepCanvas;
+        tempCtx = stepCtx;
+        currentW = nextW;
+        currentH = nextH;
+      }
+
+      // Final draw from the stepped-down canvas to the destination
+      ctx.drawImage(tempCanvas, 0, 0, currentW, currentH, destX, destY, destW, destH);
+    };
+
     if (dragMode === 'image') {
       // Image mode: the image is positioned/scaled within the crop area as a viewport
       // imageTransform.x/y = offset of image from crop area origin (0,0)
       // imageTransform.scale = scale of the image relative to original size
 
-      // The crop area acts as a "window" - we see the portion of the scaled image
-      // that falls within (0, 0, cropArea.width, cropArea.height) in crop-area coordinates
-
-      // What we see in the crop window (in image-transform space):
-      // - Image starts at (imageTransform.x, imageTransform.y) with size (img.width * scale, img.height * scale)
-      // - Crop window shows (0, 0) to (cropArea.width, cropArea.height)
-
       // Convert crop window bounds to source image coordinates:
-      // Point (cx, cy) in crop space corresponds to ((cx - imageTransform.x) / scale, (cy - imageTransform.y) / scale) in source image
       const srcX = (0 - imageTransform.x) / imageTransform.scale;
       const srcY = (0 - imageTransform.y) / imageTransform.scale;
       const srcW = cropArea.width / imageTransform.scale;
@@ -1253,17 +1304,20 @@ export default function CropEditor({
       const destH = clampedSrcH * imageTransform.scale * scaleRatio;
 
       if (clampedSrcW > 0 && clampedSrcH > 0) {
-        ctx.drawImage(
+        // Use high-quality step-down resizing for better quality
+        highQualityResize(
           img,
           clampedSrcX, clampedSrcY, clampedSrcW, clampedSrcH,
           destX, destY, destW, destH
         );
       }
     } else {
-      // Crop mode: direct crop from source image at cropArea position
-      ctx.drawImage(
+      // Crop mode: use high-quality resize for direct crop as well
+      const srcW = cropArea.width;
+      const srcH = cropArea.height;
+      highQualityResize(
         img,
-        cropArea.x, cropArea.y, cropArea.width, cropArea.height,
+        cropArea.x, cropArea.y, srcW, srcH,
         padding, padding, outW, outH
       );
     }
