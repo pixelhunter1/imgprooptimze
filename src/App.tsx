@@ -214,35 +214,72 @@ function App() {
     setProcessedImages(prev => prev.filter(img => img.id !== imageId));
   }, [processedImages]);
 
-  const handleCropImage = useCallback((imageId: string, croppedFile: File, croppedUrl: string) => {
-    setProcessedImages(prev =>
-      prev.map(img => {
-        if (img.id === imageId) {
-          // Revoke old URLs to prevent memory leak
-          if (img.optimizedUrl) {
-            URL.revokeObjectURL(img.optimizedUrl);
+  const handleCropImage = useCallback(async (imageId: string, croppedFile: File, croppedUrl: string) => {
+    // Find the image to get its optimization options
+    const imageToUpdate = processedImages.find(img => img.id === imageId);
+    if (!imageToUpdate) return;
+
+    // Get the optimization options used for this image (or use current global options as fallback)
+    const optionsToUse = imageToUpdate.optimizationOptions || optimizationOptions;
+
+    // Revoke old URLs to prevent memory leak
+    if (imageToUpdate.optimizedUrl) {
+      URL.revokeObjectURL(imageToUpdate.optimizedUrl);
+    }
+    if (imageToUpdate.originalUrl) {
+      URL.revokeObjectURL(imageToUpdate.originalUrl);
+    }
+    // Also revoke the temporary cropped URL since we'll create a new one after optimization
+    URL.revokeObjectURL(croppedUrl);
+
+    try {
+      // Re-optimize the cropped image with the same settings
+      const reOptimized = await ImageProcessor.optimizeImage(croppedFile, optionsToUse);
+
+      setProcessedImages(prev =>
+        prev.map(img => {
+          if (img.id === imageId) {
+            return {
+              ...img,
+              // Keep the cropped image as the new "original" for before/after comparison
+              originalFile: croppedFile,
+              originalUrl: reOptimized.originalUrl,
+              originalSize: croppedFile.size,
+              // Use the re-optimized version
+              optimizedFile: reOptimized.optimizedFile,
+              optimizedUrl: reOptimized.optimizedUrl,
+              optimizedSize: reOptimized.optimizedSize,
+              compressionRatio: reOptimized.compressionRatio,
+              // Preserve the optimization options
+              optimizationOptions: optionsToUse,
+            };
           }
-          if (img.originalUrl) {
-            URL.revokeObjectURL(img.originalUrl);
+          return img;
+        })
+      );
+    } catch (error) {
+      console.error('Failed to re-optimize cropped image:', error);
+      // Fallback: just use the cropped image without optimization
+      const newCroppedUrl = URL.createObjectURL(croppedFile);
+      setProcessedImages(prev =>
+        prev.map(img => {
+          if (img.id === imageId) {
+            return {
+              ...img,
+              originalFile: croppedFile,
+              originalUrl: newCroppedUrl,
+              originalSize: croppedFile.size,
+              optimizedFile: croppedFile,
+              optimizedUrl: newCroppedUrl,
+              optimizedSize: croppedFile.size,
+              compressionRatio: 0,
+            };
           }
-          return {
-            ...img,
-            // Update both original and optimized to the cropped version
-            // This ensures Before/After comparison shows the same dimensions
-            originalFile: croppedFile,
-            originalUrl: croppedUrl,
-            originalSize: croppedFile.size,
-            optimizedFile: croppedFile,
-            optimizedUrl: croppedUrl,
-            optimizedSize: croppedFile.size,
-            // After crop, compression ratio is 0% until re-optimized
-            compressionRatio: 0,
-          };
-        }
-        return img;
-      })
-    );
-  }, []);
+          return img;
+        })
+      );
+    }
+  }, [processedImages, optimizationOptions]);
 
   const handleResetProject = useCallback(() => {
     // Clean up blob URLs from processed images to prevent memory leaks

@@ -111,6 +111,7 @@ export interface ProcessedImage {
   format: string;
   quality: number;
   customFilename?: string; // User-defined filename (without extension)
+  optimizationOptions?: OptimizationOptions; // Store options used for re-optimization after crop
 }
 
 export class ImageProcessor {
@@ -693,6 +694,7 @@ export class ImageProcessor {
         optimizedUrl,
         format: options.format,
         quality: options.quality, // Show original user-selected quality, not mapped quality
+        optimizationOptions: { ...options }, // Store options for re-optimization after crop
       };
     } catch (error) {
       console.error('Image optimization failed:', error);
