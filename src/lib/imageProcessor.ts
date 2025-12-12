@@ -1224,6 +1224,95 @@ export class ImageProcessor {
   }
 
   /**
+   * Crops an image to a specific aspect ratio, centered, then resizes to target dimensions
+   * Works with any image size - crops with correct aspect ratio and scales to target
+   * @param file The image file to crop
+   * @param targetWidth Target width in pixels
+   * @param targetHeight Target height in pixels
+   * @returns A new cropped File at the exact target dimensions
+   */
+  static async cropImageToSize(file: File, targetWidth: number, targetHeight: number): Promise<File> {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const imageUrl = URL.createObjectURL(file);
+
+      img.onload = () => {
+        URL.revokeObjectURL(imageUrl);
+
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+
+        if (!ctx) {
+          reject(new Error('Could not get canvas context'));
+          return;
+        }
+
+        // Calculate target aspect ratio
+        const targetRatio = targetWidth / targetHeight;
+        const imageRatio = img.width / img.height;
+
+        let cropX: number, cropY: number, cropWidth: number, cropHeight: number;
+
+        if (imageRatio > targetRatio) {
+          // Image is wider than target - crop sides
+          cropHeight = img.height;
+          cropWidth = cropHeight * targetRatio;
+          cropX = (img.width - cropWidth) / 2;
+          cropY = 0;
+        } else {
+          // Image is taller than target - crop top/bottom
+          cropWidth = img.width;
+          cropHeight = cropWidth / targetRatio;
+          cropX = 0;
+          cropY = (img.height - cropHeight) / 2;
+        }
+
+        // Set canvas to exact target dimensions
+        canvas.width = targetWidth;
+        canvas.height = targetHeight;
+
+        // Enable high-quality rendering
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+
+        // Draw the centered crop, scaled to target size
+        ctx.drawImage(
+          img,
+          cropX, cropY, cropWidth, cropHeight,
+          0, 0, targetWidth, targetHeight
+        );
+
+        // Convert to blob and create new file
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              reject(new Error('Failed to create cropped image'));
+              return;
+            }
+
+            const croppedFile = new File([blob], file.name, {
+              type: file.type,
+              lastModified: Date.now(),
+            });
+
+            console.log(`✂️ Batch crop: ${img.width}x${img.height} → ${targetWidth}x${targetHeight}`);
+            resolve(croppedFile);
+          },
+          file.type,
+          1.0 // Use maximum quality for crop
+        );
+      };
+
+      img.onerror = () => {
+        URL.revokeObjectURL(imageUrl);
+        reject(new Error('Failed to load image for cropping'));
+      };
+
+      img.src = imageUrl;
+    });
+  }
+
+  /**
    * Applies batch renaming to multiple images
    * @param images Array of processed images
    * @param pattern Renaming pattern object

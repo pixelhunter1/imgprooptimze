@@ -10,7 +10,9 @@ import ImagePreview from '@/components/optimization/ImagePreview';
 import { ImagePreviewSkeletons } from '@/components/optimization/ImagePreviewSkeleton';
 import ZipDownloadDialog from '@/components/dialogs/ZipDownloadDialog';
 import BatchRenameDialog, { type BatchRenamePattern } from '@/components/dialogs/BatchRenameDialog';
+import BatchCropDialog from '@/components/dialogs/BatchCropDialog';
 import ResetProjectDialog from '@/components/dialogs/ResetProjectDialog';
+import { type SizePreset } from '@/types/crop';
 import InstallButton from '@/components/pwa/InstallButton';
 import BrowserCompatibilityAlert, { useBrowserCompatibility } from '@/components/browser/BrowserCompatibilityAlert';
 import FloatingSupport from '@/components/support/FloatingSupport';
@@ -19,7 +21,7 @@ import VersionDisplay from '@/components/updates/VersionDisplay';
 import { Button } from '@/components/ui/button';
 import { ImageProcessor, type OptimizationOptions, type ProcessedImage, type FileValidationResult } from '@/lib/imageProcessor';
 import { detectBrowser, getBrowserCapabilities, logBrowserInfo } from '@/lib/browserDetection';
-import { Package, Edit3, Trash2 } from 'lucide-react';
+import { Package, Edit3, Trash2, Crop } from 'lucide-react';
 
 interface UploadedImage {
   id: string;
@@ -36,6 +38,7 @@ function App() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [showZipDialog, setShowZipDialog] = useState(false);
   const [showBatchRenameDialog, setShowBatchRenameDialog] = useState(false);
+  const [showBatchCropDialog, setShowBatchCropDialog] = useState(false);
   const [showResetProjectDialog, setShowResetProjectDialog] = useState(false);
   const imageUploadRef = useRef<ImageUploadRef>(null);
 
@@ -281,6 +284,60 @@ function App() {
     }
   }, [processedImages, optimizationOptions]);
 
+  const handleBatchCrop = useCallback(async (preset: SizePreset, imageIds: string[]) => {
+    // Process each image sequentially to avoid memory issues
+    for (const imageId of imageIds) {
+      const imageToUpdate = processedImages.find(img => img.id === imageId);
+      if (!imageToUpdate) continue;
+
+      try {
+        // Crop the optimized image to the preset size (centered)
+        const croppedFile = await ImageProcessor.cropImageToSize(
+          imageToUpdate.optimizedFile,
+          preset.width,
+          preset.height
+        );
+
+        // Get the optimization options used for this image
+        const optionsToUse = imageToUpdate.optimizationOptions || optimizationOptions;
+
+        // Re-optimize the cropped image
+        const reOptimized = await ImageProcessor.optimizeImage(croppedFile, optionsToUse);
+
+        // Revoke old URLs
+        if (imageToUpdate.optimizedUrl) {
+          URL.revokeObjectURL(imageToUpdate.optimizedUrl);
+        }
+        if (imageToUpdate.originalUrl) {
+          URL.revokeObjectURL(imageToUpdate.originalUrl);
+        }
+
+        // Update the image in state
+        setProcessedImages(prev =>
+          prev.map(img => {
+            if (img.id === imageId) {
+              return {
+                ...img,
+                originalFile: croppedFile,
+                originalUrl: reOptimized.originalUrl,
+                originalSize: croppedFile.size,
+                optimizedFile: reOptimized.optimizedFile,
+                optimizedUrl: reOptimized.optimizedUrl,
+                optimizedSize: reOptimized.optimizedSize,
+                compressionRatio: reOptimized.compressionRatio,
+                optimizationOptions: optionsToUse,
+              };
+            }
+            return img;
+          })
+        );
+      } catch (error) {
+        console.error(`Failed to batch crop image ${imageId}:`, error);
+        // Continue with next image
+      }
+    }
+  }, [processedImages, optimizationOptions]);
+
   const handleResetProject = useCallback(() => {
     // Clean up blob URLs from processed images to prevent memory leaks
     processedImages.forEach(img => {
@@ -372,34 +429,49 @@ function App() {
 
               {/* Action Buttons - Moved below text */}
               {processedImages.length > 0 && (
-                <div className="flex gap-2">
-                  <Button
-                    variant="secondary"
-                    onClick={() => setShowBatchRenameDialog(true)}
-                    className="flex-1"
-                    size="sm"
-                  >
-                    <Edit3 className="h-3.5 w-3.5" />
-                    Rename All
-                  </Button>
-                  <Button
-                    variant="primary"
-                    onClick={handleDownloadAll}
-                    className="flex-1"
-                    size="sm"
-                  >
-                    <Package className="h-3.5 w-3.5" />
-                    Download ZIP ({processedImages.length})
-                  </Button>
-                  {/* Reset Project button - icon only with destructive styling */}
-                  <Button
-                    variant="destructive"
-                    onClick={() => setShowResetProjectDialog(true)}
-                    size="sm"
-                    title="Reset Project"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+                <div className="flex flex-col gap-2">
+                  {/* Row 1: Edit actions */}
+                  <div className="flex gap-2">
+                    <Button
+                      variant="secondary"
+                      onClick={() => setShowBatchRenameDialog(true)}
+                      className="flex-1"
+                      size="sm"
+                    >
+                      <Edit3 className="h-3.5 w-3.5" />
+                      Rename All
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      onClick={() => setShowBatchCropDialog(true)}
+                      className="flex-1"
+                      size="sm"
+                    >
+                      <Crop className="h-3.5 w-3.5" />
+                      Crop All
+                    </Button>
+                  </div>
+                  {/* Row 2: Download and Reset */}
+                  <div className="flex gap-2">
+                    <Button
+                      variant="primary"
+                      onClick={handleDownloadAll}
+                      className="flex-1"
+                      size="sm"
+                    >
+                      <Package className="h-3.5 w-3.5" />
+                      Download ZIP ({processedImages.length})
+                    </Button>
+                    {/* Reset Project button - icon only with destructive styling */}
+                    <Button
+                      variant="destructive"
+                      onClick={() => setShowResetProjectDialog(true)}
+                      size="sm"
+                      title="Reset Project"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>
@@ -437,6 +509,13 @@ function App() {
           isOpen={showBatchRenameDialog}
           onClose={() => setShowBatchRenameDialog(false)}
           onApply={handleBatchRename}
+          images={processedImages}
+        />
+
+        <BatchCropDialog
+          isOpen={showBatchCropDialog}
+          onClose={() => setShowBatchCropDialog(false)}
+          onApply={handleBatchCrop}
           images={processedImages}
         />
 
