@@ -33,6 +33,11 @@ export default function CropEditor({
   const [selectedSize, setSelectedSize] = useState<SizePreset | null>(null);
   const [cropArea, setCropArea] = useState<CropArea | null>(initialCropArea || null);
 
+  // Custom size state
+  const [useCustomSize, setUseCustomSize] = useState(false);
+  const [customWidth, setCustomWidth] = useState(1080);
+  const [customHeight, setCustomHeight] = useState(1080);
+
   // Interaction state
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
@@ -84,13 +89,28 @@ export default function CropEditor({
   // Snap threshold in pixels
   const SNAP_THRESHOLD = 8;
 
-  // Get current locked ratio (from selected size preset)
+  // Create effective size (custom or selected preset)
+  const effectiveSize: SizePreset | null = useMemo(() => {
+    if (useCustomSize) {
+      return {
+        id: 'custom',
+        label: 'Custom',
+        width: customWidth,
+        height: customHeight,
+        category: 'web' as const,
+        description: 'Custom size',
+      };
+    }
+    return selectedSize;
+  }, [useCustomSize, customWidth, customHeight, selectedSize]);
+
+  // Get current locked ratio (from effective size)
   const lockedRatio = useMemo(() => {
-    if (selectedSize) {
-      return selectedSize.width / selectedSize.height;
+    if (effectiveSize) {
+      return effectiveSize.width / effectiveSize.height;
     }
     return null;
-  }, [selectedSize]);
+  }, [effectiveSize]);
 
   // Load image with retry mechanism for blob URLs
   useEffect(() => {
@@ -181,6 +201,7 @@ export default function CropEditor({
   // Handle size preset selection
   const handleSizeSelect = useCallback((size: SizePreset) => {
     setSelectedSize(size);
+    setUseCustomSize(false); // Clear custom mode when selecting a preset
 
     if (!imageRef.current || !containerRef.current) return;
 
@@ -222,6 +243,57 @@ export default function CropEditor({
     setCropArea(newCropArea);
 
     // Reset image transform to fit the new crop area (important for Fit Image mode)
+    const scaleToFill = Math.max(cropW / img.width, cropH / img.height);
+    setImageTransform({
+      x: (cropW - img.width * scaleToFill) / 2,
+      y: (cropH - img.height * scaleToFill) / 2,
+      scale: scaleToFill,
+    });
+  }, []);
+
+  // Handle custom size selection
+  const handleCustomSizeSelect = useCallback((width: number, height: number) => {
+    setUseCustomSize(true);
+    setSelectedSize(null);
+    setCustomWidth(width);
+    setCustomHeight(height);
+
+    if (!imageRef.current || !containerRef.current) return;
+
+    const img = imageRef.current;
+    const container = containerRef.current;
+    const ratio = width / height;
+
+    let cropW, cropH;
+
+    if (img.width / img.height > ratio) {
+      cropH = Math.min(height, img.height);
+      cropW = cropH * ratio;
+    } else {
+      cropW = Math.min(width, img.width);
+      cropH = cropW / ratio;
+    }
+
+    if (cropW > img.width) {
+      cropW = img.width;
+      cropH = cropW / ratio;
+    }
+    if (cropH > img.height) {
+      cropH = img.height;
+      cropW = cropH * ratio;
+    }
+
+    const x = (img.width - cropW) / 2;
+    const y = (img.height - cropH) / 2;
+
+    const maxWidth = container.clientWidth - 32;
+    const maxHeight = container.clientHeight - 32;
+    const newScale = Math.min(maxWidth / img.width, maxHeight / img.height, 1);
+    setDisplayScale(newScale);
+
+    const newCropArea = { x, y, width: cropW, height: cropH };
+    setCropArea(newCropArea);
+
     const scaleToFill = Math.max(cropW / img.width, cropH / img.height);
     setImageTransform({
       x: (cropW - img.width * scaleToFill) / 2,
@@ -1143,9 +1215,9 @@ export default function CropEditor({
     let outW = Math.round(cropArea.width);
     let outH = Math.round(cropArea.height);
 
-    if (selectedSize) {
-      outW = Math.min(selectedSize.width, Math.round(cropArea.width));
-      outH = Math.min(selectedSize.height, Math.round(cropArea.height));
+    if (effectiveSize) {
+      outW = Math.min(effectiveSize.width, Math.round(cropArea.width));
+      outH = Math.min(effectiveSize.height, Math.round(cropArea.height));
     }
 
     // Final canvas dimensions (image + padding on all sides)
@@ -1473,6 +1545,85 @@ export default function CropEditor({
               background: rgba(255, 255, 255, 0.2);
             }
           `}</style>
+
+          {/* Custom Size */}
+          <div className="p-4 border-b border-neutral-800">
+            <h4 className="text-neutral-400 text-xs uppercase tracking-wide mb-3">Custom Size</h4>
+            <div className="space-y-2">
+              <button
+                onClick={() => {
+                  if (!useCustomSize) {
+                    handleCustomSizeSelect(customWidth, customHeight);
+                  }
+                }}
+                className={`w-full text-left px-3 py-2 text-xs rounded flex justify-between items-center ${
+                  useCustomSize
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
+                }`}
+              >
+                <span>Custom</span>
+                {useCustomSize && (
+                  <span className="opacity-80">{customWidth}×{customHeight}</span>
+                )}
+              </button>
+
+              {useCustomSize && (
+                <div className="space-y-3 pt-1">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] text-neutral-500 mb-1 block">Width</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="10000"
+                        value={customWidth}
+                        onChange={(e) => {
+                          const newWidth = Math.max(1, parseInt(e.target.value) || 1);
+                          setCustomWidth(newWidth);
+                          handleCustomSizeSelect(newWidth, customHeight);
+                        }}
+                        className="w-full bg-neutral-800 border border-neutral-700 rounded px-2 py-1.5 text-xs text-white focus:border-blue-500 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-neutral-500 mb-1 block">Height</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="10000"
+                        value={customHeight}
+                        onChange={(e) => {
+                          const newHeight = Math.max(1, parseInt(e.target.value) || 1);
+                          setCustomHeight(newHeight);
+                          handleCustomSizeSelect(customWidth, newHeight);
+                        }}
+                        className="w-full bg-neutral-800 border border-neutral-700 rounded px-2 py-1.5 text-xs text-white focus:border-blue-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                  {/* Common aspect ratio shortcuts */}
+                  <div className="flex gap-1.5 flex-wrap">
+                    {[
+                      { label: '1:1', w: 1080, h: 1080 },
+                      { label: '4:3', w: 1200, h: 900 },
+                      { label: '16:9', w: 1920, h: 1080 },
+                      { label: '9:16', w: 1080, h: 1920 },
+                    ].map((ratio) => (
+                      <button
+                        key={ratio.label}
+                        onClick={() => handleCustomSizeSelect(ratio.w, ratio.h)}
+                        className="px-2 py-1 text-[10px] bg-neutral-700 text-neutral-300 rounded hover:bg-neutral-600"
+                      >
+                        {ratio.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Size Presets - E-commerce first */}
           {ecommerceSizes.length > 0 && (
             <div className="p-4 border-b border-neutral-800">
@@ -1483,7 +1634,7 @@ export default function CropEditor({
                     key={s.id}
                     onClick={() => handleSizeSelect(s)}
                     className={`w-full text-left px-3 py-2 text-xs rounded flex justify-between items-center ${
-                      selectedSize?.id === s.id
+                      !useCustomSize && selectedSize?.id === s.id
                         ? 'bg-emerald-600 text-white'
                         : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
                     }`}
@@ -1505,7 +1656,7 @@ export default function CropEditor({
                     key={s.id}
                     onClick={() => handleSizeSelect(s)}
                     className={`w-full text-left px-3 py-2 text-xs rounded flex justify-between items-center ${
-                      selectedSize?.id === s.id
+                      !useCustomSize && selectedSize?.id === s.id
                         ? 'bg-emerald-600 text-white'
                         : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
                     }`}
@@ -1527,7 +1678,7 @@ export default function CropEditor({
                     key={s.id}
                     onClick={() => handleSizeSelect(s)}
                     className={`w-full text-left px-3 py-2 text-xs rounded flex justify-between items-center ${
-                      selectedSize?.id === s.id
+                      !useCustomSize && selectedSize?.id === s.id
                         ? 'bg-emerald-600 text-white'
                         : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
                     }`}
@@ -1549,7 +1700,7 @@ export default function CropEditor({
                     key={s.id}
                     onClick={() => handleSizeSelect(s)}
                     className={`w-full text-left px-3 py-2 text-xs rounded flex justify-between items-center ${
-                      selectedSize?.id === s.id
+                      !useCustomSize && selectedSize?.id === s.id
                         ? 'bg-emerald-600 text-white'
                         : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
                     }`}
@@ -1624,9 +1775,10 @@ export default function CropEditor({
           {cropArea && (
             <span>
               Selection: <span className="text-white">{Math.round(cropArea.width)} × {Math.round(cropArea.height)}</span>
-              {selectedSize && (
+              {effectiveSize && (
                 <span className="ml-3">
-                  Output: <span className="text-emerald-400">{Math.min(selectedSize.width, Math.round(cropArea.width))} × {Math.min(selectedSize.height, Math.round(cropArea.height))}</span>
+                  Output: <span className="text-emerald-400">{Math.min(effectiveSize.width, Math.round(cropArea.width))} × {Math.min(effectiveSize.height, Math.round(cropArea.height))}</span>
+                  {useCustomSize && <span className="text-blue-400 ml-1">(custom)</span>}
                 </span>
               )}
             </span>

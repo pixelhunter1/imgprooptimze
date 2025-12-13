@@ -82,6 +82,9 @@ export default function BatchCropDialog({
   const [styleOptions, setStyleOptions] = useState<CropStyleOptions>(DEFAULT_STYLE_OPTIONS);
   const [isApplying, setIsApplying] = useState(false);
   const [processingProgress, setProcessingProgress] = useState({ current: 0, total: 0 });
+  const [useCustomSize, setUseCustomSize] = useState(false);
+  const [customWidth, setCustomWidth] = useState(1080);
+  const [customHeight, setCustomHeight] = useState(1080);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const previewImageRef = useRef<HTMLImageElement | null>(null);
@@ -89,6 +92,18 @@ export default function BatchCropDialog({
 
   // Get preview image (first image)
   const previewImage = images[0];
+
+  // Create effective preset (custom or selected)
+  const effectivePreset: SizePreset | null = useCustomSize
+    ? {
+        id: 'custom',
+        label: 'Custom',
+        width: customWidth,
+        height: customHeight,
+        category: 'web',
+        description: 'Custom size',
+      }
+    : selectedPreset;
 
   // Load preview image
   useEffect(() => {
@@ -117,8 +132,8 @@ export default function BatchCropDialog({
   }, [isOpen, previewImage]);
 
   // Draw preview canvas
-  useEffect(() => {
-    if (!previewLoaded || !canvasRef.current || !previewImageRef.current || !selectedPreset) return;
+  const drawCanvas = useCallback(() => {
+    if (!previewLoaded || !canvasRef.current || !previewImageRef.current || !effectivePreset) return;
 
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
@@ -128,20 +143,28 @@ export default function BatchCropDialog({
     const container = containerRef.current;
     if (!container) return;
 
+    // Get container dimensions (with minimum fallback)
+    const containerWidth = Math.max(container.clientWidth, 200);
+    const containerHeight = Math.max(container.clientHeight, 200);
+
     const { padding, borderRadius, bgColor, shadow, frameStyle, borderWidth, borderColor } = styleOptions;
 
     // Calculate the preview size
-    const targetWidth = selectedPreset.width;
-    const targetHeight = selectedPreset.height;
+    const targetWidth = effectivePreset.width;
+    const targetHeight = effectivePreset.height;
     const outW = targetWidth;
     const outH = targetHeight;
     const finalW = outW + padding * 2;
     const finalH = outH + padding * 2;
 
-    // Scale to fit container
-    const maxWidth = container.clientWidth - 40;
-    const maxHeight = container.clientHeight - 40;
-    const scale = Math.min(maxWidth / finalW, maxHeight / finalH, 1);
+    // Scale to fit container - always scale to fit, never exceed container
+    const maxWidth = containerWidth - 40;
+    const maxHeight = containerHeight - 40;
+
+    // Calculate scale to fit within container (remove the "1" limit to always fit large images)
+    const scaleX = maxWidth / finalW;
+    const scaleY = maxHeight / finalH;
+    const scale = Math.min(scaleX, scaleY);
 
     const displayW = finalW * scale;
     const displayH = finalH * scale;
@@ -361,18 +384,36 @@ export default function BatchCropDialog({
       }
       ctx.stroke();
     }
+  }, [previewLoaded, effectivePreset, styleOptions]);
 
-  }, [previewLoaded, selectedPreset, styleOptions]);
+  // Call drawCanvas when dependencies change and handle container resize
+  useEffect(() => {
+    drawCanvas();
+
+    // Add resize observer to redraw when container size changes
+    const container = containerRef.current;
+    if (!container) return;
+
+    const resizeObserver = new ResizeObserver(() => {
+      drawCanvas();
+    });
+
+    resizeObserver.observe(container);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [drawCanvas]);
 
   const handleApply = useCallback(async () => {
-    if (!selectedPreset || images.length === 0) return;
+    if (!effectivePreset || images.length === 0) return;
 
     setIsApplying(true);
     setProcessingProgress({ current: 0, total: images.length });
 
     try {
       await onApply(
-        selectedPreset,
+        effectivePreset,
         styleOptions,
         images.map(img => img.id),
         (current, total) => {
@@ -386,11 +427,14 @@ export default function BatchCropDialog({
       setIsApplying(false);
       setProcessingProgress({ current: 0, total: 0 });
     }
-  }, [selectedPreset, styleOptions, images, onApply, onClose]);
+  }, [effectivePreset, styleOptions, images, onApply, onClose]);
 
   const handleReset = useCallback(() => {
     setStyleOptions(DEFAULT_STYLE_OPTIONS);
     setSelectedPreset(null);
+    setUseCustomSize(false);
+    setCustomWidth(1080);
+    setCustomHeight(1080);
   }, []);
 
   // Handle escape key
@@ -441,6 +485,82 @@ export default function BatchCropDialog({
             }
           `}</style>
 
+          {/* Custom Size */}
+          <div className="p-3 border-b border-neutral-800">
+            <h4 className="text-neutral-400 text-xs uppercase tracking-wide mb-2">Custom Size</h4>
+            <div className="space-y-2">
+              <button
+                onClick={() => {
+                  setUseCustomSize(true);
+                  setSelectedPreset(null);
+                }}
+                disabled={isApplying}
+                className={`w-full text-left px-2 py-1.5 text-xs rounded flex justify-between items-center ${
+                  useCustomSize
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
+                } disabled:opacity-50`}
+              >
+                <span>Custom</span>
+                {useCustomSize && (
+                  <span className="opacity-80 text-[10px]">{customWidth}×{customHeight}</span>
+                )}
+              </button>
+
+              {useCustomSize && (
+                <div className="space-y-2 pt-1">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] text-neutral-500 mb-1 block">Width</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="10000"
+                        value={customWidth}
+                        onChange={(e) => setCustomWidth(Math.max(1, parseInt(e.target.value) || 1))}
+                        disabled={isApplying}
+                        className="w-full bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs text-white focus:border-blue-500 focus:outline-none disabled:opacity-50"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-neutral-500 mb-1 block">Height</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="10000"
+                        value={customHeight}
+                        onChange={(e) => setCustomHeight(Math.max(1, parseInt(e.target.value) || 1))}
+                        disabled={isApplying}
+                        className="w-full bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs text-white focus:border-blue-500 focus:outline-none disabled:opacity-50"
+                      />
+                    </div>
+                  </div>
+                  {/* Common aspect ratio shortcuts */}
+                  <div className="flex gap-1 flex-wrap">
+                    {[
+                      { label: '1:1', w: 1080, h: 1080 },
+                      { label: '4:3', w: 1200, h: 900 },
+                      { label: '16:9', w: 1920, h: 1080 },
+                      { label: '9:16', w: 1080, h: 1920 },
+                    ].map((ratio) => (
+                      <button
+                        key={ratio.label}
+                        onClick={() => {
+                          setCustomWidth(ratio.w);
+                          setCustomHeight(ratio.h);
+                        }}
+                        disabled={isApplying}
+                        className="px-1.5 py-0.5 text-[10px] bg-neutral-700 text-neutral-300 rounded hover:bg-neutral-600 disabled:opacity-50"
+                      >
+                        {ratio.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* E-commerce */}
           {ecommerceSizes.length > 0 && (
             <div className="p-3 border-b border-neutral-800">
@@ -449,10 +569,13 @@ export default function BatchCropDialog({
                 {ecommerceSizes.map((s) => (
                   <button
                     key={s.id}
-                    onClick={() => setSelectedPreset(s)}
+                    onClick={() => {
+                      setSelectedPreset(s);
+                      setUseCustomSize(false);
+                    }}
                     disabled={isApplying}
                     className={`w-full text-left px-2 py-1.5 text-xs rounded flex justify-between items-center ${
-                      selectedPreset?.id === s.id
+                      !useCustomSize && selectedPreset?.id === s.id
                         ? 'bg-emerald-600 text-white'
                         : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
                     } disabled:opacity-50`}
@@ -473,10 +596,13 @@ export default function BatchCropDialog({
                 {socialSizes.map((s) => (
                   <button
                     key={s.id}
-                    onClick={() => setSelectedPreset(s)}
+                    onClick={() => {
+                      setSelectedPreset(s);
+                      setUseCustomSize(false);
+                    }}
                     disabled={isApplying}
                     className={`w-full text-left px-2 py-1.5 text-xs rounded flex justify-between items-center ${
-                      selectedPreset?.id === s.id
+                      !useCustomSize && selectedPreset?.id === s.id
                         ? 'bg-emerald-600 text-white'
                         : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
                     } disabled:opacity-50`}
@@ -497,10 +623,13 @@ export default function BatchCropDialog({
                 {videoSizes.map((s) => (
                   <button
                     key={s.id}
-                    onClick={() => setSelectedPreset(s)}
+                    onClick={() => {
+                      setSelectedPreset(s);
+                      setUseCustomSize(false);
+                    }}
                     disabled={isApplying}
                     className={`w-full text-left px-2 py-1.5 text-xs rounded flex justify-between items-center ${
-                      selectedPreset?.id === s.id
+                      !useCustomSize && selectedPreset?.id === s.id
                         ? 'bg-emerald-600 text-white'
                         : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
                     } disabled:opacity-50`}
@@ -521,10 +650,13 @@ export default function BatchCropDialog({
                 {webSizes.map((s) => (
                   <button
                     key={s.id}
-                    onClick={() => setSelectedPreset(s)}
+                    onClick={() => {
+                      setSelectedPreset(s);
+                      setUseCustomSize(false);
+                    }}
                     disabled={isApplying}
                     className={`w-full text-left px-2 py-1.5 text-xs rounded flex justify-between items-center ${
-                      selectedPreset?.id === s.id
+                      !useCustomSize && selectedPreset?.id === s.id
                         ? 'bg-emerald-600 text-white'
                         : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
                     } disabled:opacity-50`}
@@ -559,14 +691,14 @@ export default function BatchCropDialog({
 
         {/* Canvas */}
         <div ref={containerRef} className="flex-1 flex items-center justify-center p-4 min-h-0 overflow-auto relative">
-          {previewLoaded && selectedPreset ? (
+          {previewLoaded && effectivePreset ? (
             <canvas ref={canvasRef} />
           ) : (
             <div className="text-neutral-500 flex flex-col items-center gap-3">
-              {!selectedPreset ? (
+              {!effectivePreset ? (
                 <>
                   <Crop className="w-12 h-12 text-neutral-600" />
-                  <span className="text-sm">Select a size preset to preview</span>
+                  <span className="text-sm">Select a size or enter custom dimensions</span>
                 </>
               ) : (
                 <>
@@ -645,11 +777,14 @@ export default function BatchCropDialog({
             /* Normal state - Show output info and thumbnails */
             <div className="flex items-center gap-4">
               <div className="flex-1">
-                {selectedPreset && (
+                {effectivePreset && (
                   <span className="text-xs text-neutral-400">
-                    Output: <span className="text-emerald-400">{selectedPreset.width + styleOptions.padding * 2} × {selectedPreset.height + styleOptions.padding * 2}</span>
+                    Output: <span className="text-emerald-400">{effectivePreset.width + styleOptions.padding * 2} × {effectivePreset.height + styleOptions.padding * 2}</span>
                     {styleOptions.padding > 0 && (
                       <span className="text-neutral-500 ml-2">(includes {styleOptions.padding}px padding)</span>
+                    )}
+                    {useCustomSize && (
+                      <span className="text-blue-400 ml-2">(custom)</span>
                     )}
                   </span>
                 )}
@@ -919,7 +1054,7 @@ export default function BatchCropDialog({
             variant="primary"
             size="sm"
             onClick={handleApply}
-            disabled={!selectedPreset || images.length === 0 || isApplying}
+            disabled={!effectivePreset || images.length === 0 || isApplying}
             className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isApplying ? (
