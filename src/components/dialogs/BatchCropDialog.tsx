@@ -25,7 +25,7 @@ export interface CropStyleOptions {
 interface BatchCropDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onApply: (preset: SizePreset, styleOptions: CropStyleOptions, imageIds: string[]) => Promise<void>;
+  onApply: (preset: SizePreset, styleOptions: CropStyleOptions, imageIds: string[], onProgress?: (current: number, total: number) => void) => Promise<void>;
   images: ProcessedImage[];
 }
 
@@ -81,6 +81,7 @@ export default function BatchCropDialog({
   const [selectedPreset, setSelectedPreset] = useState<SizePreset | null>(null);
   const [styleOptions, setStyleOptions] = useState<CropStyleOptions>(DEFAULT_STYLE_OPTIONS);
   const [isApplying, setIsApplying] = useState(false);
+  const [processingProgress, setProcessingProgress] = useState({ current: 0, total: 0 });
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const previewImageRef = useRef<HTMLImageElement | null>(null);
@@ -367,13 +368,23 @@ export default function BatchCropDialog({
     if (!selectedPreset || images.length === 0) return;
 
     setIsApplying(true);
+    setProcessingProgress({ current: 0, total: images.length });
+
     try {
-      await onApply(selectedPreset, styleOptions, images.map(img => img.id));
+      await onApply(
+        selectedPreset,
+        styleOptions,
+        images.map(img => img.id),
+        (current, total) => {
+          setProcessingProgress({ current, total });
+        }
+      );
       onClose();
     } catch (error) {
       console.error('Batch crop failed:', error);
     } finally {
       setIsApplying(false);
+      setProcessingProgress({ current: 0, total: 0 });
     }
   }, [selectedPreset, styleOptions, images, onApply, onClose]);
 
@@ -567,33 +578,101 @@ export default function BatchCropDialog({
           )}
         </div>
 
-        {/* Bottom info bar with thumbnails */}
+        {/* Bottom info bar with thumbnails and progress */}
         <div className="px-4 py-3 bg-neutral-900/50 border-t border-neutral-800">
-          <div className="flex items-center gap-4">
-            <div className="flex-1">
-              {selectedPreset && (
+          {isApplying ? (
+            /* Processing Progress */
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 text-emerald-500 animate-spin" />
+                  <span className="text-sm text-white font-medium">
+                    Cropping image {processingProgress.current} of {processingProgress.total}...
+                  </span>
+                </div>
                 <span className="text-xs text-neutral-400">
-                  Output: <span className="text-emerald-400">{selectedPreset.width + styleOptions.padding * 2} × {selectedPreset.height + styleOptions.padding * 2}</span>
-                  {styleOptions.padding > 0 && (
-                    <span className="text-neutral-500 ml-2">(includes {styleOptions.padding}px padding)</span>
-                  )}
+                  {Math.round((processingProgress.current / processingProgress.total) * 100)}%
                 </span>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] text-neutral-500 uppercase">Images to crop:</span>
-              <div className="flex gap-1.5 max-w-[300px] overflow-x-auto">
-                {images.slice(0, 6).map((image, index) => (
-                  <ImageThumbnail key={image.id} image={image} index={index} />
-                ))}
-                {images.length > 6 && (
-                  <div className="w-12 h-12 bg-neutral-800 rounded-md border border-neutral-700 flex items-center justify-center text-xs text-neutral-400">
-                    +{images.length - 6}
+              </div>
+              {/* Progress bar */}
+              <div className="h-2 bg-neutral-800 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-emerald-500 rounded-full transition-all duration-300"
+                  style={{ width: `${(processingProgress.current / processingProgress.total) * 100}%` }}
+                />
+              </div>
+              {/* Thumbnail progress indicators */}
+              <div className="flex gap-1.5 justify-center">
+                {images.slice(0, 10).map((image, index) => {
+                  // Progress is 1-indexed, so compare index+1 with current
+                  const imageNumber = index + 1;
+                  const isCompleted = imageNumber < processingProgress.current;
+                  const isProcessing = imageNumber === processingProgress.current;
+
+                  return (
+                    <div
+                      key={image.id}
+                      className={`relative w-10 h-10 rounded border-2 overflow-hidden transition-all ${
+                        isCompleted
+                          ? 'border-emerald-500 opacity-100'
+                          : isProcessing
+                          ? 'border-emerald-500 opacity-100 ring-2 ring-emerald-500/50'
+                          : 'border-neutral-700 opacity-40'
+                      }`}
+                    >
+                      <ImageThumbnail image={image} index={index} />
+                      {isCompleted && (
+                        <div className="absolute inset-0 bg-emerald-500/30 flex items-center justify-center">
+                          <Check className="w-4 h-4 text-emerald-400" />
+                        </div>
+                      )}
+                      {isProcessing && (
+                        <div className="absolute inset-0 bg-emerald-500/20 flex items-center justify-center">
+                          <Loader2 className="w-4 h-4 text-emerald-400 animate-spin" />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                {images.length > 10 && (
+                  <div className="w-10 h-10 bg-neutral-800 rounded border-2 border-neutral-700 flex items-center justify-center text-[10px] text-neutral-400 opacity-40">
+                    +{images.length - 10}
                   </div>
                 )}
               </div>
             </div>
-          </div>
+          ) : (
+            /* Normal state - Show output info and thumbnails */
+            <div className="flex items-center gap-4">
+              <div className="flex-1">
+                {selectedPreset && (
+                  <span className="text-xs text-neutral-400">
+                    Output: <span className="text-emerald-400">{selectedPreset.width + styleOptions.padding * 2} × {selectedPreset.height + styleOptions.padding * 2}</span>
+                    {styleOptions.padding > 0 && (
+                      <span className="text-neutral-500 ml-2">(includes {styleOptions.padding}px padding)</span>
+                    )}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-neutral-400">
+                  <span className="text-white font-medium">{images.length}</span> {images.length === 1 ? 'image' : 'images'} selected
+                </span>
+                <div className="flex gap-1">
+                  {images.slice(0, 5).map((image, index) => (
+                    <div key={image.id} className="w-8 h-8 rounded border border-neutral-700 overflow-hidden">
+                      <ImageThumbnail image={image} index={index} />
+                    </div>
+                  ))}
+                  {images.length > 5 && (
+                    <div className="w-8 h-8 bg-neutral-800 rounded border border-neutral-700 flex items-center justify-center text-[10px] text-neutral-400">
+                      +{images.length - 5}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

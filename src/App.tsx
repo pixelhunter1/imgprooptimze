@@ -298,7 +298,12 @@ function App() {
     }
   }, [processedImages, optimizationOptions]);
 
-  const handleBatchCrop = useCallback(async (preset: SizePreset, styleOptions: CropStyleOptions, imageIds: string[]) => {
+  const handleBatchCrop = useCallback(async (
+    preset: SizePreset,
+    styleOptions: CropStyleOptions,
+    imageIds: string[],
+    onProgress?: (current: number, total: number) => void
+  ) => {
     // Check if style options have any effects (if so, we use styled crop)
     const hasStyles = styleOptions.padding > 0 ||
                       styleOptions.borderRadius > 0 ||
@@ -306,8 +311,17 @@ function App() {
                       styleOptions.shadow !== 'none' ||
                       styleOptions.frameStyle !== 'none';
 
+    const total = imageIds.length;
+
     // Process each image sequentially to avoid memory issues
-    for (const imageId of imageIds) {
+    for (let i = 0; i < imageIds.length; i++) {
+      const imageId = imageIds[i];
+
+      // Report progress (1-indexed for display)
+      if (onProgress) {
+        onProgress(i + 1, total);
+      }
+
       const imageToUpdate = processedImages.find(img => img.id === imageId);
       if (!imageToUpdate) continue;
 
@@ -368,6 +382,11 @@ function App() {
         console.error(`Failed to batch crop image ${imageId}:`, error);
         // Continue with next image
       }
+    }
+
+    // Report final progress (all done)
+    if (onProgress) {
+      onProgress(total, total);
     }
   }, [processedImages, optimizationOptions]);
 
