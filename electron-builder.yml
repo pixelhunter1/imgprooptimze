@@ -12,7 +12,7 @@ files:
 # macOS Configuration
 mac:
   category: public.app-category.photography
-  icon: public/icons/icon-512x512.png
+  icon: build/icon.icns
   identity: null
   target:
     - target: dmg
@@ -38,7 +38,7 @@ dmg:
 
 # Windows Configuration
 win:
-  icon: public/icons/icon-512x512.png
+  icon: build/icon.ico
   target:
     - target: nsis
       arch:
@@ -62,7 +62,7 @@ nsis:
 
 # Linux Configuration
 linux:
-  icon: public/icons/icon-512x512.png
+  icon: build/icons
   category: Graphics
   target:
     - target: AppImage
