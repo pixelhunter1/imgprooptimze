@@ -7,6 +7,7 @@ const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
 import ImageUpload, { type ImageUploadRef } from '@/components/file-upload/image-upload';
 import OptimizationControls from '@/components/optimization/OptimizationControls';
 import ImagePreview from '@/components/optimization/ImagePreview';
+import ProcessingOverlay from '@/components/optimization/ProcessingOverlay';
 import { ImagePreviewSkeletons } from '@/components/optimization/ImagePreviewSkeleton';
 import ZipDownloadDialog from '@/components/dialogs/ZipDownloadDialog';
 import BatchRenameDialog, { type BatchRenamePattern } from '@/components/dialogs/BatchRenameDialog';
@@ -36,6 +37,8 @@ function App() {
   const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
   const [processedImages, setProcessedImages] = useState<ProcessedImage[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [currentImageProgress, setCurrentImageProgress] = useState(0);
+  const [currentImageName, setCurrentImageName] = useState('');
   const [showZipDialog, setShowZipDialog] = useState(false);
   const [showBatchRenameDialog, setShowBatchRenameDialog] = useState(false);
   const [showBatchCropDialog, setShowBatchCropDialog] = useState(false);
@@ -141,6 +144,8 @@ function App() {
 
     setIsProcessing(true);
     setProcessedImages([]);
+    setCurrentImageProgress(0);
+    setCurrentImageName('');
 
     try {
       // Use a ref-like pattern to accumulate results and update state correctly
@@ -150,9 +155,16 @@ function App() {
         if (uploadedImage.status !== 'completed') continue;
 
         try {
+          // Set current image name for progress display
+          setCurrentImageName(uploadedImage.file.name);
+          setCurrentImageProgress(0);
+
           const processedImage = await ImageProcessor.optimizeImage(
             uploadedImage.file,
-            optimizationOptions
+            optimizationOptions,
+            (progress) => {
+              setCurrentImageProgress(progress);
+            }
           );
 
           accumulatedImages.push(processedImage);
@@ -166,6 +178,8 @@ function App() {
       console.error('Optimization failed:', err);
     } finally {
       setIsProcessing(false);
+      setCurrentImageProgress(0);
+      setCurrentImageName('');
     }
   }, [uploadedImages, optimizationOptions]);
 
@@ -418,6 +432,8 @@ function App() {
                 hasImages={uploadedImages.some(img => img.status === 'completed')}
                 processedCount={processedImages.length}
                 totalImages={uploadedImages.filter(img => img.status === 'completed').length}
+                currentImageProgress={currentImageProgress}
+                currentImageName={currentImageName}
               />
             )}
           </div>
@@ -496,6 +512,16 @@ function App() {
             )}
           </div>
         </div>
+
+        {/* Processing Overlay */}
+        <ProcessingOverlay
+          isProcessing={isProcessing}
+          currentImageName={currentImageName}
+          currentImageProgress={currentImageProgress}
+          processedCount={processedImages.length}
+          totalImages={uploadedImages.filter(img => img.status === 'completed').length}
+          format={optimizationOptions.format}
+        />
 
         {/* Dialogs */}
         <ZipDownloadDialog

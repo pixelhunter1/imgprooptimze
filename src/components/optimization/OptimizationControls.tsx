@@ -13,6 +13,8 @@ interface OptimizationControlsProps {
   hasImages: boolean;
   processedCount: number;
   totalImages: number;
+  currentImageProgress?: number;
+  currentImageName?: string;
 }
 
 export default function OptimizationControls({
@@ -23,6 +25,8 @@ export default function OptimizationControls({
   hasImages,
   processedCount,
   totalImages,
+  currentImageProgress = 0,
+  currentImageName = '',
 }: OptimizationControlsProps) {
   // Browser compatibility detection
   const browserInfo = detectBrowser();
@@ -33,6 +37,11 @@ export default function OptimizationControls({
       value: 'webp',
       label: 'WebP',
       supported: capabilities.canUseWebP
+    },
+    {
+      value: 'avif',
+      label: 'AVIF',
+      supported: true
     },
     {
       value: 'jpeg',
@@ -65,7 +74,7 @@ export default function OptimizationControls({
         {/* Format Selection */}
         <div className="space-y-3">
           <label className="text-xs uppercase tracking-wide text-neutral-400">Output Format</label>
-          <div className="grid grid-cols-3 gap-1.5">
+          <div className="grid grid-cols-4 gap-1.5">
             {formatOptions.map((format) => (
               <button
                 key={format.value}
@@ -88,6 +97,16 @@ export default function OptimizationControls({
             <p className="text-[10px] text-amber-500/80 bg-amber-950/30 p-2 rounded border border-amber-900/30">
               WebP not supported in {browserInfo.name}. JPEG will be used instead.
             </p>
+          )}
+          {options.format === 'avif' && (
+            <div className="space-y-1.5">
+              <p className="text-[10px] text-emerald-400/80 bg-emerald-950/30 p-2 rounded border border-emerald-900/30">
+                <strong className="text-emerald-400">AVIF:</strong> Best compression (30-50% smaller than WebP). Ideal for photos.
+              </p>
+              <p className="text-[10px] text-amber-500/80 bg-amber-950/30 p-2 rounded border border-amber-900/30">
+                <strong className="text-amber-500">Note:</strong> AVIF encoding is slower (5-30 seconds per image).
+              </p>
+            </div>
           )}
           {options.format === 'jpeg' && (
             <p className="text-[10px] text-amber-500/80 bg-amber-950/30 p-2 rounded border border-amber-900/30">

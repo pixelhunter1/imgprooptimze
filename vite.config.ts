@@ -26,6 +26,9 @@ export default defineConfig({
       "@": "/src",
     },
   },
+  optimizeDeps: {
+    exclude: ['@jsquash/avif'],
+  },
   define: {
     // Inject version info at build time
     'import.meta.env.VITE_APP_VERSION': JSON.stringify(version),

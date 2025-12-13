@@ -46,7 +46,7 @@ ipcMain.handle('save-file', async (_event, buffer: ArrayBuffer, defaultName: str
     title: 'Guardar Imagem',
     defaultPath: defaultName,
     filters: [
-      { name: 'Imagens', extensions: ['png', 'jpg', 'jpeg', 'webp'] },
+      { name: 'Imagens', extensions: ['png', 'jpg', 'jpeg', 'webp', 'avif'] },
       { name: 'Todos os ficheiros', extensions: ['*'] }
     ]
   })

@@ -56,6 +56,7 @@
 import imageCompression from 'browser-image-compression';
 import JSZip from 'jszip';
 import piexif from 'piexifjs';
+import { encode as encodeAvif } from '@jsquash/avif';
 import { detectBrowser, getBrowserCapabilities } from './browserDetection';
 import { type CropArea } from '@/types/crop';
 import '@/types/electron.d.ts';
@@ -64,7 +65,7 @@ import '@/types/electron.d.ts';
 const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
 
 export interface OptimizationOptions {
-  format: 'webp' | 'jpeg' | 'png';
+  format: 'webp' | 'jpeg' | 'png' | 'avif';
   quality: number; // 0.1 to 1.0 (1.0 = maximum quality)
   maxSizeMB?: number; // Optional file size limit - now configurable in UI
   maxWidthOrHeight?: number; // Maximum dimension in pixels
@@ -93,7 +94,8 @@ export interface BatchValidationResult {
 export const ALLOWED_IMAGE_FORMATS = {
   'image/png': ['.png'],
   'image/jpeg': ['.jpg', '.jpeg'],
-  'image/webp': ['.webp']
+  'image/webp': ['.webp'],
+  'image/avif': ['.avif']
 } as const;
 
 export const ALLOWED_MIME_TYPES = Object.keys(ALLOWED_IMAGE_FORMATS) as string[];
@@ -356,6 +358,12 @@ export class ImageProcessor {
     const outputFormat = options.format;
     const isHighQuality = options.quality >= 0.9;
     const isPngOutput = outputFormat === 'png';
+    const isAvifOutput = outputFormat === 'avif';
+
+    // AVIF encoding using jsquash (WASM-based)
+    if (isAvifOutput) {
+      return await this.avifOptimization(file, options, onProgress);
+    }
 
     // Format-specific optimization strategy with size increase prevention
     if (isPngOutput) {
@@ -375,6 +383,132 @@ export class ImageProcessor {
     }
 
     return await this.highQualityOptimization(file, options, onProgress);
+  }
+
+  /**
+   * AVIF optimization using jsquash WASM encoder
+   * Note: AVIF encoding is slower than other formats but provides better compression
+   * Uses simulated progress since encodeAvif doesn't report intermediate progress
+   */
+  static async avifOptimization(
+    file: File,
+    options: OptimizationOptions,
+    onProgress?: (progress: number) => void
+  ): Promise<File> {
+    if (onProgress) onProgress(5);
+
+    return new Promise((resolve, reject) => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const img = new Image();
+
+      const imageUrl = URL.createObjectURL(file);
+
+      img.onload = async () => {
+        let progressInterval: ReturnType<typeof setInterval> | null = null;
+        let currentProgress = 10;
+
+        try {
+          URL.revokeObjectURL(imageUrl);
+
+          if (onProgress) onProgress(10);
+
+          // Calculate dimensions respecting maxWidthOrHeight
+          let { width, height } = img;
+          if (options.maxWidthOrHeight) {
+            const maxDimension = options.maxWidthOrHeight;
+            if (width > maxDimension || height > maxDimension) {
+              const ratio = Math.min(maxDimension / width, maxDimension / height);
+              width = Math.round(width * ratio);
+              height = Math.round(height * ratio);
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+
+          if (!ctx) {
+            reject(new Error('Could not get canvas context'));
+            return;
+          }
+
+          // Use high-quality rendering settings
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+
+          // Draw image
+          ctx.drawImage(img, 0, 0, width, height);
+
+          if (onProgress) onProgress(15);
+
+          // Get ImageData for jsquash encoder
+          const imageData = ctx.getImageData(0, 0, width, height);
+
+          if (onProgress) onProgress(20);
+          currentProgress = 20;
+
+          // AVIF quality: jsquash uses 0-100 scale
+          // Speed: 0-10 (higher = faster but lower quality)
+          const avifQuality = Math.round(options.quality * 100);
+          const speed = options.quality >= 0.9 ? 4 : 6; // Slower for high quality
+
+          console.log(`🖼️ AVIF encoding: ${width}x${height}, quality: ${avifQuality}, speed: ${speed}`);
+
+          // Estimate encoding time based on image size and quality
+          // Larger images and higher quality = slower encoding
+          const pixels = width * height;
+          const estimatedSeconds = Math.max(3, Math.min(30, (pixels / 500000) * (11 - speed)));
+          const progressPerInterval = (75 - currentProgress) / (estimatedSeconds * 10); // Update every 100ms
+
+          // Start simulated progress during encoding
+          if (onProgress) {
+            progressInterval = setInterval(() => {
+              currentProgress = Math.min(currentProgress + progressPerInterval, 90);
+              onProgress(Math.round(currentProgress));
+            }, 100);
+          }
+
+          // Encode to AVIF using jsquash
+          const avifBuffer = await encodeAvif(imageData, {
+            quality: avifQuality,
+            speed: speed,
+          });
+
+          // Stop simulated progress
+          if (progressInterval) {
+            clearInterval(progressInterval);
+            progressInterval = null;
+          }
+
+          if (onProgress) onProgress(95);
+
+          // Create File from ArrayBuffer
+          const fileName = this.generateFileName(file.name, 'avif');
+          const avifFile = new File([avifBuffer], fileName, {
+            type: 'image/avif',
+          });
+
+          console.log(`✅ AVIF encoded: ${this.formatFileSize(avifFile.size)}`);
+
+          if (onProgress) onProgress(100);
+          resolve(avifFile);
+        } catch (error) {
+          // Clean up interval on error
+          if (progressInterval) {
+            clearInterval(progressInterval);
+          }
+          console.error('AVIF encoding failed:', error);
+          reject(new Error(`AVIF encoding failed: ${error instanceof Error ? error.message : 'Unknown error'}`));
+        }
+      };
+
+      img.onerror = () => {
+        URL.revokeObjectURL(imageUrl);
+        reject(new Error('Failed to load image for AVIF encoding'));
+      };
+
+      img.src = imageUrl;
+    });
   }
 
   /**
@@ -956,10 +1090,15 @@ export class ImageProcessor {
 
   static async convertFormat(
     file: File,
-    targetFormat: 'webp' | 'jpeg' | 'png',
+    targetFormat: 'webp' | 'jpeg' | 'png' | 'avif',
     quality: number,
     lossless?: boolean
   ): Promise<File> {
+    // AVIF requires special encoding via jsquash (canvas.toBlob doesn't support AVIF)
+    if (targetFormat === 'avif') {
+      return await this.avifOptimization(file, { format: 'avif', quality });
+    }
+
     return new Promise((resolve, reject) => {
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
@@ -1043,28 +1182,31 @@ export class ImageProcessor {
     });
   }
 
-  static getFileType(format: 'webp' | 'jpeg' | 'png'): string {
+  static getFileType(format: 'webp' | 'jpeg' | 'png' | 'avif'): string {
     const mimeTypes = {
       webp: 'image/webp',
       jpeg: 'image/jpeg',
       png: 'image/png',
+      avif: 'image/avif',
     };
     return mimeTypes[format];
   }
 
-  static getFormatFromMimeType(mimeType: string): 'webp' | 'jpeg' | 'png' {
+  static getFormatFromMimeType(mimeType: string): 'webp' | 'jpeg' | 'png' | 'avif' {
+    if (mimeType.includes('avif')) return 'avif';
     if (mimeType.includes('webp')) return 'webp';
     if (mimeType.includes('jpeg') || mimeType.includes('jpg')) return 'jpeg';
     if (mimeType.includes('png')) return 'png';
     return 'jpeg'; // default fallback
   }
 
-  static generateFileName(originalName: string, format: 'webp' | 'jpeg' | 'png'): string {
+  static generateFileName(originalName: string, format: 'webp' | 'jpeg' | 'png' | 'avif'): string {
     const nameWithoutExt = originalName.replace(/\.[^/.]+$/, '');
     const extensions = {
       webp: '.webp',
       jpeg: '.jpg',
       png: '.png',
+      avif: '.avif',
     };
     return `${nameWithoutExt}_optimized${extensions[format]}`;
   }
@@ -1169,7 +1311,7 @@ export class ImageProcessor {
    * @returns Final filename with extension
    */
   static getFinalFilename(processedImage: ProcessedImage): string {
-    const extension = this.getExtensionFromFormat(processedImage.format as 'webp' | 'jpeg' | 'png');
+    const extension = this.getExtensionFromFormat(processedImage.format as 'webp' | 'jpeg' | 'png' | 'avif');
 
     if (processedImage.customFilename) {
       // Use custom filename, ensuring it doesn't already have an extension
@@ -1178,7 +1320,7 @@ export class ImageProcessor {
     }
 
     // Use original filename with optimized suffix
-    return this.generateFileName(processedImage.originalFile.name, processedImage.format as 'webp' | 'jpeg' | 'png');
+    return this.generateFileName(processedImage.originalFile.name, processedImage.format as 'webp' | 'jpeg' | 'png' | 'avif');
   }
 
   /**
@@ -1186,11 +1328,12 @@ export class ImageProcessor {
    * @param format Image format
    * @returns File extension with dot
    */
-  static getExtensionFromFormat(format: 'webp' | 'jpeg' | 'png'): string {
+  static getExtensionFromFormat(format: 'webp' | 'jpeg' | 'png' | 'avif'): string {
     const extensions = {
       webp: '.webp',
       jpeg: '.jpg',
       png: '.png',
+      avif: '.avif',
     };
     return extensions[format];
   }
