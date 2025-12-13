@@ -25,9 +25,12 @@ export default function OptimizationControls({
   hasImages,
   processedCount,
   totalImages,
-  currentImageProgress = 0,
-  currentImageName = '',
+  currentImageProgress: _currentImageProgress = 0,
+  currentImageName: _currentImageName = '',
 }: OptimizationControlsProps) {
+  // Suppress unused variable warnings
+  void _currentImageProgress;
+  void _currentImageName;
   // Browser compatibility detection
   const browserInfo = detectBrowser();
   const capabilities = getBrowserCapabilities(browserInfo);

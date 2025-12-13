@@ -11,7 +11,7 @@ import ProcessingOverlay from '@/components/optimization/ProcessingOverlay';
 import { ImagePreviewSkeletons } from '@/components/optimization/ImagePreviewSkeleton';
 import ZipDownloadDialog from '@/components/dialogs/ZipDownloadDialog';
 import BatchRenameDialog, { type BatchRenamePattern } from '@/components/dialogs/BatchRenameDialog';
-import BatchCropDialog from '@/components/dialogs/BatchCropDialog';
+import BatchCropDialog, { type CropStyleOptions } from '@/components/dialogs/BatchCropDialog';
 import ResetProjectDialog from '@/components/dialogs/ResetProjectDialog';
 import { type SizePreset } from '@/types/crop';
 import InstallButton from '@/components/pwa/InstallButton';
@@ -298,19 +298,38 @@ function App() {
     }
   }, [processedImages, optimizationOptions]);
 
-  const handleBatchCrop = useCallback(async (preset: SizePreset, imageIds: string[]) => {
+  const handleBatchCrop = useCallback(async (preset: SizePreset, styleOptions: CropStyleOptions, imageIds: string[]) => {
+    // Check if style options have any effects (if so, we use styled crop)
+    const hasStyles = styleOptions.padding > 0 ||
+                      styleOptions.borderRadius > 0 ||
+                      styleOptions.bgColor !== 'transparent' ||
+                      styleOptions.shadow !== 'none' ||
+                      styleOptions.frameStyle !== 'none';
+
     // Process each image sequentially to avoid memory issues
     for (const imageId of imageIds) {
       const imageToUpdate = processedImages.find(img => img.id === imageId);
       if (!imageToUpdate) continue;
 
       try {
-        // Crop the optimized image to the preset size (centered)
-        const croppedFile = await ImageProcessor.cropImageToSize(
-          imageToUpdate.optimizedFile,
-          preset.width,
-          preset.height
-        );
+        let croppedFile: File;
+
+        if (hasStyles) {
+          // Use styled crop with all effects
+          croppedFile = await ImageProcessor.cropImageWithStyles(
+            imageToUpdate.optimizedFile,
+            preset.width,
+            preset.height,
+            styleOptions
+          );
+        } else {
+          // Simple centered crop without styles
+          croppedFile = await ImageProcessor.cropImageToSize(
+            imageToUpdate.optimizedFile,
+            preset.width,
+            preset.height
+          );
+        }
 
         // Get the optimization options used for this image
         const optionsToUse = imageToUpdate.optimizationOptions || optimizationOptions;

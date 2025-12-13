@@ -29,6 +29,9 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['@jsquash/avif'],
   },
+  worker: {
+    format: 'es',
+  },
   define: {
     // Inject version info at build time
     'import.meta.env.VITE_APP_VERSION': JSON.stringify(version),

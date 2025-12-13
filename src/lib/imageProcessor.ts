@@ -1456,6 +1456,250 @@ export class ImageProcessor {
   }
 
   /**
+   * Crop image with advanced style options (padding, background, shadow, frame, border radius)
+   * Similar to CropEditor output but for batch processing
+   */
+  static async cropImageWithStyles(
+    file: File,
+    targetWidth: number,
+    targetHeight: number,
+    styleOptions: {
+      padding: number;
+      borderRadius: number;
+      bgColor: string;
+      shadow: 'none' | 'spread' | 'hug' | 'lg';
+      frameStyle: 'none' | 'glass-light' | 'glass-dark' | 'inset-light' | 'inset-dark' | 'outline' | 'border' | 'liquid';
+      borderWidth: number;
+      borderColor: string;
+    }
+  ): Promise<File> {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const imageUrl = URL.createObjectURL(file);
+
+      img.onload = () => {
+        URL.revokeObjectURL(imageUrl);
+
+        // Calculate target aspect ratio
+        const targetRatio = targetWidth / targetHeight;
+        const imageRatio = img.width / img.height;
+
+        let cropX: number, cropY: number, cropWidth: number, cropHeight: number;
+
+        if (imageRatio > targetRatio) {
+          // Image is wider than target - crop sides
+          cropHeight = img.height;
+          cropWidth = cropHeight * targetRatio;
+          cropX = (img.width - cropWidth) / 2;
+          cropY = 0;
+        } else {
+          // Image is taller than target - crop top/bottom
+          cropWidth = img.width;
+          cropHeight = cropWidth / targetRatio;
+          cropX = 0;
+          cropY = (img.height - cropHeight) / 2;
+        }
+
+        const { padding, borderRadius, bgColor, shadow, frameStyle, borderWidth, borderColor } = styleOptions;
+
+        // Final canvas dimensions (image + padding on all sides)
+        const outW = targetWidth;
+        const outH = targetHeight;
+        const finalW = outW + padding * 2;
+        const finalH = outH + padding * 2;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = finalW;
+        canvas.height = finalH;
+        const ctx = canvas.getContext('2d');
+
+        if (!ctx) {
+          reject(new Error('Could not get canvas context'));
+          return;
+        }
+
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+
+        // Step 1: Fill background color (covers entire canvas including padding)
+        if (bgColor !== 'transparent') {
+          ctx.fillStyle = bgColor;
+          ctx.fillRect(0, 0, finalW, finalH);
+        }
+
+        // Step 2: Apply shadow if set
+        if (shadow !== 'none') {
+          const shadowSizes = {
+            spread: { blur: 30, offset: 0, opacity: 0.15, spread: true },
+            hug: { blur: 8, offset: 4, opacity: 0.25, spread: false },
+            lg: { blur: 40, offset: 15, opacity: 0.35, spread: false },
+          };
+          const shadowConfig = shadowSizes[shadow];
+
+          ctx.save();
+
+          if (shadowConfig.spread) {
+            ctx.shadowColor = `rgba(0, 0, 0, ${shadowConfig.opacity})`;
+            ctx.shadowBlur = shadowConfig.blur;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 0;
+          } else {
+            ctx.shadowColor = `rgba(0, 0, 0, ${shadowConfig.opacity})`;
+            ctx.shadowBlur = shadowConfig.blur;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = shadowConfig.offset;
+          }
+
+          ctx.fillStyle = bgColor !== 'transparent' ? bgColor : '#ffffff';
+
+          if (borderRadius > 0) {
+            const r = Math.min(borderRadius, outW / 2, outH / 2);
+            ctx.beginPath();
+            ctx.roundRect(padding, padding, outW, outH, r);
+            ctx.fill();
+          } else {
+            ctx.fillRect(padding, padding, outW, outH);
+          }
+          ctx.restore();
+        }
+
+        // Step 3: Apply border radius clipping to the image area
+        if (borderRadius > 0) {
+          ctx.save();
+          const r = Math.min(borderRadius, outW / 2, outH / 2);
+          ctx.beginPath();
+          ctx.roundRect(padding, padding, outW, outH, r);
+          ctx.clip();
+        }
+
+        // Step 4: Draw the image (centered crop, scaled to target size)
+        ctx.drawImage(
+          img,
+          cropX, cropY, cropWidth, cropHeight,
+          padding, padding, outW, outH
+        );
+
+        if (borderRadius > 0) {
+          ctx.restore();
+        }
+
+        // Step 5: Draw frame styles
+        if (frameStyle !== 'none') {
+          const bw = borderWidth;
+          const r = Math.min(borderRadius, outW / 2, outH / 2);
+
+          const drawRoundedRectPath = (x: number, y: number, w: number, h: number, radius: number) => {
+            ctx.beginPath();
+            if (radius > 0) {
+              ctx.roundRect(x, y, w, h, radius);
+            } else {
+              ctx.rect(x, y, w, h);
+            }
+          };
+
+          switch (frameStyle) {
+            case 'glass-light':
+              ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+              ctx.lineWidth = bw;
+              drawRoundedRectPath(padding + bw/2, padding + bw/2, outW - bw, outH - bw, Math.max(0, r - bw/2));
+              ctx.stroke();
+              break;
+
+            case 'glass-dark':
+              ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
+              ctx.lineWidth = bw;
+              drawRoundedRectPath(padding + bw/2, padding + bw/2, outW - bw, outH - bw, Math.max(0, r - bw/2));
+              ctx.stroke();
+              break;
+
+            case 'inset-light':
+              ctx.save();
+              ctx.shadowColor = 'rgba(0, 0, 0, 0.2)';
+              ctx.shadowBlur = bw * 1.5;
+              ctx.shadowOffsetX = bw * 0.5;
+              ctx.shadowOffsetY = bw * 0.5;
+              ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+              ctx.lineWidth = bw;
+              drawRoundedRectPath(padding + bw/2, padding + bw/2, outW - bw, outH - bw, Math.max(0, r - bw/2));
+              ctx.stroke();
+              ctx.restore();
+              break;
+
+            case 'inset-dark':
+              ctx.save();
+              ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+              ctx.shadowBlur = bw * 1.5;
+              ctx.shadowOffsetX = bw * 0.5;
+              ctx.shadowOffsetY = bw * 0.5;
+              ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+              ctx.lineWidth = bw;
+              drawRoundedRectPath(padding + bw/2, padding + bw/2, outW - bw, outH - bw, Math.max(0, r - bw/2));
+              ctx.stroke();
+              ctx.restore();
+              break;
+
+            case 'outline':
+              ctx.strokeStyle = borderColor;
+              ctx.lineWidth = 1;
+              drawRoundedRectPath(padding + 0.5, padding + 0.5, outW - 1, outH - 1, r);
+              ctx.stroke();
+              break;
+
+            case 'border':
+              ctx.strokeStyle = borderColor;
+              ctx.lineWidth = bw;
+              drawRoundedRectPath(padding + bw/2, padding + bw/2, outW - bw, outH - bw, Math.max(0, r - bw/2));
+              ctx.stroke();
+              break;
+
+            case 'liquid':
+              const liquidGradient = ctx.createLinearGradient(0, 0, finalW, finalH);
+              liquidGradient.addColorStop(0, '#f97316');
+              liquidGradient.addColorStop(0.5, '#eab308');
+              liquidGradient.addColorStop(1, '#f97316');
+              ctx.save();
+              ctx.shadowColor = '#f97316';
+              ctx.shadowBlur = bw * 2;
+              ctx.strokeStyle = liquidGradient;
+              ctx.lineWidth = bw;
+              drawRoundedRectPath(padding + bw/2, padding + bw/2, outW - bw, outH - bw, Math.max(0, r - bw/2));
+              ctx.stroke();
+              ctx.restore();
+              break;
+          }
+        }
+
+        // Convert to blob and create new file
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              reject(new Error('Failed to create styled cropped image'));
+              return;
+            }
+
+            const croppedFile = new File([blob], file.name, {
+              type: 'image/png', // Always use PNG to preserve transparency and effects
+              lastModified: Date.now(),
+            });
+
+            console.log(`✂️ Styled crop: ${img.width}x${img.height} → ${finalW}x${finalH} (with styles)`);
+            resolve(croppedFile);
+          },
+          'image/png',
+          1.0
+        );
+      };
+
+      img.onerror = () => {
+        URL.revokeObjectURL(imageUrl);
+        reject(new Error('Failed to load image for styled cropping'));
+      };
+
+      img.src = imageUrl;
+    });
+  }
+
+  /**
    * Applies batch renaming to multiple images
    * @param images Array of processed images
    * @param pattern Renaming pattern object
