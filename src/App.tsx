@@ -20,6 +20,7 @@ import FloatingSupport from '@/components/support/FloatingSupport';
 import UpdateNotification from '@/components/updates/UpdateNotification';
 import VersionDisplay from '@/components/updates/VersionDisplay';
 import { Button } from '@/components/ui/button';
+import OwnerNotice from '@/components/OwnerNotice';
 import { ImageProcessor, type OptimizationOptions, type ProcessedImage, type FileValidationResult } from '@/lib/imageProcessor';
 import { detectBrowser, getBrowserCapabilities, logBrowserInfo } from '@/lib/browserDetection';
 import { Package, Edit3, Trash2, Crop } from 'lucide-react';
@@ -594,6 +595,13 @@ function App() {
 
         {/* Update Notification - hidden in Electron */}
         {!isElectron && <UpdateNotification />}
+
+        {/* Ownership information */}
+        <OwnerNotice
+          ownerName="Pixelhunter.pt"
+          website="https://www.pixelhunter.pt"
+          contactEmail="geral@pixelhunter.pt"
+        />
 
         {/* Floating Support Button */}
         <FloatingSupport />
