@@ -126,7 +126,7 @@ function App() {
       progressiveJpeg: false, // Disabled by default
       losslessWebP: false, // Disabled by default
       pngCompressionLevel: 6, // Default PNG compression level
-      maxSizeMB: undefined, // No limit by default
+      maxSizeKB: undefined, // No limit by default
     };
   });
 
