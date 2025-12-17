@@ -89,9 +89,22 @@ export default function BatchCropDialog({
   const containerRef = useRef<HTMLDivElement>(null);
   const previewImageRef = useRef<HTMLImageElement | null>(null);
   const [previewLoaded, setPreviewLoaded] = useState(false);
+  const wasOpenRef = useRef(false);
 
   // Get preview image (first image)
   const previewImage = images[0];
+
+  // Ensure we have a default preset on first open so the preview canvas renders immediately.
+  // (Without a preset/custom size, effectivePreset is null and we don't draw the preview.)
+  useEffect(() => {
+    if (isOpen && !wasOpenRef.current) {
+      if (!useCustomSize && !selectedPreset) {
+        const defaultPreset = SIZE_PRESETS.find(p => p.id === 'ig-post') ?? SIZE_PRESETS[0] ?? null;
+        if (defaultPreset) setSelectedPreset(defaultPreset);
+      }
+    }
+    wasOpenRef.current = isOpen;
+  }, [isOpen, useCustomSize, selectedPreset]);
 
   // Create effective preset (custom or selected)
   const effectivePreset: SizePreset | null = useCustomSize
@@ -355,7 +368,7 @@ export default function BatchCropDialog({
           ctx.stroke();
           break;
 
-        case 'liquid':
+        case 'liquid': {
           const liquidGradient = ctx.createLinearGradient(0, 0, displayW, displayH);
           liquidGradient.addColorStop(0, '#f97316');
           liquidGradient.addColorStop(0.5, '#eab308');
@@ -369,6 +382,7 @@ export default function BatchCropDialog({
           ctx.stroke();
           ctx.restore();
           break;
+        }
       }
     }
 
