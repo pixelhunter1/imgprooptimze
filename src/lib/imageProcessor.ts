@@ -1208,7 +1208,8 @@ export class ImageProcessor {
       png: '.png',
       avif: '.avif',
     };
-    return `${nameWithoutExt}_optimized${extensions[format]}`;
+    // Keep the original base name; only adjust extension if format changes.
+    return `${nameWithoutExt}${extensions[format]}`;
   }
 
   static formatFileSize(bytes: number): string {
@@ -1268,11 +1269,14 @@ export class ImageProcessor {
 
     const zip = new JSZip();
     const totalFiles = files.length;
+    const usedFilenames = new Set<string>();
 
     // Add each file to the ZIP
     for (let i = 0; i < files.length; i++) {
       const processedImage = files[i];
-      const filename = this.getFinalFilename(processedImage);
+      const baseFilename = this.getFinalFilename(processedImage);
+      const filename = this.ensureUniqueFilename(baseFilename, usedFilenames);
+      usedFilenames.add(filename);
 
       // Convert file to array buffer
       const arrayBuffer = await processedImage.optimizedFile.arrayBuffer();
@@ -1319,8 +1323,27 @@ export class ImageProcessor {
       return `${cleanName}${extension}`;
     }
 
-    // Use original filename with optimized suffix
+    // Use original filename (only changing extension if needed)
     return this.generateFileName(processedImage.originalFile.name, processedImage.format as 'webp' | 'jpeg' | 'png' | 'avif');
+  }
+
+  /**
+   * Ensures a filename is unique within a set by appending -1, -2, ...
+   */
+  static ensureUniqueFilename(filename: string, used: Set<string>): string {
+    if (!used.has(filename)) return filename;
+
+    const lastDot = filename.lastIndexOf('.');
+    const base = lastDot > 0 ? filename.slice(0, lastDot) : filename;
+    const ext = lastDot > 0 ? filename.slice(lastDot) : '';
+
+    let i = 1;
+    let candidate = `${base}-${i}${ext}`;
+    while (used.has(candidate)) {
+      i += 1;
+      candidate = `${base}-${i}${ext}`;
+    }
+    return candidate;
   }
 
   /**
@@ -1652,7 +1675,7 @@ export class ImageProcessor {
               ctx.stroke();
               break;
 
-            case 'liquid':
+            case 'liquid': {
               const liquidGradient = ctx.createLinearGradient(0, 0, finalW, finalH);
               liquidGradient.addColorStop(0, '#f97316');
               liquidGradient.addColorStop(0.5, '#eab308');
@@ -1666,6 +1689,7 @@ export class ImageProcessor {
               ctx.stroke();
               ctx.restore();
               break;
+            }
           }
         }
 
