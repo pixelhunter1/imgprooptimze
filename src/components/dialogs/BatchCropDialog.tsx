@@ -170,14 +170,13 @@ export default function BatchCropDialog({
     const finalW = outW + padding * 2;
     const finalH = outH + padding * 2;
 
-    // Scale to fit container - always scale to fit, never exceed container
+    // Scale down to fit container; do not upscale small presets.
     const maxWidth = containerWidth - 40;
     const maxHeight = containerHeight - 40;
 
-    // Calculate scale to fit within container (remove the "1" limit to always fit large images)
     const scaleX = maxWidth / finalW;
     const scaleY = maxHeight / finalH;
-    const scale = Math.min(scaleX, scaleY);
+    const scale = Math.min(scaleX, scaleY, 1);
 
     const displayW = finalW * scale;
     const displayH = finalH * scale;
