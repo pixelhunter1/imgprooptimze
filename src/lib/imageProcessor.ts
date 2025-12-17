@@ -24,11 +24,10 @@
  *    - This includes camera settings, GPS data, copyright info
  *    - Would require exif-js or piexifjs library to preserve
  *
- * 5. maxSizeKB:
- *    - Now fully implemented and exposed in UI (in KB for better precision)
- *    - Works with all formats (JPEG, WebP, AVIF, PNG)
- *    - For lossy formats: reduces quality iteratively until target size is met
- *    - For PNG (lossless): reduces dimensions to meet target size
+ * 5. maxSizeMB LIMITATION:
+ *    - Only applies when quality < 0.8 (see line 674)
+ *    - This prevents aggressive compression at high quality
+ *    - Not exposed in UI - internal optimization only
  *
  * 6. WEBP OPTIMIZATION:
  *    - No lossless WebP option available
@@ -51,7 +50,7 @@
  * - Add lossless WebP option
  * - Add true PNG compression library (pngquant)
  * - Make PNG conversion threshold configurable
- * - maxSizeKB is now exposed in UI for user control
+ * - Expose maxSizeMB in UI for user control
  */
 
 import imageCompression from 'browser-image-compression';
@@ -68,7 +67,7 @@ const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
 export interface OptimizationOptions {
   format: 'webp' | 'jpeg' | 'png' | 'avif';
   quality: number; // 0.1 to 1.0 (1.0 = maximum quality)
-  maxSizeKB?: number; // Optional file size limit in KB - configurable in UI
+  maxSizeMB?: number; // Optional file size limit - now configurable in UI
   maxWidthOrHeight?: number; // Maximum dimension in pixels
   preserveExif?: boolean; // Preserve EXIF metadata (camera, GPS, copyright)
   progressiveJpeg?: boolean; // Create progressive JPEG (better web loading)
@@ -273,361 +272,6 @@ export class ImageProcessor {
   }
 
   /**
-   * Ensures a file meets the maxSizeKB constraint by iteratively reducing quality
-   * This is called after initial optimization to enforce file size limits
-   * @param file The optimized file to check
-   * @param originalFile The original file (needed for re-compression)
-   * @param options The optimization options (must include maxSizeKB)
-   * @param onProgress Optional progress callback
-   * @returns A file that meets the size constraint, or the smallest achievable file
-   */
-  static async enforceMaxFileSize(
-    file: File,
-    originalFile: File,
-    options: OptimizationOptions,
-    onProgress?: (progress: number) => void
-  ): Promise<File> {
-    // If no maxSizeKB specified or file already under limit, return as-is
-    if (!options.maxSizeKB) {
-      return file;
-    }
-
-    const maxSizeBytes = options.maxSizeKB * 1024; // KB to bytes
-    
-    // If file is already under the limit, return it
-    if (file.size <= maxSizeBytes) {
-      console.log(`✅ File size (${this.formatFileSize(file.size)}) is under limit (${options.maxSizeKB} KB)`);
-      return file;
-    }
-
-    console.log(`⚠️ File size (${this.formatFileSize(file.size)}) exceeds limit (${options.maxSizeKB} KB). Recompressing...`);
-
-    // PNG is lossless - we can't reduce quality, so we try reducing dimensions
-    if (options.format === 'png') {
-      console.log(`📋 PNG format detected. Will try reducing dimensions to meet size limit.`);
-      return await this.reducePngToFitSize(file, originalFile, maxSizeBytes, options.maxWidthOrHeight, onProgress);
-    }
-
-    // Start with a quality estimate based on file size ratio
-    const initialRatio = maxSizeBytes / file.size;
-    // Estimate starting quality - use the ratio to guess a good starting point
-    let currentQuality = Math.min(options.quality * initialRatio * 0.9, 0.85); // Start lower for faster convergence
-    currentQuality = Math.max(currentQuality, 0.1); // Don't start below 10%
-    
-    const minQuality = 0.05; // Allow going down to 5% for very small targets
-    let resultFile = file;
-    let bestFile = file;
-    let bestQuality = options.quality;
-    let attempts = 0;
-    const maxAttempts = 15;
-
-    console.log(`📊 Target: ${this.formatFileSize(maxSizeBytes)}, Current: ${this.formatFileSize(file.size)}, Starting quality: ${Math.round(currentQuality * 100)}%`);
-
-    while (resultFile.size > maxSizeBytes && currentQuality >= minQuality && attempts < maxAttempts) {
-      attempts++;
-
-      console.log(`🔄 Attempt ${attempts}: Trying quality ${Math.round(currentQuality * 100)}%`);
-
-      // Re-compress with lower quality
-      if (options.format === 'avif') {
-        // AVIF needs special handling with jsquash encoder
-        resultFile = await this.recompressAvif(originalFile, currentQuality, options.maxWidthOrHeight);
-      } else {
-        resultFile = await this.recompressWithQuality(originalFile, options.format, currentQuality, options.maxWidthOrHeight);
-      }
-
-      console.log(`   Result: ${this.formatFileSize(resultFile.size)}`);
-
-      // Track the best result that's under the limit
-      if (resultFile.size <= maxSizeBytes && resultFile.size > bestFile.size) {
-        bestFile = resultFile;
-        bestQuality = currentQuality;
-      } else if (resultFile.size < bestFile.size) {
-        bestFile = resultFile;
-        bestQuality = currentQuality;
-      }
-
-      // Calculate how much we need to reduce
-      if (resultFile.size > maxSizeBytes) {
-        const currentRatio = maxSizeBytes / resultFile.size;
-        
-        // Adaptive quality reduction based on how far we are from target
-        if (currentRatio < 0.3) {
-          // Way over - reduce aggressively
-          currentQuality = Math.max(minQuality, currentQuality * 0.5);
-        } else if (currentRatio < 0.6) {
-          // Significantly over
-          currentQuality = Math.max(minQuality, currentQuality * 0.7);
-        } else if (currentRatio < 0.85) {
-          // Moderately over
-          currentQuality = Math.max(minQuality, currentQuality * 0.85);
-        } else {
-          // Close to target - fine tune
-          currentQuality = Math.max(minQuality, currentQuality - 0.05);
-        }
-      }
-
-      if (onProgress) {
-        onProgress(90 + Math.round((attempts / maxAttempts) * 10));
-      }
-    }
-
-    // Use the best result we found
-    resultFile = bestFile;
-
-    if (resultFile.size <= maxSizeBytes) {
-      console.log(`✅ Successfully compressed to ${this.formatFileSize(resultFile.size)} at ${Math.round(bestQuality * 100)}% quality`);
-    } else {
-      console.log(`⚠️ Could not reach target size. Best result: ${this.formatFileSize(resultFile.size)} at ${Math.round(bestQuality * 100)}% quality (target was ${this.formatFileSize(maxSizeBytes)})`);
-    }
-
-    return resultFile;
-  }
-
-  /**
-   * Recompresses an image to AVIF format at a specific quality
-   * Uses jsquash AVIF encoder since Canvas API doesn't support AVIF
-   */
-  static async recompressAvif(
-    file: File,
-    quality: number,
-    maxWidthOrHeight?: number
-  ): Promise<File> {
-    return new Promise((resolve, reject) => {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      const img = new Image();
-      const imageUrl = URL.createObjectURL(file);
-
-      img.onload = async () => {
-        URL.revokeObjectURL(imageUrl);
-
-        // Calculate dimensions
-        let { width, height } = img;
-        if (maxWidthOrHeight) {
-          if (width > maxWidthOrHeight || height > maxWidthOrHeight) {
-            const ratio = Math.min(maxWidthOrHeight / width, maxWidthOrHeight / height);
-            width = Math.round(width * ratio);
-            height = Math.round(height * ratio);
-          }
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-
-        if (!ctx) {
-          reject(new Error('Could not get canvas context'));
-          return;
-        }
-
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
-        ctx.drawImage(img, 0, 0, width, height);
-
-        // Get ImageData for jsquash encoder
-        const imageData = ctx.getImageData(0, 0, width, height);
-
-        try {
-          // AVIF quality: jsquash uses 0-100 scale
-          const avifQuality = Math.round(quality * 100);
-          const speed = quality >= 0.7 ? 6 : 8; // Faster speed for recompression
-
-          const avifBuffer = await encodeAvif(imageData, {
-            quality: avifQuality,
-            speed: speed,
-          });
-
-          const fileName = this.generateFileName(file.name, 'avif');
-          const avifFile = new File([avifBuffer], fileName, {
-            type: 'image/avif',
-          });
-
-          resolve(avifFile);
-        } catch (error) {
-          reject(new Error(`AVIF recompression failed: ${error instanceof Error ? error.message : 'Unknown error'}`));
-        }
-      };
-
-      img.onerror = () => {
-        URL.revokeObjectURL(imageUrl);
-        reject(new Error('Failed to load image for AVIF recompression'));
-      };
-
-      img.src = imageUrl;
-    });
-  }
-
-  /**
-   * Reduces PNG file size by scaling down dimensions
-   * Since PNG is lossless, we can only reduce size by reducing dimensions
-   */
-  static async reducePngToFitSize(
-    file: File,
-    originalFile: File,
-    maxSizeBytes: number,
-    initialMaxDimension?: number,
-    onProgress?: (progress: number) => void
-  ): Promise<File> {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      const imageUrl = URL.createObjectURL(originalFile);
-
-      img.onload = async () => {
-        URL.revokeObjectURL(imageUrl);
-
-        let currentMaxDimension = initialMaxDimension || Math.max(img.width, img.height);
-        let resultFile = file;
-        let bestFile = file;
-        let attempts = 0;
-        const maxAttempts = 15;
-        const minDimension = 50; // Allow going down to 50px
-
-        // Estimate initial dimension based on file size ratio
-        const sizeRatio = maxSizeBytes / file.size;
-        // PNG size roughly scales with pixel count (squared with dimensions)
-        const dimensionRatio = Math.sqrt(sizeRatio);
-        const estimatedDimension = Math.round(currentMaxDimension * dimensionRatio * 0.9);
-        
-        if (estimatedDimension < currentMaxDimension && estimatedDimension >= minDimension) {
-          currentMaxDimension = estimatedDimension;
-          console.log(`📊 PNG estimated starting dimension: ${currentMaxDimension}px`);
-        }
-
-        while (resultFile.size > maxSizeBytes && currentMaxDimension > minDimension && attempts < maxAttempts) {
-          attempts++;
-
-          console.log(`🔄 PNG Attempt ${attempts}: Trying max dimension ${currentMaxDimension}px`);
-
-          try {
-            resultFile = await ImageProcessor.recompressWithQuality(originalFile, 'png', 1.0, currentMaxDimension);
-            console.log(`   Result: ${ImageProcessor.formatFileSize(resultFile.size)}`);
-          } catch (error) {
-            console.error('Error during PNG dimension reduction:', error);
-            break;
-          }
-
-          // Track the best result
-          if (resultFile.size < bestFile.size) {
-            bestFile = resultFile;
-          }
-
-          // Adaptive dimension reduction
-          if (resultFile.size > maxSizeBytes) {
-            const currentRatio = maxSizeBytes / resultFile.size;
-            const newDimensionRatio = Math.sqrt(currentRatio);
-            
-            // Calculate new dimension based on how far we are from target
-            const newDimension = Math.round(currentMaxDimension * newDimensionRatio * 0.95);
-            currentMaxDimension = Math.max(newDimension, minDimension);
-          }
-
-          if (onProgress) {
-            onProgress(90 + Math.round((attempts / maxAttempts) * 10));
-          }
-        }
-
-        // Use the best result
-        resultFile = bestFile;
-
-        if (resultFile.size <= maxSizeBytes) {
-          console.log(`✅ PNG reduced to ${ImageProcessor.formatFileSize(resultFile.size)} at ${currentMaxDimension}px`);
-        } else {
-          console.log(`⚠️ PNG could not reach target size. Best result: ${ImageProcessor.formatFileSize(resultFile.size)} (target was ${ImageProcessor.formatFileSize(maxSizeBytes)})`);
-        }
-
-        resolve(resultFile);
-      };
-
-      img.onerror = () => {
-        URL.revokeObjectURL(imageUrl);
-        reject(new Error('Failed to load image for PNG size reduction'));
-      };
-
-      img.src = imageUrl;
-    });
-  }
-
-  /**
-   * Recompresses an image at a specific quality level
-   * Used by enforceMaxFileSize to iteratively reduce file size
-   */
-  static async recompressWithQuality(
-    file: File,
-    format: 'webp' | 'jpeg' | 'png' | 'avif',
-    quality: number,
-    maxWidthOrHeight?: number
-  ): Promise<File> {
-    return new Promise((resolve, reject) => {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      const img = new Image();
-      const imageUrl = URL.createObjectURL(file);
-
-      img.onload = () => {
-        URL.revokeObjectURL(imageUrl);
-
-        // Calculate dimensions
-        let { width, height } = img;
-        if (maxWidthOrHeight) {
-          if (width > maxWidthOrHeight || height > maxWidthOrHeight) {
-            const ratio = Math.min(maxWidthOrHeight / width, maxWidthOrHeight / height);
-            width = Math.round(width * ratio);
-            height = Math.round(height * ratio);
-          }
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-
-        if (!ctx) {
-          reject(new Error('Could not get canvas context'));
-          return;
-        }
-
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
-
-        // Fill white background for JPEG
-        if (format === 'jpeg') {
-          ctx.fillStyle = '#FFFFFF';
-          ctx.fillRect(0, 0, width, height);
-        }
-
-        ctx.drawImage(img, 0, 0, width, height);
-
-        // PNG is lossless, but we can try to reduce dimensions or use JPEG for size constraint
-        const effectiveQuality = format === 'png' ? 1.0 : quality;
-        const mimeType = this.getFileType(format);
-
-        canvas.toBlob(
-          (blob) => {
-            if (!blob) {
-              reject(new Error('Failed to recompress image'));
-              return;
-            }
-
-            const fileName = this.generateFileName(file.name, format);
-            const recompressedFile = new File([blob], fileName, {
-              type: mimeType,
-            });
-
-            resolve(recompressedFile);
-          },
-          mimeType,
-          effectiveQuality
-        );
-      };
-
-      img.onerror = () => {
-        URL.revokeObjectURL(imageUrl);
-        reject(new Error('Failed to load image for recompression'));
-      };
-
-      img.src = imageUrl;
-    });
-  }
-
-  /**
    * Determines if processing can be skipped (no compression needed)
    */
   static shouldSkipProcessing(file: File, options: OptimizationOptions): boolean {
@@ -649,7 +293,7 @@ export class ImageProcessor {
       outputFormat === 'webp' &&
       options.quality >= 0.95 &&
       !options.maxWidthOrHeight &&
-      !options.maxSizeKB) {
+      !options.maxSizeMB) {
       return true;
     }
 
@@ -1131,11 +775,6 @@ export class ImageProcessor {
       // Choose optimization method based on format, quality, and browser capabilities
       finalFile = await this.selectOptimizationMethod(workingFile, optimizedOptions, capabilities, onProgress);
 
-      // Enforce maximum file size constraint if specified
-      if (options.maxSizeKB) {
-        finalFile = await this.enforceMaxFileSize(finalFile, workingFile, options, onProgress);
-      }
-
       // Insert EXIF data back if it was extracted and output is JPEG
       if (exifData && options.preserveExif && options.format === 'jpeg') {
         finalFile = await this.insertExifData(finalFile, exifData);
@@ -1432,10 +1071,10 @@ export class ImageProcessor {
       }
     }
 
-    // Only add maxSizeMB if explicitly set (converted from KB)
-    // browser-image-compression library uses MB
-    if (options.maxSizeKB) {
-      compressionOptions.maxSizeMB = options.maxSizeKB / 1024; // Convert KB to MB
+    // Only add maxSizeMB if explicitly set (removed quality < 0.8 restriction)
+    // This allows users to control file size even at high quality
+    if (options.maxSizeMB) {
+      compressionOptions.maxSizeMB = options.maxSizeMB;
     }
 
     // Compress the image

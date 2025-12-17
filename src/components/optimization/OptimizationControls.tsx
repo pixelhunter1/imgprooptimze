@@ -183,30 +183,23 @@ export default function OptimizationControls({
             <div className="flex items-center gap-2">
               <input
                 type="number"
-                min="10"
-                max="5000"
-                step="10"
-                placeholder="KB"
-                value={options.maxSizeKB || ''}
+                min="0.1"
+                max="50"
+                step="0.1"
+                placeholder="MB"
+                value={options.maxSizeMB || ''}
                 onChange={(e) => onOptionsChange({
                   ...options,
-                  maxSizeKB: e.target.value ? parseInt(e.target.value, 10) : undefined
+                  maxSizeMB: e.target.value ? parseFloat(e.target.value) : undefined
                 })}
                 className="flex-1 px-3 py-2 text-sm rounded bg-neutral-800 text-neutral-300 border-none focus:outline-none focus:ring-1 focus:ring-emerald-600"
               />
-              <span className="text-xs text-neutral-500">KB</span>
+              <span className="text-xs text-neutral-500">MB</span>
             </div>
-            {options.maxSizeKB && (
-              <div className="space-y-1">
-                <p className="text-[10px] text-emerald-400/80">
-                  Images will be compressed to stay under {options.maxSizeKB} KB
-                </p>
-                {options.format === 'png' && (
-                  <p className="text-[10px] text-amber-500/80">
-                    PNG is lossless - dimensions will be reduced if needed to meet size limit
-                  </p>
-                )}
-              </div>
+            {options.maxSizeMB && (
+              <p className="text-[10px] text-neutral-500">
+                Images will be compressed to stay under {options.maxSizeMB} MB
+              </p>
             )}
           </div>
 
