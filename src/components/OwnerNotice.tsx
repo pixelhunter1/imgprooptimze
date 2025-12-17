@@ -45,3 +45,4 @@ export default function OwnerNotice({ ownerName, website, contactEmail }: OwnerN
     </div>
   );
 }
+
