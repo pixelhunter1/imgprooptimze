@@ -91,8 +91,23 @@ export default function BatchCropDialog({
   const [previewLoaded, setPreviewLoaded] = useState(false);
   const wasOpenRef = useRef(false);
 
+  // Snapshot of images when dialog opens - prevents DOM sync issues during processing
+  const [snapshotImages, setSnapshotImages] = useState<ProcessedImage[]>([]);
+
+  // Create a stable snapshot when dialog opens
+  useEffect(() => {
+    if (isOpen && images.length > 0 && snapshotImages.length === 0) {
+      setSnapshotImages(images);
+    } else if (!isOpen) {
+      setSnapshotImages([]);
+    }
+  }, [isOpen, images, snapshotImages.length]);
+
+  // Use snapshot for display, fall back to images prop if snapshot not ready
+  const displayImages = snapshotImages.length > 0 ? snapshotImages : images;
+
   // Get preview image (first image)
-  const previewImage = images[0];
+  const previewImage = displayImages[0];
 
   // Ensure we have a default preset on first open so the preview canvas renders immediately.
   // (Without a preset/custom size, effectivePreset is null and we don't draw the preview.)
@@ -419,16 +434,16 @@ export default function BatchCropDialog({
   }, [drawCanvas]);
 
   const handleApply = useCallback(async () => {
-    if (!effectivePreset || images.length === 0) return;
+    if (!effectivePreset || displayImages.length === 0) return;
 
     setIsApplying(true);
-    setProcessingProgress({ current: 0, total: images.length });
+    setProcessingProgress({ current: 0, total: displayImages.length });
 
     try {
       await onApply(
         effectivePreset,
         styleOptions,
-        images.map(img => img.id),
+        displayImages.map(img => img.id),
         (current, total) => {
           setProcessingProgress({ current, total });
         }
@@ -440,7 +455,7 @@ export default function BatchCropDialog({
       setIsApplying(false);
       setProcessingProgress({ current: 0, total: 0 });
     }
-  }, [effectivePreset, styleOptions, images, onApply, onClose]);
+  }, [effectivePreset, styleOptions, displayImages, onApply, onClose]);
 
   const handleReset = useCallback(() => {
     setStyleOptions(DEFAULT_STYLE_OPTIONS);
@@ -691,7 +706,7 @@ export default function BatchCropDialog({
           <div className="flex items-center gap-2">
             <Crop className="h-4 w-4 text-emerald-500" />
             <h2 className="text-white text-sm font-medium">Crop All Images</h2>
-            <span className="text-neutral-500 text-xs">({images.length} images)</span>
+            <span className="text-neutral-500 text-xs">({displayImages.length} images)</span>
           </div>
           <button
             onClick={onClose}
@@ -748,7 +763,7 @@ export default function BatchCropDialog({
               </div>
               {/* Thumbnail progress indicators */}
               <div className="flex gap-1.5 justify-center">
-                {images.slice(0, 10).map((image, index) => {
+                {displayImages.slice(0, 10).map((image, index) => {
                   // Progress is 1-indexed, so compare index+1 with current
                   const imageNumber = index + 1;
                   const isCompleted = imageNumber < processingProgress.current;
@@ -779,9 +794,9 @@ export default function BatchCropDialog({
                     </div>
                   );
                 })}
-                {images.length > 10 && (
+                {displayImages.length > 10 && (
                   <div className="w-10 h-10 bg-neutral-800 rounded border-2 border-neutral-700 flex items-center justify-center text-[10px] text-neutral-400 opacity-40">
-                    +{images.length - 10}
+                    +{displayImages.length - 10}
                   </div>
                 )}
               </div>
@@ -804,17 +819,17 @@ export default function BatchCropDialog({
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-xs text-neutral-400">
-                  <span className="text-white font-medium">{images.length}</span> {images.length === 1 ? 'image' : 'images'} selected
+                  <span className="text-white font-medium">{displayImages.length}</span> {displayImages.length === 1 ? 'image' : 'images'} selected
                 </span>
                 <div className="flex gap-1">
-                  {images.slice(0, 5).map((image, index) => (
+                  {displayImages.slice(0, 5).map((image, index) => (
                     <div key={image.id} className="w-8 h-8 rounded border border-neutral-700 overflow-hidden">
                       <ImageThumbnail image={image} index={index} />
                     </div>
                   ))}
-                  {images.length > 5 && (
+                  {displayImages.length > 5 && (
                     <div className="w-8 h-8 bg-neutral-800 rounded border border-neutral-700 flex items-center justify-center text-[10px] text-neutral-400">
-                      +{images.length - 5}
+                      +{displayImages.length - 5}
                     </div>
                   )}
                 </div>
@@ -1067,7 +1082,7 @@ export default function BatchCropDialog({
             variant="primary"
             size="sm"
             onClick={handleApply}
-            disabled={!effectivePreset || images.length === 0 || isApplying}
+            disabled={!effectivePreset || displayImages.length === 0 || isApplying}
             className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isApplying ? (
@@ -1078,7 +1093,7 @@ export default function BatchCropDialog({
             ) : (
               <>
                 <Check className="w-3.5 h-3.5 mr-2" />
-                Crop {images.length} Image{images.length !== 1 ? 's' : ''}
+                Crop {displayImages.length} Image{displayImages.length !== 1 ? 's' : ''}
               </>
             )}
           </Button>

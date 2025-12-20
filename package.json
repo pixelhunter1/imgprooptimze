@@ -1,7 +1,7 @@
 {
   "name": "imgprooptimze",
   "private": true,
-  "version": "1.0.10",
+  "version": "2.0.0",
   "type": "module",
   "main": "out/main/index.js",
   "description": "Professional image optimization tool with batch processing, format conversion, and quality controls",
