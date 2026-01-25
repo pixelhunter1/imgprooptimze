@@ -1200,16 +1200,43 @@ export class ImageProcessor {
     return 'jpeg'; // default fallback
   }
 
+  /**
+   * Sanitizes a filename for Google Merchant Center compatibility
+   * Removes special characters, accents, converts to lowercase, and normalizes hyphens
+   * @param filename The filename to sanitize (without extension)
+   * @returns Sanitized filename safe for Google Merchant
+   */
+  static sanitizeFilename(filename: string): string {
+    return filename
+      // Convert to lowercase
+      .toLowerCase()
+      // Remove accents (normalize and remove diacritics)
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      // Convert en-dash/em-dash to normal hyphen
+      .replace(/[\u2013\u2014]/g, '-')
+      // Replace spaces with hyphens
+      .replace(/\s+/g, '-')
+      // Remove special characters (keep only letters, numbers, and hyphens)
+      .replace(/[^a-z0-9-]/g, '')
+      // Remove multiple consecutive hyphens
+      .replace(/-+/g, '-')
+      // Remove hyphens at start and end
+      .replace(/^-+|-+$/g, '')
+      // Fallback if empty
+      || 'image';
+  }
+
   static generateFileName(originalName: string, format: 'webp' | 'jpeg' | 'png' | 'avif'): string {
     const nameWithoutExt = originalName.replace(/\.[^/.]+$/, '');
+    const sanitizedName = this.sanitizeFilename(nameWithoutExt);
     const extensions = {
       webp: '.webp',
       jpeg: '.jpg',
       png: '.png',
       avif: '.avif',
     };
-    // Keep the original base name; only adjust extension if format changes.
-    return `${nameWithoutExt}${extensions[format]}`;
+    return `${sanitizedName}${extensions[format]}`;
   }
 
   static formatFileSize(bytes: number): string {
@@ -1311,20 +1338,24 @@ export class ImageProcessor {
 
   /**
    * Gets the final filename for a processed image, considering custom naming
+   * Applies sanitization for Google Merchant Center compatibility
    * @param processedImage The processed image
-   * @returns Final filename with extension
+   * @returns Final filename with extension (sanitized)
    */
   static getFinalFilename(processedImage: ProcessedImage): string {
     const extension = this.getExtensionFromFormat(processedImage.format as 'webp' | 'jpeg' | 'png' | 'avif');
 
+    let baseName: string;
     if (processedImage.customFilename) {
       // Use custom filename, ensuring it doesn't already have an extension
-      const cleanName = processedImage.customFilename.replace(/\.[^/.]+$/, '');
-      return `${cleanName}${extension}`;
+      baseName = processedImage.customFilename.replace(/\.[^/.]+$/, '');
+    } else {
+      // Use original filename without extension
+      baseName = processedImage.originalFile.name.replace(/\.[^/.]+$/, '');
     }
 
-    // Use original filename (only changing extension if needed)
-    return this.generateFileName(processedImage.originalFile.name, processedImage.format as 'webp' | 'jpeg' | 'png' | 'avif');
+    const sanitizedName = this.sanitizeFilename(baseName);
+    return `${sanitizedName}${extension}`;
   }
 
   /**
