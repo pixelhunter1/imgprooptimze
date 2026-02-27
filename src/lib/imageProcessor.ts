@@ -99,6 +99,10 @@ const ALLOWED_IMAGE_FORMATS = {
 } as const;
 
 const ALLOWED_MIME_TYPES = Object.keys(ALLOWED_IMAGE_FORMATS) as string[];
+const IMAGE_LOAD_TIMEOUT_MS = 15000;
+const CANVAS_BLOB_TIMEOUT_MS = 15000;
+const MAX_CANVAS_SIDE = 8192;
+const MAX_CANVAS_PIXELS = 40_000_000;
 
 export interface ProcessedImage {
   id: string;
@@ -116,6 +120,126 @@ export interface ProcessedImage {
 }
 
 export class ImageProcessor {
+  private static createFileFromBlob(blob: Blob, filename: string, fallbackMime: string): File {
+    return new File([blob], filename, {
+      type: blob.type || fallbackMime,
+      lastModified: Date.now(),
+    });
+  }
+
+  private static loadImageFromUrl(
+    imageUrl: string,
+    operationName: string,
+    timeoutMs: number = IMAGE_LOAD_TIMEOUT_MS
+  ): Promise<HTMLImageElement> {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      let settled = false;
+
+      const cleanup = () => {
+        img.onload = null;
+        img.onerror = null;
+      };
+
+      const timeout = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        reject(new Error(`${operationName} timed out while loading image`));
+      }, timeoutMs);
+
+      img.onload = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        cleanup();
+        resolve(img);
+      };
+
+      img.onerror = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        cleanup();
+        reject(new Error(`${operationName} failed to load image`));
+      };
+
+      img.src = imageUrl;
+    });
+  }
+
+  private static async loadImageFromFile(
+    file: File,
+    operationName: string,
+    timeoutMs: number = IMAGE_LOAD_TIMEOUT_MS
+  ): Promise<HTMLImageElement> {
+    const imageUrl = URL.createObjectURL(file);
+    try {
+      return await this.loadImageFromUrl(imageUrl, operationName, timeoutMs);
+    } finally {
+      URL.revokeObjectURL(imageUrl);
+    }
+  }
+
+  private static canvasToBlobWithTimeout(
+    canvas: HTMLCanvasElement,
+    mimeType: string,
+    quality: number | undefined,
+    operationName: string,
+    timeoutMs: number = CANVAS_BLOB_TIMEOUT_MS
+  ): Promise<Blob> {
+    return new Promise((resolve, reject) => {
+      let settled = false;
+
+      const timeout = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        reject(new Error(`${operationName} timed out while encoding image`));
+      }, timeoutMs);
+
+      try {
+        canvas.toBlob((blob) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timeout);
+
+          if (!blob) {
+            reject(new Error(`${operationName} failed to encode image`));
+            return;
+          }
+
+          resolve(blob);
+        }, mimeType, quality);
+      } catch (error) {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        reject(error);
+      }
+    });
+  }
+
+  private static assertValidCanvasSize(width: number, height: number, operationName: string): void {
+    const safeWidth = Math.round(width);
+    const safeHeight = Math.round(height);
+
+    if (!Number.isFinite(safeWidth) || !Number.isFinite(safeHeight) || safeWidth <= 0 || safeHeight <= 0) {
+      throw new Error(`${operationName}: invalid output dimensions ${width}x${height}`);
+    }
+
+    if (safeWidth > MAX_CANVAS_SIDE || safeHeight > MAX_CANVAS_SIDE) {
+      throw new Error(
+        `${operationName}: output dimensions ${safeWidth}x${safeHeight} exceed browser canvas limit (${MAX_CANVAS_SIDE}px max side)`
+      );
+    }
+
+    if (safeWidth * safeHeight > MAX_CANVAS_PIXELS) {
+      throw new Error(
+        `${operationName}: output size ${safeWidth}x${safeHeight} exceeds browser canvas pixel limit (${MAX_CANVAS_PIXELS.toLocaleString()} px)`
+      );
+    }
+  }
+
   /**
    * Crops an image file based on the provided crop area
    * @param file The image file to crop
@@ -123,64 +247,43 @@ export class ImageProcessor {
    * @returns A new cropped File
    */
   static async cropImage(file: File, cropArea: CropArea): Promise<File> {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      const imageUrl = URL.createObjectURL(file);
+    const img = await this.loadImageFromFile(file, 'Crop');
 
-      img.onload = () => {
-        URL.revokeObjectURL(imageUrl);
+    const srcX = Math.max(0, Math.floor(cropArea.x));
+    const srcY = Math.max(0, Math.floor(cropArea.y));
+    const srcW = Math.min(img.width - srcX, Math.max(1, Math.floor(cropArea.width)));
+    const srcH = Math.min(img.height - srcY, Math.max(1, Math.floor(cropArea.height)));
 
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
+    if (srcW <= 0 || srcH <= 0) {
+      throw new Error(`Crop: invalid crop area ${cropArea.width}x${cropArea.height} at (${cropArea.x}, ${cropArea.y})`);
+    }
 
-        if (!ctx) {
-          reject(new Error('Could not get canvas context'));
-          return;
-        }
+    this.assertValidCanvasSize(srcW, srcH, 'Crop');
 
-        // Set canvas dimensions to crop size
-        canvas.width = cropArea.width;
-        canvas.height = cropArea.height;
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
 
-        // Enable high-quality rendering
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
+    if (!ctx) {
+      throw new Error('Could not get canvas context');
+    }
 
-        // Draw the cropped region
-        ctx.drawImage(
-          img,
-          cropArea.x, cropArea.y, cropArea.width, cropArea.height,
-          0, 0, cropArea.width, cropArea.height
-        );
+    canvas.width = srcW;
+    canvas.height = srcH;
 
-        // Convert to blob and create new file
-        canvas.toBlob(
-          (blob) => {
-            if (!blob) {
-              reject(new Error('Failed to create cropped image'));
-              return;
-            }
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, srcW, srcH);
 
-            const croppedFile = new File([blob], file.name, {
-              type: file.type,
-              lastModified: Date.now(),
-            });
+    const blob = await this.canvasToBlobWithTimeout(
+      canvas,
+      file.type || 'image/png',
+      1.0,
+      'Crop'
+    );
 
-            console.log(`✂️ Image cropped: ${cropArea.width}x${cropArea.height} from ${img.width}x${img.height}`);
-            resolve(croppedFile);
-          },
-          file.type,
-          1.0 // Use maximum quality for crop to avoid double compression
-        );
-      };
-
-      img.onerror = () => {
-        URL.revokeObjectURL(imageUrl);
-        reject(new Error('Failed to load image for cropping'));
-      };
-
-      img.src = imageUrl;
-    });
+    const croppedFile = this.createFileFromBlob(blob, file.name, file.type || 'image/png');
+    console.log(`✂️ Image cropped: ${srcW}x${srcH} from ${img.width}x${img.height}`);
+    return croppedFile;
   }
 
   /**
@@ -545,81 +648,48 @@ export class ImageProcessor {
     onProgress?: (progress: number) => void
   ): Promise<File> {
     if (onProgress) onProgress(10);
+    const img = await this.loadImageFromFile(file, 'Safari compression');
+    if (onProgress) onProgress(30);
 
-    return new Promise((resolve, reject) => {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      const img = new Image();
+    const maxDimension = options.maxWidthOrHeight || 1600;
+    let { width, height } = img;
 
-      if (!ctx) {
-        reject(new Error('Canvas context not available'));
-        return;
-      }
+    if (width > maxDimension || height > maxDimension) {
+      const ratio = Math.min(maxDimension / width, maxDimension / height);
+      width = Math.round(width * ratio);
+      height = Math.round(height * ratio);
+    }
 
-      const imageUrl = URL.createObjectURL(file);
+    this.assertValidCanvasSize(width, height, 'Safari compression');
 
-      img.onload = () => {
-        try {
-          // Clean up the temporary URL
-          URL.revokeObjectURL(imageUrl);
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
 
-          if (onProgress) onProgress(30);
+    if (!ctx) {
+      throw new Error('Canvas context not available');
+    }
 
-          // Calculate dimensions with Safari-safe limits
-          const maxDimension = options.maxWidthOrHeight || 1600; // Lower for Safari
-          let { width, height } = img;
+    canvas.width = width;
+    canvas.height = height;
+    if (onProgress) onProgress(50);
 
-          if (width > maxDimension || height > maxDimension) {
-            const ratio = Math.min(maxDimension / width, maxDimension / height);
-            width = Math.round(width * ratio);
-            height = Math.round(height * ratio);
-          }
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'medium';
+    ctx.drawImage(img, 0, 0, width, height);
+    if (onProgress) onProgress(80);
 
-          canvas.width = width;
-          canvas.height = height;
+    const targetType = this.getFileType(options.format);
+    const blob = await this.canvasToBlobWithTimeout(
+      canvas,
+      targetType,
+      options.quality,
+      'Safari compression'
+    );
+    const fileName = this.generateFileName(file.name, options.format);
+    const compressedFile = this.createFileFromBlob(blob, fileName, targetType);
 
-          if (onProgress) onProgress(50);
-
-          // Use Safari-optimized canvas settings
-          ctx.imageSmoothingEnabled = true;
-          ctx.imageSmoothingQuality = 'medium'; // Use medium instead of high for Safari
-          ctx.drawImage(img, 0, 0, width, height);
-
-          if (onProgress) onProgress(80);
-
-          // Use the requested quality, even for Safari
-          // Previous cap of 0.85 is removed to allow higher quality
-          const safariQuality = options.quality;
-
-          canvas.toBlob(
-            (blob) => {
-              if (!blob) {
-                reject(new Error('Failed to compress image'));
-                return;
-              }
-
-              const fileName = this.generateFileName(file.name, options.format);
-              const compressedFile = new File([blob], fileName, {
-                type: this.getFileType(options.format),
-              });
-
-              if (onProgress) onProgress(100);
-              resolve(compressedFile);
-            },
-            this.getFileType(options.format),
-            safariQuality
-          );
-        } catch (error) {
-          reject(error);
-        }
-      };
-
-      img.onerror = () => {
-        URL.revokeObjectURL(imageUrl);
-        reject(new Error('Failed to load image'));
-      };
-      img.src = imageUrl;
-    });
+    if (onProgress) onProgress(100);
+    return compressedFile;
   }
 
   /**
@@ -1409,84 +1479,51 @@ export class ImageProcessor {
    * @returns A new cropped File at the exact target dimensions
    */
   static async cropImageToSize(file: File, targetWidth: number, targetHeight: number): Promise<File> {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      const imageUrl = URL.createObjectURL(file);
+    const safeTargetWidth = Math.max(1, Math.round(targetWidth));
+    const safeTargetHeight = Math.max(1, Math.round(targetHeight));
+    this.assertValidCanvasSize(safeTargetWidth, safeTargetHeight, 'Batch crop');
 
-      img.onload = () => {
-        URL.revokeObjectURL(imageUrl);
+    const img = await this.loadImageFromFile(file, 'Batch crop');
+    const targetRatio = safeTargetWidth / safeTargetHeight;
+    const imageRatio = img.width / img.height;
 
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
+    let cropX: number, cropY: number, cropWidth: number, cropHeight: number;
 
-        if (!ctx) {
-          reject(new Error('Could not get canvas context'));
-          return;
-        }
+    if (imageRatio > targetRatio) {
+      cropHeight = img.height;
+      cropWidth = cropHeight * targetRatio;
+      cropX = (img.width - cropWidth) / 2;
+      cropY = 0;
+    } else {
+      cropWidth = img.width;
+      cropHeight = cropWidth / targetRatio;
+      cropX = 0;
+      cropY = (img.height - cropHeight) / 2;
+    }
 
-        // Calculate target aspect ratio
-        const targetRatio = targetWidth / targetHeight;
-        const imageRatio = img.width / img.height;
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
 
-        let cropX: number, cropY: number, cropWidth: number, cropHeight: number;
+    if (!ctx) {
+      throw new Error('Could not get canvas context');
+    }
 
-        if (imageRatio > targetRatio) {
-          // Image is wider than target - crop sides
-          cropHeight = img.height;
-          cropWidth = cropHeight * targetRatio;
-          cropX = (img.width - cropWidth) / 2;
-          cropY = 0;
-        } else {
-          // Image is taller than target - crop top/bottom
-          cropWidth = img.width;
-          cropHeight = cropWidth / targetRatio;
-          cropX = 0;
-          cropY = (img.height - cropHeight) / 2;
-        }
+    canvas.width = safeTargetWidth;
+    canvas.height = safeTargetHeight;
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(img, cropX, cropY, cropWidth, cropHeight, 0, 0, safeTargetWidth, safeTargetHeight);
 
-        // Set canvas to exact target dimensions
-        canvas.width = targetWidth;
-        canvas.height = targetHeight;
+    const blob = await this.canvasToBlobWithTimeout(
+      canvas,
+      file.type || 'image/png',
+      1.0,
+      'Batch crop'
+    );
 
-        // Enable high-quality rendering
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
-
-        // Draw the centered crop, scaled to target size
-        ctx.drawImage(
-          img,
-          cropX, cropY, cropWidth, cropHeight,
-          0, 0, targetWidth, targetHeight
-        );
-
-        // Convert to blob and create new file
-        canvas.toBlob(
-          (blob) => {
-            if (!blob) {
-              reject(new Error('Failed to create cropped image'));
-              return;
-            }
-
-            const croppedFile = new File([blob], file.name, {
-              type: file.type,
-              lastModified: Date.now(),
-            });
-
-            console.log(`✂️ Batch crop: ${img.width}x${img.height} → ${targetWidth}x${targetHeight}`);
-            resolve(croppedFile);
-          },
-          file.type,
-          1.0 // Use maximum quality for crop
-        );
-      };
-
-      img.onerror = () => {
-        URL.revokeObjectURL(imageUrl);
-        reject(new Error('Failed to load image for cropping'));
-      };
-
-      img.src = imageUrl;
-    });
+    const croppedFile = this.createFileFromBlob(blob, file.name, file.type || 'image/png');
+    console.log(`✂️ Batch crop: ${img.width}x${img.height} → ${safeTargetWidth}x${safeTargetHeight}`);
+    return croppedFile;
   }
 
   /**
@@ -1507,231 +1544,180 @@ export class ImageProcessor {
       borderColor: string;
     }
   ): Promise<File> {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      const imageUrl = URL.createObjectURL(file);
+    const safeTargetWidth = Math.max(1, Math.round(targetWidth));
+    const safeTargetHeight = Math.max(1, Math.round(targetHeight));
+    const safePadding = Math.max(0, Math.round(styleOptions.padding));
+    const safeBorderRadius = Math.max(0, Math.round(styleOptions.borderRadius));
+    const safeBorderWidth = Math.max(1, Math.round(styleOptions.borderWidth));
 
-      img.onload = () => {
-        URL.revokeObjectURL(imageUrl);
+    this.assertValidCanvasSize(safeTargetWidth, safeTargetHeight, 'Styled batch crop');
 
-        // Calculate target aspect ratio
-        const targetRatio = targetWidth / targetHeight;
-        const imageRatio = img.width / img.height;
+    const outW = safeTargetWidth;
+    const outH = safeTargetHeight;
+    const finalW = outW + safePadding * 2;
+    const finalH = outH + safePadding * 2;
+    this.assertValidCanvasSize(finalW, finalH, 'Styled batch crop');
 
-        let cropX: number, cropY: number, cropWidth: number, cropHeight: number;
+    const img = await this.loadImageFromFile(file, 'Styled batch crop');
+    const targetRatio = outW / outH;
+    const imageRatio = img.width / img.height;
 
-        if (imageRatio > targetRatio) {
-          // Image is wider than target - crop sides
-          cropHeight = img.height;
-          cropWidth = cropHeight * targetRatio;
-          cropX = (img.width - cropWidth) / 2;
-          cropY = 0;
+    let cropX: number, cropY: number, cropWidth: number, cropHeight: number;
+
+    if (imageRatio > targetRatio) {
+      cropHeight = img.height;
+      cropWidth = cropHeight * targetRatio;
+      cropX = (img.width - cropWidth) / 2;
+      cropY = 0;
+    } else {
+      cropWidth = img.width;
+      cropHeight = cropWidth / targetRatio;
+      cropX = 0;
+      cropY = (img.height - cropHeight) / 2;
+    }
+
+    const { bgColor, shadow, frameStyle, borderColor } = styleOptions;
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+
+    if (!ctx) {
+      throw new Error('Could not get canvas context');
+    }
+
+    canvas.width = finalW;
+    canvas.height = finalH;
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+
+    if (bgColor !== 'transparent') {
+      ctx.fillStyle = bgColor;
+      ctx.fillRect(0, 0, finalW, finalH);
+    }
+
+    if (shadow !== 'none') {
+      const shadowSizes = {
+        spread: { blur: 30, offset: 0, opacity: 0.15, spread: true },
+        hug: { blur: 8, offset: 4, opacity: 0.25, spread: false },
+        lg: { blur: 40, offset: 15, opacity: 0.35, spread: false },
+      };
+      const shadowConfig = shadowSizes[shadow];
+
+      ctx.save();
+      ctx.shadowColor = `rgba(0, 0, 0, ${shadowConfig.opacity})`;
+      ctx.shadowBlur = shadowConfig.blur;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = shadowConfig.spread ? 0 : shadowConfig.offset;
+      ctx.fillStyle = bgColor !== 'transparent' ? bgColor : '#ffffff';
+
+      if (safeBorderRadius > 0) {
+        const r = Math.min(safeBorderRadius, outW / 2, outH / 2);
+        ctx.beginPath();
+        ctx.roundRect(safePadding, safePadding, outW, outH, r);
+        ctx.fill();
+      } else {
+        ctx.fillRect(safePadding, safePadding, outW, outH);
+      }
+      ctx.restore();
+    }
+
+    if (safeBorderRadius > 0) {
+      ctx.save();
+      const r = Math.min(safeBorderRadius, outW / 2, outH / 2);
+      ctx.beginPath();
+      ctx.roundRect(safePadding, safePadding, outW, outH, r);
+      ctx.clip();
+    }
+
+    ctx.drawImage(img, cropX, cropY, cropWidth, cropHeight, safePadding, safePadding, outW, outH);
+
+    if (safeBorderRadius > 0) {
+      ctx.restore();
+    }
+
+    if (frameStyle !== 'none') {
+      const bw = safeBorderWidth;
+      const r = Math.min(safeBorderRadius, outW / 2, outH / 2);
+
+      const drawRoundedRectPath = (x: number, y: number, w: number, h: number, radius: number) => {
+        ctx.beginPath();
+        if (radius > 0) {
+          ctx.roundRect(x, y, w, h, radius);
         } else {
-          // Image is taller than target - crop top/bottom
-          cropWidth = img.width;
-          cropHeight = cropWidth / targetRatio;
-          cropX = 0;
-          cropY = (img.height - cropHeight) / 2;
+          ctx.rect(x, y, w, h);
         }
-
-        const { padding, borderRadius, bgColor, shadow, frameStyle, borderWidth, borderColor } = styleOptions;
-
-        // Final canvas dimensions (image + padding on all sides)
-        const outW = targetWidth;
-        const outH = targetHeight;
-        const finalW = outW + padding * 2;
-        const finalH = outH + padding * 2;
-
-        const canvas = document.createElement('canvas');
-        canvas.width = finalW;
-        canvas.height = finalH;
-        const ctx = canvas.getContext('2d');
-
-        if (!ctx) {
-          reject(new Error('Could not get canvas context'));
-          return;
-        }
-
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
-
-        // Step 1: Fill background color (covers entire canvas including padding)
-        if (bgColor !== 'transparent') {
-          ctx.fillStyle = bgColor;
-          ctx.fillRect(0, 0, finalW, finalH);
-        }
-
-        // Step 2: Apply shadow if set
-        if (shadow !== 'none') {
-          const shadowSizes = {
-            spread: { blur: 30, offset: 0, opacity: 0.15, spread: true },
-            hug: { blur: 8, offset: 4, opacity: 0.25, spread: false },
-            lg: { blur: 40, offset: 15, opacity: 0.35, spread: false },
-          };
-          const shadowConfig = shadowSizes[shadow];
-
-          ctx.save();
-
-          if (shadowConfig.spread) {
-            ctx.shadowColor = `rgba(0, 0, 0, ${shadowConfig.opacity})`;
-            ctx.shadowBlur = shadowConfig.blur;
-            ctx.shadowOffsetX = 0;
-            ctx.shadowOffsetY = 0;
-          } else {
-            ctx.shadowColor = `rgba(0, 0, 0, ${shadowConfig.opacity})`;
-            ctx.shadowBlur = shadowConfig.blur;
-            ctx.shadowOffsetX = 0;
-            ctx.shadowOffsetY = shadowConfig.offset;
-          }
-
-          ctx.fillStyle = bgColor !== 'transparent' ? bgColor : '#ffffff';
-
-          if (borderRadius > 0) {
-            const r = Math.min(borderRadius, outW / 2, outH / 2);
-            ctx.beginPath();
-            ctx.roundRect(padding, padding, outW, outH, r);
-            ctx.fill();
-          } else {
-            ctx.fillRect(padding, padding, outW, outH);
-          }
-          ctx.restore();
-        }
-
-        // Step 3: Apply border radius clipping to the image area
-        if (borderRadius > 0) {
-          ctx.save();
-          const r = Math.min(borderRadius, outW / 2, outH / 2);
-          ctx.beginPath();
-          ctx.roundRect(padding, padding, outW, outH, r);
-          ctx.clip();
-        }
-
-        // Step 4: Draw the image (centered crop, scaled to target size)
-        ctx.drawImage(
-          img,
-          cropX, cropY, cropWidth, cropHeight,
-          padding, padding, outW, outH
-        );
-
-        if (borderRadius > 0) {
-          ctx.restore();
-        }
-
-        // Step 5: Draw frame styles
-        if (frameStyle !== 'none') {
-          const bw = borderWidth;
-          const r = Math.min(borderRadius, outW / 2, outH / 2);
-
-          const drawRoundedRectPath = (x: number, y: number, w: number, h: number, radius: number) => {
-            ctx.beginPath();
-            if (radius > 0) {
-              ctx.roundRect(x, y, w, h, radius);
-            } else {
-              ctx.rect(x, y, w, h);
-            }
-          };
-
-          switch (frameStyle) {
-            case 'glass-light':
-              ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
-              ctx.lineWidth = bw;
-              drawRoundedRectPath(padding + bw/2, padding + bw/2, outW - bw, outH - bw, Math.max(0, r - bw/2));
-              ctx.stroke();
-              break;
-
-            case 'glass-dark':
-              ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
-              ctx.lineWidth = bw;
-              drawRoundedRectPath(padding + bw/2, padding + bw/2, outW - bw, outH - bw, Math.max(0, r - bw/2));
-              ctx.stroke();
-              break;
-
-            case 'inset-light':
-              ctx.save();
-              ctx.shadowColor = 'rgba(0, 0, 0, 0.2)';
-              ctx.shadowBlur = bw * 1.5;
-              ctx.shadowOffsetX = bw * 0.5;
-              ctx.shadowOffsetY = bw * 0.5;
-              ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-              ctx.lineWidth = bw;
-              drawRoundedRectPath(padding + bw/2, padding + bw/2, outW - bw, outH - bw, Math.max(0, r - bw/2));
-              ctx.stroke();
-              ctx.restore();
-              break;
-
-            case 'inset-dark':
-              ctx.save();
-              ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-              ctx.shadowBlur = bw * 1.5;
-              ctx.shadowOffsetX = bw * 0.5;
-              ctx.shadowOffsetY = bw * 0.5;
-              ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
-              ctx.lineWidth = bw;
-              drawRoundedRectPath(padding + bw/2, padding + bw/2, outW - bw, outH - bw, Math.max(0, r - bw/2));
-              ctx.stroke();
-              ctx.restore();
-              break;
-
-            case 'outline':
-              ctx.strokeStyle = borderColor;
-              ctx.lineWidth = 1;
-              drawRoundedRectPath(padding + 0.5, padding + 0.5, outW - 1, outH - 1, r);
-              ctx.stroke();
-              break;
-
-            case 'border':
-              ctx.strokeStyle = borderColor;
-              ctx.lineWidth = bw;
-              drawRoundedRectPath(padding + bw/2, padding + bw/2, outW - bw, outH - bw, Math.max(0, r - bw/2));
-              ctx.stroke();
-              break;
-
-            case 'liquid': {
-              const liquidGradient = ctx.createLinearGradient(0, 0, finalW, finalH);
-              liquidGradient.addColorStop(0, '#f97316');
-              liquidGradient.addColorStop(0.5, '#eab308');
-              liquidGradient.addColorStop(1, '#f97316');
-              ctx.save();
-              ctx.shadowColor = '#f97316';
-              ctx.shadowBlur = bw * 2;
-              ctx.strokeStyle = liquidGradient;
-              ctx.lineWidth = bw;
-              drawRoundedRectPath(padding + bw/2, padding + bw/2, outW - bw, outH - bw, Math.max(0, r - bw/2));
-              ctx.stroke();
-              ctx.restore();
-              break;
-            }
-          }
-        }
-
-        // Convert to blob and create new file
-        canvas.toBlob(
-          (blob) => {
-            if (!blob) {
-              reject(new Error('Failed to create styled cropped image'));
-              return;
-            }
-
-            const croppedFile = new File([blob], file.name, {
-              type: 'image/png', // Always use PNG to preserve transparency and effects
-              lastModified: Date.now(),
-            });
-
-            console.log(`✂️ Styled crop: ${img.width}x${img.height} → ${finalW}x${finalH} (with styles)`);
-            resolve(croppedFile);
-          },
-          'image/png',
-          1.0
-        );
       };
 
-      img.onerror = () => {
-        URL.revokeObjectURL(imageUrl);
-        reject(new Error('Failed to load image for styled cropping'));
-      };
+      switch (frameStyle) {
+        case 'glass-light':
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+          ctx.lineWidth = bw;
+          drawRoundedRectPath(safePadding + bw / 2, safePadding + bw / 2, outW - bw, outH - bw, Math.max(0, r - bw / 2));
+          ctx.stroke();
+          break;
+        case 'glass-dark':
+          ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
+          ctx.lineWidth = bw;
+          drawRoundedRectPath(safePadding + bw / 2, safePadding + bw / 2, outW - bw, outH - bw, Math.max(0, r - bw / 2));
+          ctx.stroke();
+          break;
+        case 'inset-light':
+          ctx.save();
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.2)';
+          ctx.shadowBlur = bw * 1.5;
+          ctx.shadowOffsetX = bw * 0.5;
+          ctx.shadowOffsetY = bw * 0.5;
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+          ctx.lineWidth = bw;
+          drawRoundedRectPath(safePadding + bw / 2, safePadding + bw / 2, outW - bw, outH - bw, Math.max(0, r - bw / 2));
+          ctx.stroke();
+          ctx.restore();
+          break;
+        case 'inset-dark':
+          ctx.save();
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+          ctx.shadowBlur = bw * 1.5;
+          ctx.shadowOffsetX = bw * 0.5;
+          ctx.shadowOffsetY = bw * 0.5;
+          ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+          ctx.lineWidth = bw;
+          drawRoundedRectPath(safePadding + bw / 2, safePadding + bw / 2, outW - bw, outH - bw, Math.max(0, r - bw / 2));
+          ctx.stroke();
+          ctx.restore();
+          break;
+        case 'outline':
+          ctx.strokeStyle = borderColor;
+          ctx.lineWidth = 1;
+          drawRoundedRectPath(safePadding + 0.5, safePadding + 0.5, outW - 1, outH - 1, r);
+          ctx.stroke();
+          break;
+        case 'border':
+          ctx.strokeStyle = borderColor;
+          ctx.lineWidth = bw;
+          drawRoundedRectPath(safePadding + bw / 2, safePadding + bw / 2, outW - bw, outH - bw, Math.max(0, r - bw / 2));
+          ctx.stroke();
+          break;
+        case 'liquid': {
+          const liquidGradient = ctx.createLinearGradient(0, 0, finalW, finalH);
+          liquidGradient.addColorStop(0, '#f97316');
+          liquidGradient.addColorStop(0.5, '#eab308');
+          liquidGradient.addColorStop(1, '#f97316');
+          ctx.save();
+          ctx.shadowColor = '#f97316';
+          ctx.shadowBlur = bw * 2;
+          ctx.strokeStyle = liquidGradient;
+          ctx.lineWidth = bw;
+          drawRoundedRectPath(safePadding + bw / 2, safePadding + bw / 2, outW - bw, outH - bw, Math.max(0, r - bw / 2));
+          ctx.stroke();
+          ctx.restore();
+          break;
+        }
+      }
+    }
 
-      img.src = imageUrl;
-    });
+    const blob = await this.canvasToBlobWithTimeout(canvas, 'image/png', 1.0, 'Styled batch crop');
+    const croppedFile = this.createFileFromBlob(blob, file.name, 'image/png');
+    console.log(`✂️ Styled crop: ${img.width}x${img.height} → ${finalW}x${finalH} (with styles)`);
+    return croppedFile;
   }
 
   /**

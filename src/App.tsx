@@ -11,7 +11,7 @@ import ProcessingOverlay from '@/components/optimization/ProcessingOverlay';
 import { ImagePreviewSkeletons } from '@/components/optimization/ImagePreviewSkeleton';
 import ZipDownloadDialog from '@/components/dialogs/ZipDownloadDialog';
 import BatchRenameDialog, { type BatchRenamePattern } from '@/components/dialogs/BatchRenameDialog';
-import BatchCropDialog, { type CropStyleOptions } from '@/components/dialogs/BatchCropDialog';
+import BatchCropDialog, { type CropStyleOptions, type BatchCropResult } from '@/components/dialogs/BatchCropDialog';
 import ResetProjectDialog from '@/components/dialogs/ResetProjectDialog';
 import { type SizePreset } from '@/types/crop';
 import InstallButton from '@/components/pwa/InstallButton';
@@ -310,7 +310,25 @@ function App() {
     styleOptions: CropStyleOptions,
     imageIds: string[],
     onProgress?: (current: number, total: number) => void
-  ) => {
+  ): Promise<BatchCropResult> => {
+    const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> => {
+      let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => {
+          reject(new Error(`${label} timed out after ${Math.round(timeoutMs / 1000)}s`));
+        }, timeoutMs);
+      });
+
+      try {
+        return await Promise.race([promise, timeoutPromise]);
+      } finally {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+      }
+    };
+
     // Check if style options have any effects (if so, we use styled crop)
     const hasStyles = styleOptions.padding > 0 ||
                       styleOptions.borderRadius > 0 ||
@@ -319,6 +337,10 @@ function App() {
                       styleOptions.frameStyle !== 'none';
 
     const total = imageIds.length;
+    const browser = detectBrowser();
+    const errors: string[] = [];
+    let processed = 0;
+    let failed = 0;
 
     // Process each image sequentially to avoid memory issues
     for (let i = 0; i < imageIds.length; i++) {
@@ -330,25 +352,37 @@ function App() {
       }
 
       const imageToUpdate = processedImages.find(img => img.id === imageId);
-      if (!imageToUpdate) continue;
+      if (!imageToUpdate) {
+        failed++;
+        errors.push(`Image ${imageId}: image no longer exists in current state`);
+        continue;
+      }
 
       try {
         let croppedFile: File;
 
         if (hasStyles) {
           // Use styled crop with all effects
-          croppedFile = await ImageProcessor.cropImageWithStyles(
-            imageToUpdate.optimizedFile,
-            preset.width,
-            preset.height,
-            styleOptions
+          croppedFile = await withTimeout(
+            ImageProcessor.cropImageWithStyles(
+              imageToUpdate.optimizedFile,
+              preset.width,
+              preset.height,
+              styleOptions
+            ),
+            20000,
+            `Styled crop for ${imageToUpdate.originalFile.name}`
           );
         } else {
           // Simple centered crop without styles
-          croppedFile = await ImageProcessor.cropImageToSize(
-            imageToUpdate.optimizedFile,
-            preset.width,
-            preset.height
+          croppedFile = await withTimeout(
+            ImageProcessor.cropImageToSize(
+              imageToUpdate.optimizedFile,
+              preset.width,
+              preset.height
+            ),
+            20000,
+            `Batch crop for ${imageToUpdate.originalFile.name}`
           );
         }
 
@@ -356,7 +390,11 @@ function App() {
         const optionsToUse = imageToUpdate.optimizationOptions || optimizationOptions;
 
         // Re-optimize the cropped image
-        const reOptimized = await ImageProcessor.optimizeImage(croppedFile, optionsToUse);
+        const reOptimized = await withTimeout(
+          ImageProcessor.optimizeImage(croppedFile, optionsToUse),
+          30000,
+          `Re-optimization for ${imageToUpdate.originalFile.name}`
+        );
 
         // Revoke old URLs
         if (imageToUpdate.optimizedUrl) {
@@ -385,8 +423,20 @@ function App() {
             return img;
           })
         );
+        processed++;
       } catch (error) {
-        console.error(`Failed to batch crop image ${imageId}:`, error);
+        failed++;
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        errors.push(`${imageToUpdate.originalFile.name}: ${errorMessage}`);
+        console.error(`Failed to batch crop image ${imageId}:`, {
+          error,
+          fileName: imageToUpdate.originalFile.name,
+          outputPreset: `${preset.width}x${preset.height}`,
+          outputFormat: imageToUpdate.optimizationOptions?.format || optimizationOptions.format,
+          hasStyles,
+          browser: `${browser.name} ${browser.version}`,
+          userAgent: navigator.userAgent,
+        });
         // Continue with next image
       }
     }
@@ -395,6 +445,8 @@ function App() {
     if (onProgress) {
       onProgress(total, total);
     }
+
+    return { processed, failed, errors };
   }, [processedImages, optimizationOptions]);
 
   const handleResetProject = useCallback(() => {

@@ -22,10 +22,16 @@ export interface CropStyleOptions {
   borderColor: string;
 }
 
+export interface BatchCropResult {
+  processed: number;
+  failed: number;
+  errors: string[];
+}
+
 interface BatchCropDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onApply: (preset: SizePreset, styleOptions: CropStyleOptions, imageIds: string[], onProgress?: (current: number, total: number) => void) => Promise<void>;
+  onApply: (preset: SizePreset, styleOptions: CropStyleOptions, imageIds: string[], onProgress?: (current: number, total: number) => void) => Promise<BatchCropResult>;
   images: ProcessedImage[];
 }
 
@@ -71,6 +77,7 @@ const DEFAULT_STYLE_OPTIONS: CropStyleOptions = {
   borderWidth: 15,
   borderColor: '#ffffff',
 };
+const MAX_CUSTOM_DIMENSION = 8192;
 
 export default function BatchCropDialog({
   isOpen,
@@ -82,6 +89,7 @@ export default function BatchCropDialog({
   const [styleOptions, setStyleOptions] = useState<CropStyleOptions>(DEFAULT_STYLE_OPTIONS);
   const [isApplying, setIsApplying] = useState(false);
   const [processingProgress, setProcessingProgress] = useState({ current: 0, total: 0 });
+  const [applyFeedback, setApplyFeedback] = useState<{ type: 'warning' | 'error'; message: string } | null>(null);
   const [useCustomSize, setUseCustomSize] = useState(false);
   const [customWidth, setCustomWidth] = useState(1080);
   const [customHeight, setCustomHeight] = useState(1080);
@@ -100,6 +108,7 @@ export default function BatchCropDialog({
       setSnapshotImages(images);
     } else if (!isOpen) {
       setSnapshotImages([]);
+      setApplyFeedback(null);
     }
   }, [isOpen, images, snapshotImages.length]);
 
@@ -436,11 +445,12 @@ export default function BatchCropDialog({
   const handleApply = useCallback(async () => {
     if (!effectivePreset || displayImages.length === 0) return;
 
+    setApplyFeedback(null);
     setIsApplying(true);
     setProcessingProgress({ current: 0, total: displayImages.length });
 
     try {
-      await onApply(
+      const result = await onApply(
         effectivePreset,
         styleOptions,
         displayImages.map(img => img.id),
@@ -448,9 +458,23 @@ export default function BatchCropDialog({
           setProcessingProgress({ current, total });
         }
       );
+
+      if (result.failed > 0) {
+        const firstError = result.errors[0] || 'Unknown processing error';
+        setApplyFeedback({
+          type: 'warning',
+          message: `${result.processed} of ${displayImages.length} images were cropped. ${result.failed} failed. First error: ${firstError}`,
+        });
+        return;
+      }
+
       onClose();
     } catch (error) {
       console.error('Batch crop failed:', error);
+      setApplyFeedback({
+        type: 'error',
+        message: error instanceof Error ? error.message : 'Unexpected error while applying batch crop',
+      });
     } finally {
       setIsApplying(false);
       setProcessingProgress({ current: 0, total: 0 });
@@ -463,6 +487,7 @@ export default function BatchCropDialog({
     setUseCustomSize(false);
     setCustomWidth(1080);
     setCustomHeight(1080);
+    setApplyFeedback(null);
   }, []);
 
   // Handle escape key
@@ -487,6 +512,9 @@ export default function BatchCropDialog({
   const socialSizes = SIZE_PRESETS.filter(s => s.category === 'social');
   const videoSizes = SIZE_PRESETS.filter(s => s.category === 'video');
   const webSizes = SIZE_PRESETS.filter(s => s.category === 'web');
+  const progressPercent = processingProgress.total > 0
+    ? Math.round((processingProgress.current / processingProgress.total) * 100)
+    : 0;
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex bg-neutral-950">
@@ -544,9 +572,12 @@ export default function BatchCropDialog({
                         id="batch-crop-width"
                         type="number"
                         min="1"
-                        max="10000"
+                        max={MAX_CUSTOM_DIMENSION}
                         value={customWidth}
-                        onChange={(e) => setCustomWidth(Math.max(1, parseInt(e.target.value) || 1))}
+                        onChange={(e) => {
+                          const parsedValue = parseInt(e.target.value) || 1;
+                          setCustomWidth(Math.min(MAX_CUSTOM_DIMENSION, Math.max(1, parsedValue)));
+                        }}
                         disabled={isApplying}
                         className="w-full bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs text-white focus:border-blue-500 focus:outline-none disabled:opacity-50"
                       />
@@ -557,9 +588,12 @@ export default function BatchCropDialog({
                         id="batch-crop-height"
                         type="number"
                         min="1"
-                        max="10000"
+                        max={MAX_CUSTOM_DIMENSION}
                         value={customHeight}
-                        onChange={(e) => setCustomHeight(Math.max(1, parseInt(e.target.value) || 1))}
+                        onChange={(e) => {
+                          const parsedValue = parseInt(e.target.value) || 1;
+                          setCustomHeight(Math.min(MAX_CUSTOM_DIMENSION, Math.max(1, parsedValue)));
+                        }}
                         disabled={isApplying}
                         className="w-full bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs text-white focus:border-blue-500 focus:outline-none disabled:opacity-50"
                       />
@@ -753,14 +787,14 @@ export default function BatchCropDialog({
                   </span>
                 </div>
                 <span className="text-xs text-neutral-400">
-                  {Math.round((processingProgress.current / processingProgress.total) * 100)}%
+                  {progressPercent}%
                 </span>
               </div>
               {/* Progress bar */}
               <div className="h-2 bg-neutral-800 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-emerald-500 rounded-full transition-all duration-300"
-                  style={{ width: `${(processingProgress.current / processingProgress.total) * 100}%` }}
+                  style={{ width: `${progressPercent}%` }}
                 />
               </div>
               {/* Thumbnail progress indicators */}
@@ -1072,6 +1106,17 @@ export default function BatchCropDialog({
 
         {/* Sidebar Footer - Actions */}
         <div className="p-3 border-t border-neutral-800 space-y-2">
+          {applyFeedback && (
+            <div
+              className={`rounded text-[11px] px-2.5 py-2 border ${
+                applyFeedback.type === 'error'
+                  ? 'bg-red-950/30 border-red-900/50 text-red-300'
+                  : 'bg-amber-950/30 border-amber-900/50 text-amber-300'
+              }`}
+            >
+              {applyFeedback.message}
+            </div>
+          )}
           <Button
             variant="ghost"
             size="sm"
