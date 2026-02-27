@@ -129,13 +129,13 @@ function CardToolbar({ className, ...props }: React.HTMLAttributes<HTMLDivElemen
   return <div data-slot="card-toolbar" className={cn('flex items-center gap-2.5', className)} {...props} />;
 }
 
-function CardTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
+function CardTitle({ className, children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
   return (
     <h3
       data-slot="card-title"
       className={cn('text-sm font-medium text-white leading-none', className)}
       {...props}
-    />
+    >{children}</h3>
   );
 }
 

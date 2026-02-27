@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useReducer } from 'react';
 import { Analytics } from '@vercel/analytics/react';
 import '@/types/electron.d.ts';
 
@@ -34,16 +34,30 @@ interface UploadedImage {
   error?: string;
 }
 
+type ActiveDialog = 'zip' | 'batchRename' | 'batchCrop' | 'resetProject' | null;
+
+type ProcessingState = { isProcessing: boolean; progress: number; imageName: string };
+type ProcessingAction =
+  | { type: 'START' }
+  | { type: 'UPDATE'; progress: number; imageName: string }
+  | { type: 'FINISH' };
+
+function processingReducer(state: ProcessingState, action: ProcessingAction): ProcessingState {
+  switch (action.type) {
+    case 'START':
+      return { isProcessing: true, progress: 0, imageName: '' };
+    case 'UPDATE':
+      return { ...state, progress: action.progress, imageName: action.imageName };
+    case 'FINISH':
+      return { isProcessing: false, progress: 0, imageName: '' };
+  }
+}
+
 function App() {
   const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
   const [processedImages, setProcessedImages] = useState<ProcessedImage[]>([]);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [currentImageProgress, setCurrentImageProgress] = useState(0);
-  const [currentImageName, setCurrentImageName] = useState('');
-  const [showZipDialog, setShowZipDialog] = useState(false);
-  const [showBatchRenameDialog, setShowBatchRenameDialog] = useState(false);
-  const [showBatchCropDialog, setShowBatchCropDialog] = useState(false);
-  const [showResetProjectDialog, setShowResetProjectDialog] = useState(false);
+  const [processing, dispatchProcessing] = useReducer(processingReducer, { isProcessing: false, progress: 0, imageName: '' });
+  const [activeDialog, setActiveDialog] = useState<ActiveDialog>(null);
   const imageUploadRef = useRef<ImageUploadRef>(null);
 
   // Log browser info on mount
@@ -54,9 +68,6 @@ function App() {
   // Browser compatibility detection
   useBrowserCompatibility();
 
-  // Mobile device detection
-  // const { isMobile, isTablet } = useMobileDetection();
-  // const shouldBlockMobile = isMobile || isTablet;
 
   // Use refs to track blob URLs for cleanup without causing effect re-runs
   const processedImagesRef = useRef<ProcessedImage[]>([]);
@@ -143,10 +154,8 @@ function App() {
   const handleOptimizeImages = useCallback(async () => {
     if (uploadedImages.length === 0) return;
 
-    setIsProcessing(true);
+    dispatchProcessing({ type: 'START' });
     setProcessedImages([]);
-    setCurrentImageProgress(0);
-    setCurrentImageName('');
 
     try {
       // Use a ref-like pattern to accumulate results and update state correctly
@@ -157,14 +166,13 @@ function App() {
 
         try {
           // Set current image name for progress display
-          setCurrentImageName(uploadedImage.file.name);
-          setCurrentImageProgress(0);
+          dispatchProcessing({ type: 'UPDATE', progress: 0, imageName: uploadedImage.file.name });
 
           const processedImage = await ImageProcessor.optimizeImage(
             uploadedImage.file,
             optimizationOptions,
             (progress) => {
-              setCurrentImageProgress(progress);
+              dispatchProcessing({ type: 'UPDATE', progress, imageName: uploadedImage.file.name });
             }
           );
 
@@ -178,14 +186,12 @@ function App() {
     } catch (err) {
       console.error('Optimization failed:', err);
     } finally {
-      setIsProcessing(false);
-      setCurrentImageProgress(0);
-      setCurrentImageName('');
+      dispatchProcessing({ type: 'FINISH' });
     }
   }, [uploadedImages, optimizationOptions]);
 
   const handleDownloadAll = useCallback(() => {
-    setShowZipDialog(true);
+    setActiveDialog('zip');
   }, []);
 
   const handleZipDownload = useCallback(async (zipFilename: string) => {
@@ -412,7 +418,7 @@ function App() {
     // Clear all uploaded and processed images immediately
     setUploadedImages([]);
     setProcessedImages([]);
-    setIsProcessing(false);
+    dispatchProcessing({ type: 'FINISH' });
 
     // Reset the ImageUpload component (this will handle its own blob URL cleanup)
     imageUploadRef.current?.resetUpload();
@@ -430,11 +436,6 @@ function App() {
 
     // Keep optimization settings unchanged
   }, [processedImages, uploadedImages]);
-
-  // Mobile blocker removed to allow responsive usage
-  // if (shouldBlockMobile) {
-  //   return <MobileBlocker />;
-  // }
 
   return (
     <div className="min-h-screen bg-neutral-950 py-6 px-4">
@@ -467,12 +468,12 @@ function App() {
                 options={optimizationOptions}
                 onOptionsChange={setOptimizationOptions}
                 onOptimize={handleOptimizeImages}
-                isProcessing={isProcessing}
+                isProcessing={processing.isProcessing}
                 hasImages={uploadedImages.some(img => img.status === 'completed')}
                 processedCount={processedImages.length}
                 totalImages={uploadedImages.filter(img => img.status === 'completed').length}
-                currentImageProgress={currentImageProgress}
-                currentImageName={currentImageName}
+                currentImageProgress={processing.progress}
+                currentImageName={processing.imageName}
               />
             )}
           </div>
@@ -489,7 +490,7 @@ function App() {
                   <div className="flex gap-2">
                     <Button
                       variant="secondary"
-                      onClick={() => setShowBatchRenameDialog(true)}
+                      onClick={() => setActiveDialog('batchRename')}
                       className="flex-1"
                       size="sm"
                     >
@@ -498,7 +499,7 @@ function App() {
                     </Button>
                     <Button
                       variant="secondary"
-                      onClick={() => setShowBatchCropDialog(true)}
+                      onClick={() => setActiveDialog('batchCrop')}
                       className="flex-1"
                       size="sm"
                     >
@@ -520,7 +521,7 @@ function App() {
                     {/* Reset Project button - icon only with destructive styling */}
                     <Button
                       variant="destructive"
-                      onClick={() => setShowResetProjectDialog(true)}
+                      onClick={() => setActiveDialog('resetProject')}
                       size="sm"
                       title="Reset Project"
                     >
@@ -554,9 +555,9 @@ function App() {
 
         {/* Processing Overlay */}
         <ProcessingOverlay
-          isProcessing={isProcessing}
-          currentImageName={currentImageName}
-          currentImageProgress={currentImageProgress}
+          isProcessing={processing.isProcessing}
+          currentImageName={processing.imageName}
+          currentImageProgress={processing.progress}
           processedCount={processedImages.length}
           totalImages={uploadedImages.filter(img => img.status === 'completed').length}
           format={optimizationOptions.format}
@@ -564,29 +565,29 @@ function App() {
 
         {/* Dialogs */}
         <ZipDownloadDialog
-          isOpen={showZipDialog}
-          onClose={() => setShowZipDialog(false)}
+          isOpen={activeDialog === 'zip'}
+          onClose={() => setActiveDialog(null)}
           onDownload={handleZipDownload}
           fileCount={processedImages.length}
         />
 
         <BatchRenameDialog
-          isOpen={showBatchRenameDialog}
-          onClose={() => setShowBatchRenameDialog(false)}
+          isOpen={activeDialog === 'batchRename'}
+          onClose={() => setActiveDialog(null)}
           onApply={handleBatchRename}
           images={processedImages}
         />
 
         <BatchCropDialog
-          isOpen={showBatchCropDialog}
-          onClose={() => setShowBatchCropDialog(false)}
+          isOpen={activeDialog === 'batchCrop'}
+          onClose={() => setActiveDialog(null)}
           onApply={handleBatchCrop}
           images={processedImages}
         />
 
         <ResetProjectDialog
-          isOpen={showResetProjectDialog}
-          onClose={() => setShowResetProjectDialog(false)}
+          isOpen={activeDialog === 'resetProject'}
+          onClose={() => setActiveDialog(null)}
           onConfirm={handleResetProject}
         />
 

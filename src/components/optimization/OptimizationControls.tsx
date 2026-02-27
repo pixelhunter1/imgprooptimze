@@ -76,7 +76,7 @@ export default function OptimizationControls({
 
         {/* Format Selection */}
         <div className="space-y-3">
-          <label className="text-xs uppercase tracking-wide text-neutral-400">Output Format</label>
+          <span className="text-xs uppercase tracking-wide text-neutral-400">Output Format</span>
           <div className="grid grid-cols-4 gap-1.5">
             {formatOptions.map((format) => (
               <button
@@ -131,7 +131,7 @@ export default function OptimizationControls({
         {/* Quality Control */}
         <div className="space-y-3">
           <div className="flex justify-between items-center">
-            <label className="text-xs uppercase tracking-wide text-neutral-400">Quality</label>
+            <span className="text-xs uppercase tracking-wide text-neutral-400">Quality</span>
             <span className="text-xs text-neutral-300">{Math.round(options.quality * 100)}%</span>
           </div>
 
@@ -179,9 +179,10 @@ export default function OptimizationControls({
 
           {/* Max File Size */}
           <div className="space-y-2">
-            <label className="text-xs text-neutral-400">Maximum File Size (optional)</label>
+            <label htmlFor="max-file-size" className="text-xs text-neutral-400">Maximum File Size (optional)</label>
             <div className="flex items-center gap-2">
               <input
+                id="max-file-size"
                 type="number"
                 min="0.1"
                 max="50"

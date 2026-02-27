@@ -4,16 +4,16 @@
  */
 
 // Version information injected at build time
-export const APP_VERSION = import.meta.env.VITE_APP_VERSION || '1.0.0';
-export const BUILD_TIMESTAMP = import.meta.env.VITE_BUILD_TIMESTAMP || Date.now().toString();
-export const BUILD_HASH = import.meta.env.VITE_BUILD_HASH || 'dev';
+const APP_VERSION = import.meta.env.VITE_APP_VERSION || '1.0.0';
+const BUILD_TIMESTAMP = import.meta.env.VITE_BUILD_TIMESTAMP || Date.now().toString();
+const BUILD_HASH = import.meta.env.VITE_BUILD_HASH || 'dev';
 
 // Version storage keys
 const VERSION_STORAGE_KEY = 'app_version';
 const LAST_CHECK_STORAGE_KEY = 'last_version_check';
 const UPDATE_DISMISSED_STORAGE_KEY = 'update_dismissed';
 
-export interface VersionInfo {
+interface VersionInfo {
   version: string;
   buildTimestamp: string;
   buildHash: string;
@@ -46,7 +46,7 @@ export function getCurrentVersion(): VersionInfo {
 /**
  * Gets the stored version from localStorage
  */
-export function getStoredVersion(): VersionInfo | null {
+function getStoredVersion(): VersionInfo | null {
   try {
     const stored = localStorage.getItem(VERSION_STORAGE_KEY);
     return stored ? JSON.parse(stored) : null;
@@ -211,7 +211,7 @@ export function dismissUpdate(version: string): void {
 /**
  * Clears the dismissed version (forces update prompt)
  */
-export function clearDismissedUpdate(): void {
+function clearDismissedUpdate(): void {
   try {
     localStorage.removeItem(UPDATE_DISMISSED_STORAGE_KEY);
   } catch (error) {

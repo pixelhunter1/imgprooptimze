@@ -1572,8 +1572,9 @@ export default function CropEditor({
                 <div className="space-y-3 pt-1">
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="text-[10px] text-neutral-500 mb-1 block">Width</label>
+                      <label htmlFor="crop-custom-width" className="text-[10px] text-neutral-500 mb-1 block">Width</label>
                       <input
+                        id="crop-custom-width"
                         type="number"
                         min="1"
                         max="10000"
@@ -1587,8 +1588,9 @@ export default function CropEditor({
                       />
                     </div>
                     <div>
-                      <label className="text-[10px] text-neutral-500 mb-1 block">Height</label>
+                      <label htmlFor="crop-custom-height" className="text-[10px] text-neutral-500 mb-1 block">Height</label>
                       <input
+                        id="crop-custom-height"
                         type="number"
                         min="1"
                         max="10000"
@@ -1952,9 +1954,10 @@ export default function CropEditor({
             <div className="grid grid-cols-2 gap-3 mb-4">
               {/* Padding */}
               <div>
-                <label className="text-[10px] text-neutral-500 mb-1.5 block">Padding</label>
+                <label htmlFor="crop-padding" className="text-[10px] text-neutral-500 mb-1.5 block">Padding</label>
                 <div className="relative">
                   <input
+                    id="crop-padding"
                     type="number"
                     min="0"
                     max="200"
@@ -1968,9 +1971,10 @@ export default function CropEditor({
 
               {/* Corner Radius */}
               <div>
-                <label className="text-[10px] text-neutral-500 mb-1.5 block">Corner Radius</label>
+                <label htmlFor="crop-border-radius" className="text-[10px] text-neutral-500 mb-1.5 block">Corner Radius</label>
                 <div className="relative">
                   <input
+                    id="crop-border-radius"
                     type="number"
                     min="0"
                     max="500"

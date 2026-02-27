@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Sparkles, Zap, Coffee, Rocket, Star, Heart } from 'lucide-react';
 
 interface ProcessingOverlayProps {
@@ -52,6 +52,14 @@ export default function ProcessingOverlay({
 }: ProcessingOverlayProps) {
   const [messageIndex, setMessageIndex] = useState(0);
   const [tipIndex, setTipIndex] = useState(0);
+  const prevIsProcessingRef = useRef(false);
+
+  // Reset indices when transitioning from not-processing to processing
+  if (isProcessing && !prevIsProcessingRef.current) {
+    setMessageIndex(0);
+    setTipIndex(Math.floor(Math.random() * tips.length));
+  }
+  prevIsProcessingRef.current = isProcessing;
 
   // Rotate messages every 2.5 seconds
   useEffect(() => {
@@ -74,14 +82,6 @@ export default function ProcessingOverlay({
     }, 4000);
 
     return () => clearInterval(interval);
-  }, [isProcessing]);
-
-  // Reset indices when starting new processing
-  useEffect(() => {
-    if (isProcessing) {
-      setMessageIndex(0);
-      setTipIndex(Math.floor(Math.random() * tips.length));
-    }
   }, [isProcessing]);
 
   if (!isProcessing) return null;

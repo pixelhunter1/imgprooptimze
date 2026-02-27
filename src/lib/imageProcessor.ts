@@ -83,7 +83,7 @@ export interface FileValidationResult {
   fileName: string;
 }
 
-export interface BatchValidationResult {
+interface BatchValidationResult {
   validFiles: File[];
   invalidFiles: FileValidationResult[];
   hasValidFiles: boolean;
@@ -91,15 +91,14 @@ export interface BatchValidationResult {
 }
 
 // Allowed image formats
-export const ALLOWED_IMAGE_FORMATS = {
+const ALLOWED_IMAGE_FORMATS = {
   'image/png': ['.png'],
   'image/jpeg': ['.jpg', '.jpeg'],
   'image/webp': ['.webp'],
   'image/avif': ['.avif']
 } as const;
 
-export const ALLOWED_MIME_TYPES = Object.keys(ALLOWED_IMAGE_FORMATS) as string[];
-export const ALLOWED_EXTENSIONS = Object.values(ALLOWED_IMAGE_FORMATS).flat();
+const ALLOWED_MIME_TYPES = Object.keys(ALLOWED_IMAGE_FORMATS) as string[];
 
 export interface ProcessedImage {
   id: string;
@@ -1271,14 +1270,6 @@ export class ImageProcessor {
     URL.revokeObjectURL(url);
   }
 
-  static async downloadMultipleFiles(files: ProcessedImage[]): Promise<void> {
-    for (const processedImage of files) {
-      await this.downloadFile(processedImage.optimizedFile);
-      // Small delay to prevent browser blocking multiple downloads
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
-  }
-
   /**
    * Creates and downloads a ZIP file containing all processed images
    * @param files Array of processed images
@@ -1396,17 +1387,6 @@ export class ImageProcessor {
    * Cleans up blob URLs from processed images to prevent memory leaks
    * @param processedImages Array of processed images to clean up
    */
-  static cleanupProcessedImages(processedImages: ProcessedImage[]): void {
-    processedImages.forEach(img => {
-      if (img.originalUrl) {
-        URL.revokeObjectURL(img.originalUrl);
-      }
-      if (img.optimizedUrl && img.optimizedUrl !== img.originalUrl) {
-        URL.revokeObjectURL(img.optimizedUrl);
-      }
-    });
-  }
-
   /**
    * Cleans up a single processed image's blob URLs
    * @param processedImage The processed image to clean up

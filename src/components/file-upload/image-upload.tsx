@@ -367,6 +367,9 @@ const ImageUpload = forwardRef<ImageUploadRef, ImageUploadProps>(({
 
       {/* Upload Area */}
       <div
+        role="button"
+        tabIndex={0}
+        aria-label="Upload images - drag and drop or click to select"
         className={cn(
           "relative border border-dashed rounded-lg p-6 cursor-pointer",
           isDragging
@@ -378,6 +381,7 @@ const ImageUpload = forwardRef<ImageUploadRef, ImageUploadProps>(({
         onDragOver={handleDragOver}
         onDrop={handleDrop}
         onClick={openFileDialog}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openFileDialog(); } }}
       >
         <div className="flex flex-col items-center justify-center text-center space-y-3">
           <div className={cn(
@@ -459,7 +463,7 @@ const ImageUpload = forwardRef<ImageUploadRef, ImageUploadProps>(({
                 </p>
                 <ul className="text-[10px] text-red-400/70 space-y-0.5 ml-2 list-disc list-inside">
                   {validationErrors.map((error, index) => (
-                    <li key={index}>
+                    <li key={`${error.fileName}-${index}`}>
                       <span className="text-red-400">{error.fileName}:</span> {error.error}
                     </li>
                   ))}
@@ -480,7 +484,7 @@ const ImageUpload = forwardRef<ImageUploadRef, ImageUploadProps>(({
             <AlertTitle className="text-xs font-medium">File upload error(s)</AlertTitle>
             <AlertDescription className="text-[10px] text-red-400/80 mt-1">
               {errors.map((error, index) => (
-                <p key={index} className="last:mb-0">
+                <p key={`error-${index}`} className="last:mb-0">
                   {error}
                 </p>
               ))}

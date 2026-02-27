@@ -1,4 +1,4 @@
-import { useState, useEffect, memo } from 'react';
+import { useState, useEffect, useReducer, memo } from 'react';
 import { X, Edit3, FileText, Hash, Type } from 'lucide-react';
 import { type ProcessedImage, ImageProcessor } from '@/lib/imageProcessor';
 
@@ -19,6 +19,43 @@ export interface BatchRenamePattern {
 }
 
 type RenameMode = 'simple' | 'numbered' | 'custom' | 'individual';
+
+type RenameState = {
+  mode: RenameMode;
+  baseName: string;
+  prefix: string;
+  suffix: string;
+  startNumber: number;
+  customNames: string[];
+};
+
+type RenameAction =
+  | { type: 'SET_MODE'; mode: RenameMode }
+  | { type: 'SET_BASE_NAME'; value: string }
+  | { type: 'SET_PREFIX'; value: string }
+  | { type: 'SET_SUFFIX'; value: string }
+  | { type: 'SET_START_NUMBER'; value: number }
+  | { type: 'SET_CUSTOM_NAME'; index: number; value: string };
+
+function renameReducer(state: RenameState, action: RenameAction): RenameState {
+  switch (action.type) {
+    case 'SET_MODE':
+      return { ...state, mode: action.mode };
+    case 'SET_BASE_NAME':
+      return { ...state, baseName: action.value };
+    case 'SET_PREFIX':
+      return { ...state, prefix: action.value };
+    case 'SET_SUFFIX':
+      return { ...state, suffix: action.value };
+    case 'SET_START_NUMBER':
+      return { ...state, startNumber: action.value };
+    case 'SET_CUSTOM_NAME': {
+      const customNames = [...state.customNames];
+      customNames[action.index] = action.value;
+      return { ...state, customNames };
+    }
+  }
+}
 
 // Memoized image component to prevent re-render issues
 const ImageThumbnail = memo(({ image, index }: { image: ProcessedImage; index: number }) => {
@@ -88,14 +125,15 @@ export default function BatchRenameDialog({
   onApply,
   images,
 }: BatchRenameDialogProps) {
-  const [mode, setMode] = useState<RenameMode>('numbered');
-  const [baseName, setBaseName] = useState('image');
-  const [prefix, setPrefix] = useState('');
-  const [suffix, setSuffix] = useState('');
-  const [startNumber, setStartNumber] = useState(1);
-  const [customNames, setCustomNames] = useState<string[]>(
-    images.map(img => img.originalFile.name.replace(/\.[^/.]+$/, ''))
-  );
+  const [renameState, dispatchRename] = useReducer(renameReducer, {
+    mode: 'numbered',
+    baseName: 'image',
+    prefix: '',
+    suffix: '',
+    startNumber: 1,
+    customNames: images.map(img => img.originalFile.name.replace(/\.[^/.]+$/, '')),
+  });
+  const { mode, baseName, prefix, suffix, startNumber, customNames } = renameState;
 
   const handleApply = () => {
     const pattern: BatchRenamePattern = {
@@ -207,10 +245,10 @@ export default function BatchRenameDialog({
           `}</style>
             {/* Mode Selection - Crop modal style buttons */}
             <div>
-              <label className="text-xs uppercase tracking-wide text-neutral-400 mb-2 block">Rename Mode</label>
+              <span className="text-xs uppercase tracking-wide text-neutral-400 mb-2 block">Rename Mode</span>
               <div className="grid grid-cols-4 gap-1.5">
                 <button
-                  onClick={() => setMode('simple')}
+                  onClick={() => dispatchRename({ type: 'SET_MODE', mode: 'simple' })}
                   className={`flex items-center justify-center gap-1.5 px-2 py-2 text-xs rounded ${
                     mode === 'simple'
                       ? 'bg-emerald-600 text-white'
@@ -221,7 +259,7 @@ export default function BatchRenameDialog({
                   Keep Original
                 </button>
                 <button
-                  onClick={() => setMode('numbered')}
+                  onClick={() => dispatchRename({ type: 'SET_MODE', mode: 'numbered' })}
                   className={`flex items-center justify-center gap-1.5 px-2 py-2 text-xs rounded ${
                     mode === 'numbered'
                       ? 'bg-emerald-600 text-white'
@@ -232,7 +270,7 @@ export default function BatchRenameDialog({
                   Numbered
                 </button>
                 <button
-                  onClick={() => setMode('custom')}
+                  onClick={() => dispatchRename({ type: 'SET_MODE', mode: 'custom' })}
                   className={`flex items-center justify-center gap-1.5 px-2 py-2 text-xs rounded ${
                     mode === 'custom'
                       ? 'bg-emerald-600 text-white'
@@ -243,7 +281,7 @@ export default function BatchRenameDialog({
                   Custom
                 </button>
                 <button
-                  onClick={() => setMode('individual')}
+                  onClick={() => dispatchRename({ type: 'SET_MODE', mode: 'individual' })}
                   className={`flex items-center justify-center gap-1.5 px-2 py-2 text-xs rounded ${
                     mode === 'individual'
                       ? 'bg-emerald-600 text-white'
@@ -260,21 +298,23 @@ export default function BatchRenameDialog({
             {mode === 'numbered' && (
               <div className="space-y-3 p-3 bg-neutral-800 rounded">
                 <div className="space-y-1.5">
-                  <label className="text-xs text-neutral-400">Base name</label>
+                  <label htmlFor="rename-base-name" className="text-xs text-neutral-400">Base name</label>
                   <input
+                    id="rename-base-name"
                     type="text"
                     value={baseName}
-                    onChange={(e) => setBaseName(e.target.value)}
+                    onChange={(e) => dispatchRename({ type: 'SET_BASE_NAME', value: e.target.value })}
                     className="w-full px-3 py-2 text-sm rounded bg-neutral-900 text-white border-none focus:outline-none focus:ring-1 focus:ring-emerald-600"
                     placeholder="image"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs text-neutral-400">Start from number</label>
+                  <label htmlFor="rename-start-number" className="text-xs text-neutral-400">Start from number</label>
                   <input
+                    id="rename-start-number"
                     type="number"
                     value={startNumber}
-                    onChange={(e) => setStartNumber(parseInt(e.target.value) || 1)}
+                    onChange={(e) => dispatchRename({ type: 'SET_START_NUMBER', value: parseInt(e.target.value) || 1 })}
                     className="w-full px-3 py-2 text-sm rounded bg-neutral-900 text-white border-none focus:outline-none focus:ring-1 focus:ring-emerald-600"
                     min="1"
                   />
@@ -285,21 +325,23 @@ export default function BatchRenameDialog({
             {mode === 'custom' && (
               <div className="space-y-3 p-3 bg-neutral-800 rounded">
                 <div className="space-y-1.5">
-                  <label className="text-xs text-neutral-400">Prefix (before filename)</label>
+                  <label htmlFor="rename-prefix" className="text-xs text-neutral-400">Prefix (before filename)</label>
                   <input
+                    id="rename-prefix"
                     type="text"
                     value={prefix}
-                    onChange={(e) => setPrefix(e.target.value)}
+                    onChange={(e) => dispatchRename({ type: 'SET_PREFIX', value: e.target.value })}
                     className="w-full px-3 py-2 text-sm rounded bg-neutral-900 text-white border-none focus:outline-none focus:ring-1 focus:ring-emerald-600"
                     placeholder="prefix_"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs text-neutral-400">Suffix (after filename)</label>
+                  <label htmlFor="rename-suffix" className="text-xs text-neutral-400">Suffix (after filename)</label>
                   <input
+                    id="rename-suffix"
                     type="text"
                     value={suffix}
-                    onChange={(e) => setSuffix(e.target.value)}
+                    onChange={(e) => dispatchRename({ type: 'SET_SUFFIX', value: e.target.value })}
                     className="w-full px-3 py-2 text-sm rounded bg-neutral-900 text-white border-none focus:outline-none focus:ring-1 focus:ring-emerald-600"
                     placeholder="_suffix"
                   />
@@ -310,7 +352,7 @@ export default function BatchRenameDialog({
             {mode === 'individual' && (
               <div className="space-y-2 p-3 bg-neutral-800 rounded max-h-[320px] overflow-y-auto scrollbar-thin">
                 {images.map((image, index) => (
-                  <div key={`${image.id}-${index}`} className="flex items-center gap-3 p-2 bg-neutral-900 rounded">
+                  <div key={image.id} className="flex items-center gap-3 p-2 bg-neutral-900 rounded">
                     <div className="flex-shrink-0">
                       <ImageThumbnail image={image} index={index} />
                     </div>
@@ -325,9 +367,7 @@ export default function BatchRenameDialog({
                         type="text"
                         value={customNames[index] || ''}
                         onChange={(e) => {
-                          const newNames = [...customNames];
-                          newNames[index] = e.target.value;
-                          setCustomNames(newNames);
+                          dispatchRename({ type: 'SET_CUSTOM_NAME', index, value: e.target.value });
                         }}
                         className="w-full px-2 py-1.5 text-xs rounded bg-neutral-800 text-white border-none focus:outline-none focus:ring-1 focus:ring-emerald-600"
                         placeholder="New filename"
@@ -341,10 +381,10 @@ export default function BatchRenameDialog({
             {/* Preview - Only show for non-individual modes */}
             {mode !== 'individual' && (
               <div className="space-y-2">
-                <label className="text-xs uppercase tracking-wide text-neutral-400">Preview</label>
+                <span className="text-xs uppercase tracking-wide text-neutral-400">Preview</span>
                 <div className="bg-neutral-800 rounded p-3 space-y-1.5">
                   {previews.map((filename, index) => (
-                    <div key={index} className="flex items-center gap-2 text-xs">
+                    <div key={filename} className="flex items-center gap-2 text-xs">
                       <span className="w-5 h-5 bg-emerald-600/20 text-emerald-500 rounded flex items-center justify-center text-[10px]">
                         {index + 1}
                       </span>

@@ -31,6 +31,9 @@ export default function ImagePreview({
   const [editedFilename, setEditedFilename] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [showCropEditor, setShowCropEditor] = useState(false);
+  const editInputRef = useCallback((node: HTMLInputElement | null) => {
+    node?.focus();
+  }, []);
 
   // Handle crop completion
   const handleCropComplete = useCallback(
@@ -146,8 +149,12 @@ export default function ImagePreview({
         <>
           {/* Image Preview (Static) */}
           <div
+            role="button"
+            tabIndex={0}
+            aria-label="Click to compare original and optimized image"
             className="relative aspect-video bg-neutral-800 overflow-hidden group cursor-pointer"
             onClick={() => setShowModal(true)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setShowModal(true); } }}
           >
             <div className="absolute inset-0 flex items-center justify-center">
               <img
@@ -253,7 +260,7 @@ export default function ImagePreview({
                       onKeyDown={handleKeyPress}
                       className="flex-1 px-2 py-1.5 text-xs rounded bg-neutral-800 text-white border-none focus:outline-none focus:ring-1 focus:ring-emerald-600"
                       placeholder="Filename"
-                      autoFocus
+                      ref={editInputRef}
                     />
                     <div className="px-2 py-1.5 text-xs text-neutral-500 bg-neutral-800 rounded">
                       {ImageProcessor.getExtensionFromFormat(format as 'webp' | 'jpeg' | 'png')}
@@ -281,8 +288,11 @@ export default function ImagePreview({
                 </div>
               ) : (
                 <div
+                  role="button"
+                  tabIndex={0}
                   className="group flex items-center gap-2 p-1.5 rounded hover:bg-neutral-800 cursor-pointer"
                   onClick={handleStartEdit}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleStartEdit(); } }}
                   title="Click to rename this file"
                 >
                   <Edit2 className="h-3 w-3 text-neutral-500 group-hover:text-emerald-500" />

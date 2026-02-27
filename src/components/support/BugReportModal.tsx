@@ -117,10 +117,11 @@ ${formData.additionalInfo || 'None'}
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           {/* User Email (Required) */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+            <label htmlFor="bug-email" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
               Your email *
             </label>
             <input
+              id="bug-email"
               type="email"
               value={formData.userEmail}
               onChange={(e) => setFormData(prev => ({ ...prev, userEmail: e.target.value }))}
@@ -132,10 +133,11 @@ ${formData.additionalInfo || 'None'}
 
           {/* Bug Description (Required) */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+            <label htmlFor="bug-description" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
               Problem description *
             </label>
             <textarea
+              id="bug-description"
               value={formData.bugDescription}
               onChange={(e) => setFormData(prev => ({ ...prev, bugDescription: e.target.value }))}
               placeholder="Describe the issue you found..."
@@ -147,10 +149,11 @@ ${formData.additionalInfo || 'None'}
 
           {/* Steps to Reproduce */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+            <label htmlFor="bug-steps" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
               Steps to reproduce
             </label>
             <textarea
+              id="bug-steps"
               value={formData.stepsToReproduce}
               onChange={(e) => setFormData(prev => ({ ...prev, stepsToReproduce: e.target.value }))}
               placeholder="1. First I did this...&#10;2. Then I clicked on...&#10;3. And then this happened..."
@@ -161,10 +164,11 @@ ${formData.additionalInfo || 'None'}
 
           {/* Expected Behavior */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+            <label htmlFor="bug-expected" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
               Expected behavior
             </label>
             <textarea
+              id="bug-expected"
               value={formData.expectedBehavior}
               onChange={(e) => setFormData(prev => ({ ...prev, expectedBehavior: e.target.value }))}
               placeholder="What should have happened..."
@@ -175,10 +179,11 @@ ${formData.additionalInfo || 'None'}
 
           {/* Additional Info */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+            <label htmlFor="bug-additional" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
               Additional information
             </label>
             <textarea
+              id="bug-additional"
               value={formData.additionalInfo}
               onChange={(e) => setFormData(prev => ({ ...prev, additionalInfo: e.target.value }))}
               placeholder="Any other relevant information..."

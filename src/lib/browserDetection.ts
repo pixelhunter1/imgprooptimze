@@ -152,49 +152,6 @@ export function getBrowserCapabilities(browserInfo?: BrowserInfo): BrowserCapabi
 }
 
 /**
- * Gets Safari-specific optimization options
- */
-export function getSafariOptimizedOptions(originalOptions: any): any {
-  const capabilities = getBrowserCapabilities();
-  
-  if (!capabilities.showCompatibilityWarning) {
-    return originalOptions;
-  }
-  
-  return {
-    ...originalOptions,
-    quality: Math.min(originalOptions.quality, capabilities.maxQualityRecommended),
-    format: capabilities.canUseWebP ? originalOptions.format : 'jpeg',
-    useWebWorker: capabilities.canUseWebWorkers,
-    maxWidthOrHeight: Math.min(originalOptions.maxWidthOrHeight || 1920, 1920), // Limit size for Safari
-  };
-}
-
-/**
- * Checks if current browser needs special handling
- */
-export function needsCompatibilityMode(): boolean {
-  const browser = detectBrowser();
-  return browser.hasCompressionIssues;
-}
-
-/**
- * Gets user-friendly browser compatibility message
- */
-export function getCompatibilityMessage(browserInfo?: BrowserInfo): string | null {
-  const browser = browserInfo || detectBrowser();
-  
-  if (browser.isSafari || browser.isIOS) {
-    if (!browser.supportsWebP) {
-      return 'Safari detected: WebP format not supported. Using JPEG format for better compatibility.';
-    }
-    return 'Safari detected: Using optimized settings for better performance and compatibility.';
-  }
-  
-  return null;
-}
-
-/**
  * Logs browser information for debugging
  */
 export function logBrowserInfo(): void {

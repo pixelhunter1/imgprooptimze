@@ -9,13 +9,6 @@ export interface CropArea {
   height: number;
 }
 
-export interface AspectRatioPreset {
-  id: string;
-  label: string;
-  ratio: number | null; // null = free crop
-  description: string;
-}
-
 export interface SizePreset {
   id: string;
   label: string;
@@ -24,20 +17,6 @@ export interface SizePreset {
   category: 'social' | 'video' | 'print' | 'web' | 'ecommerce';
   description: string;
 }
-
-// Aspect ratio presets (proportional)
-export const ASPECT_RATIO_PRESETS: AspectRatioPreset[] = [
-  { id: 'free', label: 'Free', ratio: null, description: 'Free selection' },
-  { id: '1:1', label: '1:1', ratio: 1, description: 'Square' },
-  { id: '4:3', label: '4:3', ratio: 4 / 3, description: 'Standard photo' },
-  { id: '3:4', label: '3:4', ratio: 3 / 4, description: 'Portrait' },
-  { id: '16:9', label: '16:9', ratio: 16 / 9, description: 'Widescreen' },
-  { id: '9:16', label: '9:16', ratio: 9 / 16, description: 'Stories' },
-  { id: '4:5', label: '4:5', ratio: 4 / 5, description: 'Instagram portrait' },
-  { id: '2:3', label: '2:3', ratio: 2 / 3, description: 'Print photo' },
-  { id: '3:2', label: '3:2', ratio: 3 / 2, description: 'DSLR photo' },
-  { id: '21:9', label: '21:9', ratio: 21 / 9, description: 'Ultrawide' },
-];
 
 // Size presets with exact dimensions (in pixels)
 export const SIZE_PRESETS: SizePreset[] = [
@@ -76,93 +55,3 @@ export const SIZE_PRESETS: SizePreset[] = [
   { id: 'amazon-zoom', label: 'Amazon Zoom', width: 2000, height: 2000, category: 'ecommerce', description: 'Zoom ready' },
   { id: 'ebay-product', label: 'eBay Product', width: 1600, height: 1600, category: 'ecommerce', description: 'Listing image' },
 ];
-
-// Group size presets by category
-export const SIZE_PRESETS_BY_CATEGORY = {
-  social: SIZE_PRESETS.filter(p => p.category === 'social'),
-  video: SIZE_PRESETS.filter(p => p.category === 'video'),
-  web: SIZE_PRESETS.filter(p => p.category === 'web'),
-  ecommerce: SIZE_PRESETS.filter(p => p.category === 'ecommerce'),
-};
-
-export interface CropSettings {
-  aspectRatio: AspectRatioPreset;
-  cropArea: CropArea | null;
-  outputSize?: { width: number; height: number } | null; // Target output size
-}
-
-export interface ImageWithCrop {
-  id: string;
-  file: File;
-  preview: string;
-  cropSettings?: CropSettings;
-}
-
-/**
- * Calculate if a size preset can be used with an image
- * Returns true if image is large enough for the preset
- */
-export function canUseSizePreset(imageWidth: number, imageHeight: number, preset: SizePreset): boolean {
-  return imageWidth >= preset.width && imageHeight >= preset.height;
-}
-
-/**
- * Get available size presets for an image based on its dimensions
- */
-export function getAvailableSizePresets(imageWidth: number, imageHeight: number): SizePreset[] {
-  return SIZE_PRESETS.filter(preset => canUseSizePreset(imageWidth, imageHeight, preset));
-}
-
-/**
- * Calculate the crop area for a size preset centered in the image
- */
-export function calculateCropAreaForSize(
-  imageWidth: number,
-  imageHeight: number,
-  targetWidth: number,
-  targetHeight: number
-): CropArea | null {
-  // If image is smaller than target, can't crop
-  if (imageWidth < targetWidth || imageHeight < targetHeight) {
-    return null;
-  }
-
-  // Center the crop area
-  const x = Math.floor((imageWidth - targetWidth) / 2);
-  const y = Math.floor((imageHeight - targetHeight) / 2);
-
-  return {
-    x,
-    y,
-    width: targetWidth,
-    height: targetHeight,
-  };
-}
-
-/**
- * Scale crop area to fit within image bounds while maintaining aspect ratio
- */
-export function scaleCropAreaToFit(
-  cropArea: CropArea,
-  imageWidth: number,
-  imageHeight: number,
-  targetRatio: number
-): CropArea {
-  let { width, height } = cropArea;
-
-  // Ensure dimensions don't exceed image
-  if (width > imageWidth) {
-    width = imageWidth;
-    height = width / targetRatio;
-  }
-  if (height > imageHeight) {
-    height = imageHeight;
-    width = height * targetRatio;
-  }
-
-  // Center in image
-  const x = Math.max(0, Math.floor((imageWidth - width) / 2));
-  const y = Math.max(0, Math.floor((imageHeight - height) / 2));
-
-  return { x, y, width: Math.floor(width), height: Math.floor(height) };
-}

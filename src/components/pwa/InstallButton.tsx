@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useReducer, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Download, X } from 'lucide-react';
 
@@ -11,22 +11,56 @@ interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
 }
 
+type InstallState = {
+  deferredPrompt: BeforeInstallPromptEvent | null;
+  showBanner: boolean;
+  isInstalled: boolean;
+};
+
+type InstallAction =
+  | { type: 'PROMPT_READY'; prompt: BeforeInstallPromptEvent }
+  | { type: 'SHOW_BANNER' }
+  | { type: 'INSTALLED' }
+  | { type: 'PROMPT_USED' }
+  | { type: 'DISMISS_BANNER' };
+
+const initialState: InstallState = {
+  deferredPrompt: null,
+  showBanner: false,
+  isInstalled: false,
+};
+
+function installReducer(state: InstallState, action: InstallAction): InstallState {
+  switch (action.type) {
+    case 'PROMPT_READY':
+      return { ...state, deferredPrompt: action.prompt };
+    case 'SHOW_BANNER':
+      return { ...state, showBanner: true };
+    case 'INSTALLED':
+      return { ...state, isInstalled: true, showBanner: false, deferredPrompt: null };
+    case 'PROMPT_USED':
+      return { ...state, deferredPrompt: null, showBanner: false };
+    case 'DISMISS_BANNER':
+      return { ...state, showBanner: false };
+    default:
+      return state;
+  }
+}
+
 export default function InstallButton() {
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [showInstallBanner, setShowInstallBanner] = useState(false);
-  const [isInstalled, setIsInstalled] = useState(false);
+  const [state, dispatch] = useReducer(installReducer, initialState);
 
   useEffect(() => {
     // Check if app is already installed
     const checkIfInstalled = () => {
       if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) {
-        setIsInstalled(true);
+        dispatch({ type: 'INSTALLED' });
         return;
       }
-      
+
       // Check for iOS standalone mode
       if ((window.navigator as any).standalone === true) {
-        setIsInstalled(true);
+        dispatch({ type: 'INSTALLED' });
         return;
       }
     };
@@ -36,20 +70,18 @@ export default function InstallButton() {
     // Listen for beforeinstallprompt event
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
-      setDeferredPrompt(e as BeforeInstallPromptEvent);
-      
+      dispatch({ type: 'PROMPT_READY', prompt: e as BeforeInstallPromptEvent });
+
       // Show install banner after a delay
       setTimeout(() => {
-        setShowInstallBanner(true);
+        dispatch({ type: 'SHOW_BANNER' });
       }, 3000);
     };
 
     // Listen for app installed event
     const handleAppInstalled = () => {
       console.log('PWA was installed');
-      setIsInstalled(true);
-      setShowInstallBanner(false);
-      setDeferredPrompt(null);
+      dispatch({ type: 'INSTALLED' });
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -62,38 +94,37 @@ export default function InstallButton() {
   }, []);
 
   const handleInstallClick = async () => {
-    if (!deferredPrompt) return;
+    if (!state.deferredPrompt) return;
 
     try {
-      await deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      
+      await state.deferredPrompt.prompt();
+      const { outcome } = await state.deferredPrompt.userChoice;
+
       if (outcome === 'accepted') {
         console.log('User accepted the install prompt');
       } else {
         console.log('User dismissed the install prompt');
       }
-      
-      setDeferredPrompt(null);
-      setShowInstallBanner(false);
+
+      dispatch({ type: 'PROMPT_USED' });
     } catch (error) {
       console.error('Error during installation:', error);
     }
   };
 
   const handleDismissBanner = () => {
-    setShowInstallBanner(false);
+    dispatch({ type: 'DISMISS_BANNER' });
     // Don't show again for this session
     sessionStorage.setItem('installBannerDismissed', 'true');
   };
 
   // Don't show if already installed or dismissed this session
-  if (isInstalled || sessionStorage.getItem('installBannerDismissed')) {
+  if (state.isInstalled || sessionStorage.getItem('installBannerDismissed')) {
     return null;
   }
 
   // Install banner
-  if (showInstallBanner && deferredPrompt) {
+  if (state.showBanner && state.deferredPrompt) {
     return (
       <div className="fixed bottom-4 left-4 right-4 z-50 bg-card border border-border rounded-lg shadow-lg p-4 max-w-sm mx-auto">
         <div className="flex items-start gap-3">
@@ -131,7 +162,7 @@ export default function InstallButton() {
   }
 
   // Inline install button (for header or toolbar)
-  if (deferredPrompt) {
+  if (state.deferredPrompt) {
     return (
       <Button
         variant="outline"

@@ -539,8 +539,9 @@ export default function BatchCropDialog({
                 <div className="space-y-2 pt-1">
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="text-[10px] text-neutral-500 mb-1 block">Width</label>
+                      <label htmlFor="batch-crop-width" className="text-[10px] text-neutral-500 mb-1 block">Width</label>
                       <input
+                        id="batch-crop-width"
                         type="number"
                         min="1"
                         max="10000"
@@ -551,8 +552,9 @@ export default function BatchCropDialog({
                       />
                     </div>
                     <div>
-                      <label className="text-[10px] text-neutral-500 mb-1 block">Height</label>
+                      <label htmlFor="batch-crop-height" className="text-[10px] text-neutral-500 mb-1 block">Height</label>
                       <input
+                        id="batch-crop-height"
                         type="number"
                         min="1"
                         max="10000"
@@ -853,9 +855,10 @@ export default function BatchCropDialog({
             {/* Padding & Corner Radius */}
             <div className="grid grid-cols-2 gap-2 mb-3">
               <div>
-                <label className="text-[10px] text-neutral-500 mb-1 block">Padding</label>
+                <label htmlFor="batch-crop-padding" className="text-[10px] text-neutral-500 mb-1 block">Padding</label>
                 <div className="relative">
                   <input
+                    id="batch-crop-padding"
                     type="number"
                     min="0"
                     max="200"
@@ -869,9 +872,10 @@ export default function BatchCropDialog({
               </div>
 
               <div>
-                <label className="text-[10px] text-neutral-500 mb-1 block">Radius</label>
+                <label htmlFor="batch-crop-radius" className="text-[10px] text-neutral-500 mb-1 block">Radius</label>
                 <div className="relative">
                   <input
+                    id="batch-crop-radius"
                     type="number"
                     min="0"
                     max="500"
