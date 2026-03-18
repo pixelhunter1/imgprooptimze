@@ -13,6 +13,24 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return ipcRenderer.invoke('save-zip', buffer, defaultName)
   },
 
+  optimizeImage: (payload: {
+    buffer: ArrayBuffer
+    fileName: string
+    mimeType: string
+    options: {
+      format: 'webp' | 'jpeg' | 'png' | 'avif'
+      quality: number
+      maxSizeMB?: number
+      maxWidthOrHeight?: number
+      preserveExif?: boolean
+      progressiveJpeg?: boolean
+      losslessWebP?: boolean
+      pngCompressionLevel?: number
+    }
+  }): Promise<{ success: boolean; buffer?: ArrayBuffer; mimeType?: string; width?: number; height?: number; error?: string }> => {
+    return ipcRenderer.invoke('optimize-image', payload)
+  },
+
   // Get app version
   getAppVersion: (): Promise<string> => {
     return ipcRenderer.invoke('get-app-version')

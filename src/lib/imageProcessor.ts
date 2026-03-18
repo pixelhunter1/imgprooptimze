@@ -138,6 +138,47 @@ export class ImageProcessor {
     });
   }
 
+  private static async nativeElectronOptimization(
+    file: File,
+    options: OptimizationOptions,
+    onProgress?: (progress: number) => void
+  ): Promise<File> {
+    if (!window.electronAPI?.optimizeImage) {
+      throw new Error('Electron optimization API is not available')
+    }
+
+    if (onProgress) onProgress(15)
+    await this.yieldToMainThread()
+
+    const buffer = await file.arrayBuffer()
+    const result = await window.electronAPI.optimizeImage({
+      buffer,
+      fileName: file.name,
+      mimeType: file.type,
+      options: {
+        format: options.format,
+        quality: options.quality,
+        maxSizeMB: options.maxSizeMB,
+        maxWidthOrHeight: options.maxWidthOrHeight,
+        preserveExif: options.preserveExif,
+        progressiveJpeg: options.progressiveJpeg,
+        losslessWebP: options.losslessWebP,
+        pngCompressionLevel: options.pngCompressionLevel,
+      }
+    })
+
+    if (!result.success || !result.buffer || !result.mimeType) {
+      throw new Error(result.error || 'Electron optimization failed')
+    }
+
+    const actualFormat = this.getFormatFromMimeType(result.mimeType)
+    const fileName = this.generateFileName(file.name, actualFormat)
+    const optimizedBlob = new Blob([result.buffer], { type: result.mimeType })
+
+    if (onProgress) onProgress(100)
+    return this.createFileFromBlob(optimizedBlob, fileName, result.mimeType)
+  }
+
   private static loadImageFromUrl(
     imageUrl: string,
     operationName: string,
@@ -803,6 +844,8 @@ export class ImageProcessor {
     onProgress?: (progress: number) => void
   ): Promise<ProcessedImage> {
     try {
+      const canUseElectronOptimization = isElectron && !!window.electronAPI?.optimizeImage;
+
       // Apply browser-specific optimizations first to get capabilities
       const browserInfo = detectBrowser();
       const capabilities = getBrowserCapabilities(browserInfo);
@@ -818,7 +861,7 @@ export class ImageProcessor {
 
       // Extract EXIF data if preservation is enabled (JPEG/TIFF only)
       let exifData: string | null = null;
-      if (options.preserveExif && (workingFile.type === 'image/jpeg' || workingFile.type === 'image/tiff')) {
+      if (!canUseElectronOptimization && options.preserveExif && (workingFile.type === 'image/jpeg' || workingFile.type === 'image/tiff')) {
         exifData = await this.extractExifData(workingFile);
         if (exifData) {
           console.log('📸 EXIF data extracted successfully');
@@ -826,7 +869,7 @@ export class ImageProcessor {
       }
 
       // Check if we can skip processing entirely
-      if (this.shouldSkipProcessing(workingFile, options)) {
+      if (!canUseElectronOptimization && this.shouldSkipProcessing(workingFile, options)) {
         if (onProgress) onProgress(100);
         return this.createUnprocessedResult(workingFile, options);
       }
@@ -850,8 +893,12 @@ export class ImageProcessor {
 
       let finalFile: File;
 
-      // Choose optimization method based on format, quality, and browser capabilities
-      finalFile = await this.selectOptimizationMethod(workingFile, optimizedOptions, capabilities, onProgress);
+      if (canUseElectronOptimization) {
+        finalFile = await this.nativeElectronOptimization(workingFile, processingOptions, onProgress);
+      } else {
+        // Choose optimization method based on format, quality, and browser capabilities
+        finalFile = await this.selectOptimizationMethod(workingFile, optimizedOptions, capabilities, onProgress);
+      }
 
       // Insert EXIF data back if it was extracted and output is JPEG
       if (exifData && options.preserveExif && options.format === 'jpeg') {
