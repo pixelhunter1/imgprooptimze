@@ -120,6 +120,17 @@ export interface ProcessedImage {
 }
 
 export class ImageProcessor {
+  private static async yieldToMainThread(): Promise<void> {
+    await new Promise<void>((resolve) => {
+      if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+        window.requestAnimationFrame(() => resolve());
+        return;
+      }
+
+      setTimeout(resolve, 0);
+    });
+  }
+
   private static createFileFromBlob(blob: Blob, filename: string, fallbackMime: string): File {
     return new File([blob], filename, {
       type: blob.type || fallbackMime,
@@ -276,12 +287,12 @@ export class ImageProcessor {
 
     const blob = await this.canvasToBlobWithTimeout(
       canvas,
-      file.type || 'image/png',
+      'image/png',
       1.0,
       'Crop'
     );
 
-    const croppedFile = this.createFileFromBlob(blob, file.name, file.type || 'image/png');
+    const croppedFile = this.createFileFromBlob(blob, file.name, 'image/png');
     console.log(`✂️ Image cropped: ${srcW}x${srcH} from ${img.width}x${img.height}`);
     return croppedFile;
   }
@@ -379,23 +390,20 @@ export class ImageProcessor {
   static shouldSkipProcessing(file: File, options: OptimizationOptions): boolean {
     const inputFormat = this.getFormatFromMimeType(file.type);
     const outputFormat = options.format;
+    const hasResizeConstraint = typeof options.maxWidthOrHeight === 'number' && options.maxWidthOrHeight > 0;
+    const hasSizeLimit = typeof options.maxSizeMB === 'number' && options.maxSizeMB > 0;
 
-    // Never skip processing for JPEG - always apply some optimization
-    if (outputFormat === 'jpeg') {
+    if (inputFormat !== outputFormat || hasResizeConstraint || hasSizeLimit) {
       return false;
     }
 
-    // For PNG: Skip if same format and maximum quality (100%)
-    if (inputFormat === outputFormat && outputFormat === 'png' && options.quality >= 1.0) {
+    // Preserve originals when the user requests maximum quality with no resize or file-size target.
+    if ((outputFormat === 'jpeg' || outputFormat === 'webp' || outputFormat === 'avif') && options.quality >= 1.0) {
       return true;
     }
 
-    // For WebP: Skip if same format and very high quality with no constraints
-    if (inputFormat === outputFormat &&
-      outputFormat === 'webp' &&
-      options.quality >= 0.95 &&
-      !options.maxWidthOrHeight &&
-      !options.maxSizeMB) {
+    // For PNG: Skip if same format and maximum quality (100%)
+    if (outputFormat === 'png' && options.quality >= 1.0) {
       return true;
     }
 
@@ -461,6 +469,10 @@ export class ImageProcessor {
     const isHighQuality = options.quality >= 0.9;
     const isPngOutput = outputFormat === 'png';
     const isAvifOutput = outputFormat === 'avif';
+    const hasResizeConstraint = typeof options.maxWidthOrHeight === 'number' && options.maxWidthOrHeight > 0;
+    const canUseWorkerPipeline =
+      capabilities.canUseWebWorkers &&
+      capabilities.compressionMethod !== 'canvas';
 
     // AVIF encoding using jsquash (WASM-based)
     if (isAvifOutput) {
@@ -472,6 +484,11 @@ export class ImageProcessor {
       return await this.smartPngOptimization(file, options, onProgress);
     }
 
+    // Prefer the worker-backed path whenever resize is requested on supported browsers.
+    if (hasResizeConstraint && canUseWorkerPipeline) {
+      return await this.standardOptimization(file, options, onProgress);
+    }
+
     if (isHighQuality) {
       return await this.highQualityOptimization(file, options, onProgress);
     }
@@ -480,7 +497,7 @@ export class ImageProcessor {
       return await this.safariOptimizedCompression(file, options, onProgress);
     }
 
-    if (capabilities.compressionMethod === 'library' && capabilities.canUseWebWorkers) {
+    if (canUseWorkerPipeline) {
       return await this.standardOptimization(file, options, onProgress);
     }
 
@@ -542,6 +559,9 @@ export class ImageProcessor {
           ctx.drawImage(img, 0, 0, width, height);
 
           if (onProgress) onProgress(15);
+
+          // Yield before extracting raw pixels and running the AVIF encoder.
+          await this.yieldToMainThread();
 
           // Get ImageData for jsquash encoder
           const imageData = ctx.getImageData(0, 0, width, height);
@@ -619,20 +639,9 @@ export class ImageProcessor {
   static applyBrowserOptimizations(options: OptimizationOptions, capabilities: ReturnType<typeof getBrowserCapabilities>): OptimizationOptions {
     const optimized = { ...options };
 
-    // Adjust quality for Safari
-    if (capabilities.showCompatibilityWarning) {
-      optimized.quality = Math.min(optimized.quality, capabilities.maxQualityRecommended);
-    }
-
     // Force format change if WebP not supported
     if (!capabilities.canUseWebP && optimized.format === 'webp') {
       optimized.format = capabilities.recommendedFormat;
-    }
-
-    // Limit dimensions for mobile Safari
-    const browserInfo = detectBrowser();
-    if (browserInfo.isIOS && browserInfo.isMobile) {
-      optimized.maxWidthOrHeight = Math.min(optimized.maxWidthOrHeight || 1920, 1600);
     }
 
     return optimized;
@@ -651,10 +660,10 @@ export class ImageProcessor {
     const img = await this.loadImageFromFile(file, 'Safari compression');
     if (onProgress) onProgress(30);
 
-    const maxDimension = options.maxWidthOrHeight || 1600;
     let { width, height } = img;
 
-    if (width > maxDimension || height > maxDimension) {
+    if (options.maxWidthOrHeight && (width > options.maxWidthOrHeight || height > options.maxWidthOrHeight)) {
+      const maxDimension = options.maxWidthOrHeight;
       const ratio = Math.min(maxDimension / width, maxDimension / height);
       width = Math.round(width * ratio);
       height = Math.round(height * ratio);
@@ -674,7 +683,7 @@ export class ImageProcessor {
     if (onProgress) onProgress(50);
 
     ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'medium';
+    ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(img, 0, 0, width, height);
     if (onProgress) onProgress(80);
 
@@ -976,12 +985,17 @@ export class ImageProcessor {
     // Check if we need to resize the image
     const needsResize = await this.checkIfResizeNeeded(file, options.maxWidthOrHeight);
 
-    // For JPEG, always process to apply compression (never skip)
-    if (outputFormat === 'jpeg') {
-      // Continue with processing
+    // If the user requested maximum quality with no resize or file-size target, keep the original.
+    if (inputFormat === outputFormat &&
+      options.quality >= 1.0 &&
+      !needsResize &&
+      !options.maxSizeMB) {
+      if (onProgress) onProgress(100);
+      return file;
     }
+
     // For PNG: If same format, maximum quality, and no resize needed, return original
-    else if (inputFormat === outputFormat &&
+    if (inputFormat === outputFormat &&
       outputFormat === 'png' &&
       options.quality >= 1.0 &&
       !needsResize) {
@@ -1005,7 +1019,7 @@ export class ImageProcessor {
 
       const imageUrl = URL.createObjectURL(file);
 
-      img.onload = () => {
+      img.onload = async () => {
         try {
           // Clean up the temporary URL
           URL.revokeObjectURL(imageUrl);
@@ -1040,6 +1054,8 @@ export class ImageProcessor {
           }
 
           if (onProgress) onProgress(50);
+
+          await this.yieldToMainThread();
 
           // Draw image with high quality
           ctx.drawImage(img, 0, 0, width, height);
@@ -1111,19 +1127,25 @@ export class ImageProcessor {
 
     // Configure compression options - prioritize quality over file size for better results
     const compressionOptions: {
-      maxWidthOrHeight: number;
       useWebWorker: boolean;
-      fileType: string;
       initialQuality: number;
       onProgress?: (progress: number) => void;
+      maxWidthOrHeight?: number;
+      fileType?: string;
       maxSizeMB?: number;
     } = {
-      maxWidthOrHeight: options.maxWidthOrHeight || 1920,
       useWebWorker: capabilities.canUseWebWorkers, // Disable for Safari
-      fileType: this.getFileType(options.format),
       initialQuality: options.quality,
       onProgress: onProgress,
     };
+
+    if (options.maxWidthOrHeight) {
+      compressionOptions.maxWidthOrHeight = options.maxWidthOrHeight;
+    }
+
+    if (options.format !== inputFormat) {
+      compressionOptions.fileType = this.getFileType(options.format);
+    }
 
     // PNG-specific optimizations
     if (isPngOutput || isPngInput) {
@@ -1149,8 +1171,8 @@ export class ImageProcessor {
     // Compress the image
     const compressedFile = await imageCompression(file, compressionOptions);
 
-    // If we need format conversion, use high-quality Canvas conversion
-    if (options.format !== this.getFormatFromMimeType(file.type)) {
+    // Avoid a second lossy encode if the library already returned the requested format.
+    if (options.format !== this.getFormatFromMimeType(compressedFile.type || file.type)) {
       return await this.convertFormat(compressedFile, options.format, options.quality, options.losslessWebP);
     }
 
@@ -1516,12 +1538,12 @@ export class ImageProcessor {
 
     const blob = await this.canvasToBlobWithTimeout(
       canvas,
-      file.type || 'image/png',
+      'image/png',
       1.0,
       'Batch crop'
     );
 
-    const croppedFile = this.createFileFromBlob(blob, file.name, file.type || 'image/png');
+    const croppedFile = this.createFileFromBlob(blob, file.name, 'image/png');
     console.log(`✂️ Batch crop: ${img.width}x${img.height} → ${safeTargetWidth}x${safeTargetHeight}`);
     return croppedFile;
   }

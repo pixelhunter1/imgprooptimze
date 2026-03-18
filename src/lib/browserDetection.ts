@@ -36,9 +36,10 @@ export interface BrowserCapabilities {
 export function detectBrowser(): BrowserInfo {
   const userAgent = navigator.userAgent;
   const vendor = navigator.vendor || '';
+  const braveNavigator = navigator as Navigator & { brave?: unknown };
   
   // Browser detection
-  const isBrave = /Brave/.test(userAgent) || (navigator as any).brave !== undefined;
+  const isBrave = /Brave/.test(userAgent) || braveNavigator.brave !== undefined;
   const isSafari = /^((?!chrome|android|brave).)*safari/i.test(userAgent) ||
                    (/Safari/.test(userAgent) && /Apple Computer/.test(vendor) && !isBrave);
   const isChrome = /Chrome/.test(userAgent) && /Google Inc/.test(vendor) && !isBrave;
@@ -120,7 +121,7 @@ export function getBrowserCapabilities(browserInfo?: BrowserInfo): BrowserCapabi
       canUseWebWorkers: false, // Disable web workers for Safari due to issues
       canUseOffscreenCanvas: false,
       recommendedFormat: browser.supportsWebP ? 'webp' : 'jpeg',
-      maxQualityRecommended: 0.85, // Lower quality for Safari to avoid issues
+      maxQualityRecommended: 1.0, // Advisory only; processing should not clamp quality silently
       compressionMethod: 'canvas', // Use canvas-only approach
       showCompatibilityWarning: true
     };
@@ -145,7 +146,7 @@ export function getBrowserCapabilities(browserInfo?: BrowserInfo): BrowserCapabi
     canUseWebWorkers: browser.supportsWebWorkers,
     canUseOffscreenCanvas: false,
     recommendedFormat: 'jpeg',
-    maxQualityRecommended: 0.9,
+    maxQualityRecommended: 1.0, // Advisory only; keep user-selected quality intact
     compressionMethod: 'canvas',
     showCompatibilityWarning: true
   };

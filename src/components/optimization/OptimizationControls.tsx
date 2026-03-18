@@ -65,6 +65,8 @@ export default function OptimizationControls({
     { value: 1.0, label: 'Maximum' },
   ];
 
+  const resizeEnabled = options.maxWidthOrHeight !== undefined && options.maxWidthOrHeight !== null;
+
   return (
     <Card className="w-full">
       <CardContent className="p-4 space-y-4">
@@ -168,7 +170,7 @@ export default function OptimizationControls({
           {/* Quality mapping info for 100% */}
           {options.quality >= 1.0 && options.format !== 'png' && (
             <p className="text-[10px] text-blue-400/80 bg-blue-950/30 p-2 rounded border border-blue-900/30">
-              <strong className="text-blue-400">Smart optimization:</strong> To prevent file size increases, 100% quality is processed at 90% internally.
+              <strong className="text-blue-400">Maximum quality:</strong> 100% keeps the selected quality value. If you need smaller files, lower the slider manually.
             </p>
           )}
         </div>
@@ -176,6 +178,54 @@ export default function OptimizationControls({
         {/* Advanced Options */}
         <div className="space-y-3 border-t border-neutral-800 pt-4">
           <h4 className="text-xs uppercase tracking-wide text-neutral-400">Advanced Options</h4>
+
+          {/* Resize Control */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-3">
+              <label htmlFor="enable-resize" className="text-xs text-neutral-400">
+                Resize outputs
+              </label>
+              <input
+                id="enable-resize"
+                type="checkbox"
+                checked={resizeEnabled}
+                onChange={(e) => onOptionsChange({
+                  ...options,
+                  maxWidthOrHeight: e.target.checked ? (options.maxWidthOrHeight || 1920) : undefined
+                })}
+                className="h-4 w-4 rounded bg-neutral-800 border-neutral-700 text-emerald-600 focus:ring-emerald-600 focus:ring-offset-0"
+              />
+            </div>
+
+            {resizeEnabled ? (
+              <div className="flex items-center gap-2">
+                <input
+                  id="max-dimension"
+                  type="number"
+                  min="1"
+                  max="20000"
+                  step="1"
+                  placeholder="px"
+                  value={options.maxWidthOrHeight ?? ''}
+                  onChange={(e) => onOptionsChange({
+                    ...options,
+                    maxWidthOrHeight: (() => {
+                      const nextValue = Number(e.target.value);
+                      return e.target.value && Number.isFinite(nextValue)
+                        ? Math.max(1, Math.round(nextValue))
+                        : undefined;
+                    })()
+                  })}
+                  className="flex-1 px-3 py-2 text-sm rounded bg-neutral-800 text-neutral-300 border-none focus:outline-none focus:ring-1 focus:ring-emerald-600"
+                />
+                <span className="text-xs text-neutral-500">px</span>
+              </div>
+            ) : (
+              <p className="text-[10px] text-neutral-500">
+                Off by default. Enable this only if you want the output constrained to a maximum dimension.
+              </p>
+            )}
+          </div>
 
           {/* Max File Size */}
           <div className="space-y-2">
@@ -251,7 +301,7 @@ export default function OptimizationControls({
                 {browserInfo.name} has reduced performance. For best results, use Chrome, Firefox, or Edge.
               </p>
               <div className="text-[10px] text-amber-500/60">
-                Quality limited to {Math.round(capabilities.maxQualityRecommended * 100)}%
+                Some browser paths may apply extra constraints. Keep resize off unless you need it.
               </div>
             </div>
           </div>

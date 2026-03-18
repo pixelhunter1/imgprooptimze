@@ -60,6 +60,17 @@ function App() {
   const [activeDialog, setActiveDialog] = useState<ActiveDialog>(null);
   const imageUploadRef = useRef<ImageUploadRef>(null);
 
+  const yieldToBrowser = useCallback(async () => {
+    await new Promise<void>((resolve) => {
+      if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+        window.requestAnimationFrame(() => resolve());
+        return;
+      }
+
+      setTimeout(resolve, 0);
+    });
+  }, []);
+
   // Log browser info on mount
   useEffect(() => {
     logBrowserInfo();
@@ -91,17 +102,17 @@ function App() {
       // Clean up processed images using ref (current values at cleanup time)
       processedImagesRef.current.forEach(img => {
         if (img.originalUrl) {
-          try { URL.revokeObjectURL(img.originalUrl); } catch (e) { /* ignore */ }
+          try { URL.revokeObjectURL(img.originalUrl); } catch { /* ignore */ }
         }
         if (img.optimizedUrl) {
-          try { URL.revokeObjectURL(img.optimizedUrl); } catch (e) { /* ignore */ }
+          try { URL.revokeObjectURL(img.optimizedUrl); } catch { /* ignore */ }
         }
       });
 
       // Clean up uploaded images using ref
       uploadedImagesRef.current.forEach(img => {
         if (img.preview) {
-          try { URL.revokeObjectURL(img.preview); } catch (e) { /* ignore */ }
+          try { URL.revokeObjectURL(img.preview); } catch { /* ignore */ }
         }
       });
     };
@@ -132,7 +143,7 @@ function App() {
     return {
       format: caps.recommendedFormat, // Will use WebP if available, then JPEG
       quality: 0.8, // Default to 80% quality for good balance of size and quality
-      maxWidthOrHeight: browser.isIOS ? 1600 : 1920, // Lower for iOS
+      maxWidthOrHeight: undefined, // Resize is off by default and must be enabled explicitly
       preserveExif: false, // Disabled by default
       progressiveJpeg: false, // Disabled by default
       losslessWebP: false, // Disabled by default
@@ -165,6 +176,8 @@ function App() {
         if (uploadedImage.status !== 'completed') continue;
 
         try {
+          await yieldToBrowser();
+
           // Set current image name for progress display
           dispatchProcessing({ type: 'UPDATE', progress: 0, imageName: uploadedImage.file.name });
 
@@ -179,6 +192,7 @@ function App() {
           accumulatedImages.push(processedImage);
           // Update state with a copy of the accumulated array to ensure React sees a new reference
           setProcessedImages([...accumulatedImages]);
+          await yieldToBrowser();
         } catch (err) {
           console.error(`Failed to process ${uploadedImage.file.name}:`, err);
         }
@@ -188,7 +202,7 @@ function App() {
     } finally {
       dispatchProcessing({ type: 'FINISH' });
     }
-  }, [uploadedImages, optimizationOptions]);
+  }, [uploadedImages, optimizationOptions, yieldToBrowser]);
 
   const handleDownloadAll = useCallback(() => {
     setActiveDialog('zip');
@@ -453,17 +467,17 @@ function App() {
     // Clean up blob URLs from processed images to prevent memory leaks
     processedImages.forEach(img => {
       if (img.originalUrl) {
-        try { URL.revokeObjectURL(img.originalUrl); } catch (e) { /* ignore */ }
+        try { URL.revokeObjectURL(img.originalUrl); } catch { /* ignore */ }
       }
       if (img.optimizedUrl) {
-        try { URL.revokeObjectURL(img.optimizedUrl); } catch (e) { /* ignore */ }
+        try { URL.revokeObjectURL(img.optimizedUrl); } catch { /* ignore */ }
       }
     });
 
     // Revoke blob URLs from uploaded images to prevent memory leaks
     uploadedImages.forEach(img => {
       if (img.preview) {
-        try { URL.revokeObjectURL(img.preview); } catch (e) { /* ignore */ }
+        try { URL.revokeObjectURL(img.preview); } catch { /* ignore */ }
       }
     });
 
@@ -479,9 +493,9 @@ function App() {
     // Note: This doesn't guarantee immediate GC but helps the browser know these objects can be collected
     if (typeof window !== 'undefined' && 'gc' in window) {
       try {
-        // @ts-ignore - gc is only available when Chrome is run with --expose-gc flag
-        window.gc();
-      } catch (e) {
+        const gcWindow = window as Window & { gc?: () => void };
+        gcWindow.gc?.();
+      } catch {
         // gc not available, which is normal
       }
     }
