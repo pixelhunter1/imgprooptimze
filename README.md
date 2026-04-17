@@ -214,6 +214,12 @@ npm run electron:dev
 | `npm run electron:dist:win` | Build for Windows |
 | `npm run electron:dist:linux` | Build for Linux |
 
+### Windows Build Note
+
+This app uses `sharp` in the Electron main process. When generating a Windows build from macOS or Linux, run `npm run electron:dist:win` so the `win32-x64` runtime package for `sharp` is prepared before packaging.
+
+If you package Windows without that preparation step, the installed app can fail at startup with an error like `Could not load the "sharp" module using the win32-x64 runtime`.
+
 ### Tech Stack
 
 - **Frontend**: React 19, TypeScript, Vite 7

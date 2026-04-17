@@ -25,11 +25,12 @@
     "electron:dev": "electron-vite dev",
     "electron:build": "electron-vite build",
     "electron:preview": "electron-vite preview",
-    "electron:dist": "electron-vite build && electron-builder",
+    "electron:dist": "npm run electron:prepare:win && electron-vite build && electron-builder",
     "electron:dist:mac": "electron-vite build && electron-builder --mac",
-    "electron:dist:win": "electron-vite build && electron-builder --win",
+    "electron:prepare:win": "node scripts/prepare-sharp.js win32 x64",
+    "electron:dist:win": "npm run electron:prepare:win && electron-vite build && electron-builder --win --x64",
     "electron:dist:linux": "electron-vite build && electron-builder --linux",
-    "electron:dist:all": "electron-vite build && electron-builder --mac --win --linux"
+    "electron:dist:all": "npm run electron:prepare:win && electron-vite build && electron-builder --mac --win --linux"
   },
   "dependencies": {
     "@base-ui-components/react": "^1.0.0-beta.2",
@@ -56,6 +57,9 @@
     "tailwind-merge": "^3.3.1",
     "tailwindcss": "^4.1.12",
     "tailwindcss-animate": "^1.0.7"
+  },
+  "optionalDependencies": {
+    "@img/sharp-win32-x64": "0.34.5"
   },
   "devDependencies": {
     "@eslint/js": "^9.33.0",

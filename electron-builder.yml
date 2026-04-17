@@ -6,8 +6,16 @@ directories:
   output: release
   buildResources: build
 
+npmRebuild: false
+
 files:
   - "out/**/*"
+  - "node_modules/sharp/**/*"
+  - "node_modules/@img/**/*"
+
+asarUnpack:
+  - "node_modules/sharp/**/*"
+  - "node_modules/@img/**/*"
 
 # macOS Configuration
 mac:
@@ -43,7 +51,6 @@ win:
     - target: nsis
       arch:
         - x64
-        - ia32
     - target: portable
       arch:
         - x64
