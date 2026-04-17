@@ -6,6 +6,14 @@ directories:
   output: release
   buildResources: build
 
+# Auto-update via GitHub Releases (consumed by electron-updater at runtime).
+# Releases must be published (draft: false) and contain the generated
+# latest*.yml artefacts alongside the installers.
+publish:
+  provider: github
+  owner: pixelhunter1
+  repo: imgprooptimze
+
 npmRebuild: false
 
 files:

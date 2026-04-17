@@ -30,11 +30,27 @@ export interface ElectronOptimizationResult {
   error?: string
 }
 
+export type UpdaterStatus =
+  | { type: 'checking' }
+  | { type: 'available'; version: string; releaseNotes?: string | null }
+  | { type: 'not-available'; version: string }
+  | { type: 'download-progress'; percent: number; bytesPerSecond: number; transferred: number; total: number }
+  | { type: 'downloaded'; version: string }
+  | { type: 'error'; message: string }
+
+export interface ElectronUpdaterAPI {
+  check: () => Promise<{ ok: boolean; version?: string | null; error?: string }>
+  download: () => Promise<{ ok: boolean; error?: string }>
+  install: () => Promise<void>
+  onStatus: (callback: (status: UpdaterStatus) => void) => () => void
+}
+
 export interface ElectronAPI {
   saveFile: (buffer: ArrayBuffer, defaultName: string) => Promise<SaveResult>
   saveZip: (buffer: ArrayBuffer, defaultName: string) => Promise<SaveResult>
   optimizeImage: (payload: ElectronOptimizationPayload) => Promise<ElectronOptimizationResult>
   getAppVersion: () => Promise<string>
+  updater: ElectronUpdaterAPI
   isElectron: boolean
 }
 

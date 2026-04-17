@@ -36,6 +36,22 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return ipcRenderer.invoke('get-app-version')
   },
 
+  // Auto-updater
+  updater: {
+    check: (): Promise<{ ok: boolean; version?: string | null; error?: string }> =>
+      ipcRenderer.invoke('updater:check'),
+    download: (): Promise<{ ok: boolean; error?: string }> =>
+      ipcRenderer.invoke('updater:download'),
+    install: (): Promise<void> => ipcRenderer.invoke('updater:install'),
+    onStatus: (callback: (status: unknown) => void): (() => void) => {
+      const listener = (_event: unknown, status: unknown): void => callback(status)
+      ipcRenderer.on('updater:status', listener)
+      return () => {
+        ipcRenderer.removeListener('updater:status', listener)
+      }
+    }
+  },
+
   // Check if running in Electron
   isElectron: true
 })

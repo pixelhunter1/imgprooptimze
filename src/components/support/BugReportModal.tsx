@@ -107,9 +107,10 @@ ${formData.additionalInfo || 'None'}
             variant="ghost"
             size="sm"
             onClick={onClose}
+            aria-label="Fechar"
             className="h-8 w-8 p-0"
           >
-            <X className="h-4 w-4" />
+            <X className="h-4 w-4" aria-hidden="true" />
           </Button>
         </div>
 

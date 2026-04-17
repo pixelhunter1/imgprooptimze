@@ -129,9 +129,10 @@ export default function UpdateNotification({
                     variant="outline"
                     onClick={handleDismiss}
                     disabled={isUpdating}
+                    aria-label="Dispensar actualização"
                     className="px-2"
                   >
-                    <X className="h-3 w-3" />
+                    <X className="h-3 w-3" aria-hidden="true" />
                   </Button>
                 )}
               </div>

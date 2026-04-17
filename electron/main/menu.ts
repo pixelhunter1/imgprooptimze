@@ -1,7 +1,39 @@
 import { Menu, app, shell } from 'electron'
 
+type MenuLabels = {
+  file: string
+  edit: string
+  view: string
+  window: string
+  about: string
+}
+
+const LABELS_PT: MenuLabels = {
+  file: 'Ficheiro',
+  edit: 'Editar',
+  view: 'Ver',
+  window: 'Janela',
+  about: 'Sobre Image Optimizer Pro'
+}
+
+const LABELS_EN: MenuLabels = {
+  file: 'File',
+  edit: 'Edit',
+  view: 'View',
+  window: 'Window',
+  about: 'About Image Optimizer Pro'
+}
+
+function resolveLabels(): MenuLabels {
+  // app.getLocale returns BCP 47 tags like "pt-PT", "pt-BR", "en-US".
+  const locale = app.getLocale().toLowerCase()
+  if (locale.startsWith('pt')) return LABELS_PT
+  return LABELS_EN
+}
+
 export function createMenu(): void {
   const isMac = process.platform === 'darwin'
+  const L = resolveLabels()
 
   const template: Electron.MenuItemConstructorOptions[] = [
     // App Menu (macOS only)
@@ -26,7 +58,7 @@ export function createMenu(): void {
 
     // File Menu
     {
-      label: 'Ficheiro',
+      label: L.file,
       submenu: [
         isMac ? { role: 'close' as const } : { role: 'quit' as const }
       ]
@@ -34,7 +66,7 @@ export function createMenu(): void {
 
     // Edit Menu
     {
-      label: 'Editar',
+      label: L.edit,
       submenu: [
         { role: 'undo' as const },
         { role: 'redo' as const },
@@ -58,7 +90,7 @@ export function createMenu(): void {
 
     // View Menu
     {
-      label: 'Ver',
+      label: L.view,
       submenu: [
         { role: 'reload' as const },
         { role: 'forceReload' as const },
@@ -74,7 +106,7 @@ export function createMenu(): void {
 
     // Window Menu
     {
-      label: 'Janela',
+      label: L.window,
       submenu: [
         { role: 'minimize' as const },
         { role: 'zoom' as const },
@@ -94,7 +126,7 @@ export function createMenu(): void {
       role: 'help' as const,
       submenu: [
         {
-          label: 'Sobre Image Optimizer Pro',
+          label: L.about,
           click: async () => {
             await shell.openExternal('https://imgoptimizerpro.com')
           }

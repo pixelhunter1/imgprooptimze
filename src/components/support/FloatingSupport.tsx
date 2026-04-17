@@ -72,9 +72,10 @@ export default function FloatingSupport() {
               variant="outline"
               size="sm"
               onClick={() => setIsOpen(false)}
+              aria-label="Fechar menu de suporte"
               className="h-8 w-8 p-0 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 border-slate-300 dark:border-slate-600"
             >
-              <X className="h-4 w-4" />
+              <X className="h-4 w-4" aria-hidden="true" />
             </Button>
           </div>
 
@@ -97,9 +98,10 @@ export default function FloatingSupport() {
               <Button
                 size="sm"
                 onClick={option.action}
+                aria-label={option.label}
                 className={`${option.color} ${option.hoverColor} text-white border-0 h-8 px-3`}
               >
-                <ExternalLink className="h-3 w-3" />
+                <ExternalLink className="h-3 w-3" aria-hidden="true" />
               </Button>
             </div>
           ))}
@@ -109,9 +111,11 @@ export default function FloatingSupport() {
       {/* Main Floating Button */}
       <Button
         onClick={() => setIsOpen(!isOpen)}
+        aria-label={isOpen ? 'Fechar menu de suporte' : 'Abrir menu de suporte'}
+        aria-expanded={isOpen}
         className="h-14 w-14 rounded-full shadow-lg transition-all duration-200 border-0 bg-blue-600 hover:bg-blue-700 hover:scale-110 text-white"
       >
-        <MessageCircle className="h-6 w-6" />
+        <MessageCircle className="h-6 w-6" aria-hidden="true" />
       </Button>
 
       {/* Tooltip for closed state */}

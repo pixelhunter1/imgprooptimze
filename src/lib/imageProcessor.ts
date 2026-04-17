@@ -60,6 +60,23 @@ import { encode as encodeAvif } from '@jsquash/avif';
 import { detectBrowser, getBrowserCapabilities } from './browserDetection';
 import { type CropArea } from '@/types/crop';
 import '@/types/electron.d.ts';
+import {
+  type ImageFormat,
+  ensureUniqueFilename as ensureUniqueFilenameUtil,
+  formatFileSize as formatFileSizeUtil,
+  generateFileName as generateFileNameUtil,
+  getExtensionFromFormat as getExtensionFromFormatUtil,
+  getFileType as getFileTypeUtil,
+  getFormatFromMimeType as getFormatFromMimeTypeUtil,
+  sanitizeFilename as sanitizeFilenameUtil
+} from './image/fileUtils';
+import {
+  type BatchValidationResult as BatchValidationResultType,
+  type FileValidationResult as FileValidationResultType,
+  validateImageFile as validateImageFileUtil,
+  validateImageFiles as validateImageFilesUtil,
+  verifyImageIntegrity as verifyImageIntegrityUtil
+} from './image/validator';
 
 // Check if running in Electron
 const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
@@ -76,29 +93,10 @@ export interface OptimizationOptions {
   cropArea?: CropArea; // Optional crop area to apply before optimization
 }
 
-// File validation types and constants
-export interface FileValidationResult {
-  isValid: boolean;
-  error?: string;
-  fileName: string;
-}
+// File validation types re-exported from dedicated module
+export type FileValidationResult = FileValidationResultType;
+type BatchValidationResult = BatchValidationResultType;
 
-interface BatchValidationResult {
-  validFiles: File[];
-  invalidFiles: FileValidationResult[];
-  hasValidFiles: boolean;
-  hasInvalidFiles: boolean;
-}
-
-// Allowed image formats
-const ALLOWED_IMAGE_FORMATS = {
-  'image/png': ['.png'],
-  'image/jpeg': ['.jpg', '.jpeg'],
-  'image/webp': ['.webp'],
-  'image/avif': ['.avif']
-} as const;
-
-const ALLOWED_MIME_TYPES = Object.keys(ALLOWED_IMAGE_FORMATS) as string[];
 const IMAGE_LOAD_TIMEOUT_MS = 15000;
 const CANVAS_BLOB_TIMEOUT_MS = 15000;
 const MAX_CANVAS_SIDE = 8192;
@@ -117,6 +115,17 @@ export interface ProcessedImage {
   quality: number;
   customFilename?: string; // User-defined filename (without extension)
   optimizationOptions?: OptimizationOptions; // Store options used for re-optimization after crop
+  // Snapshot of the pre-crop state so the user can restore the original
+  // image after an accidental crop. Not persisted, only kept in memory.
+  preCropSnapshot?: {
+    originalFile: File;
+    originalSize: number;
+    originalUrl: string;
+    optimizedFile: File;
+    optimizedSize: number;
+    optimizedUrl: string;
+    compressionRatio: number;
+  };
 }
 
 export class ImageProcessor {
@@ -515,9 +524,16 @@ export class ImageProcessor {
       capabilities.canUseWebWorkers &&
       capabilities.compressionMethod !== 'canvas';
 
-    // AVIF encoding using jsquash (WASM-based)
+    // AVIF encoding using jsquash (WASM-based). Falls back to WebP if the
+    // encoder fails (e.g. WASM not available, corrupt image, OOM).
     if (isAvifOutput) {
-      return await this.avifOptimization(file, options, onProgress);
+      try {
+        return await this.avifOptimization(file, options, onProgress);
+      } catch (error) {
+        console.warn('AVIF encoding failed, falling back to WebP:', error);
+        const webpOptions: OptimizationOptions = { ...options, format: 'webp' };
+        return await this.selectOptimizationMethod(file, webpOptions, capabilities, onProgress);
+      }
     }
 
     // Format-specific optimization strategy with size increase prevention
@@ -569,8 +585,6 @@ export class ImageProcessor {
         let currentProgress = 10;
 
         try {
-          URL.revokeObjectURL(imageUrl);
-
           if (onProgress) onProgress(10);
 
           // Calculate dimensions respecting maxWidthOrHeight
@@ -637,12 +651,6 @@ export class ImageProcessor {
             speed: speed,
           });
 
-          // Stop simulated progress
-          if (progressInterval) {
-            clearInterval(progressInterval);
-            progressInterval = null;
-          }
-
           if (onProgress) onProgress(95);
 
           // Create File from ArrayBuffer
@@ -656,12 +664,14 @@ export class ImageProcessor {
           if (onProgress) onProgress(100);
           resolve(avifFile);
         } catch (error) {
-          // Clean up interval on error
-          if (progressInterval) {
-            clearInterval(progressInterval);
-          }
           console.error('AVIF encoding failed:', error);
           reject(new Error(`AVIF encoding failed: ${error instanceof Error ? error.message : 'Unknown error'}`));
+        } finally {
+          if (progressInterval) {
+            clearInterval(progressInterval);
+            progressInterval = null;
+          }
+          URL.revokeObjectURL(imageUrl);
         }
       };
 
@@ -747,66 +757,14 @@ export class ImageProcessor {
    * Checks both MIME type and file extension for security
    */
   static validateImageFile(file: File): FileValidationResult {
-    const fileName = file.name;
-    const mimeType = file.type;
-    const extension = fileName.toLowerCase().substring(fileName.lastIndexOf('.'));
-
-    // Check if MIME type is allowed
-    if (!ALLOWED_MIME_TYPES.includes(mimeType)) {
-      return {
-        isValid: false,
-        error: `Invalid file type. Only PNG, WebP, and JPEG/JPG images are allowed. Found: ${mimeType || 'unknown'}`,
-        fileName
-      };
-    }
-
-    // Check if file extension matches the MIME type
-    const allowedExtensions = ALLOWED_IMAGE_FORMATS[mimeType as keyof typeof ALLOWED_IMAGE_FORMATS];
-    if (!allowedExtensions || !(allowedExtensions as readonly string[]).includes(extension)) {
-      return {
-        isValid: false,
-        error: `File extension "${extension}" doesn't match the file type "${mimeType}". Possible security risk detected.`,
-        fileName
-      };
-    }
-
-    // Additional check: ensure file has an extension
-    if (!extension || extension === fileName) {
-      return {
-        isValid: false,
-        error: 'File must have a valid image extension (.png, .jpg, .jpeg, or .webp)',
-        fileName
-      };
-    }
-
-    return {
-      isValid: true,
-      fileName
-    };
+    return validateImageFileUtil(file);
   }
 
   /**
    * Validates multiple files and separates valid from invalid ones
    */
   static validateImageFiles(files: File[] | FileList): BatchValidationResult {
-    const validFiles: File[] = [];
-    const invalidFiles: FileValidationResult[] = [];
-
-    Array.from(files).forEach(file => {
-      const validation = this.validateImageFile(file);
-      if (validation.isValid) {
-        validFiles.push(file);
-      } else {
-        invalidFiles.push(validation);
-      }
-    });
-
-    return {
-      validFiles,
-      invalidFiles,
-      hasValidFiles: validFiles.length > 0,
-      hasInvalidFiles: invalidFiles.length > 0
-    };
+    return validateImageFilesUtil(files);
   }
 
   /**
@@ -814,28 +772,7 @@ export class ImageProcessor {
    * This provides additional security against renamed files
    */
   static async verifyImageIntegrity(file: File): Promise<boolean> {
-    return new Promise((resolve) => {
-      const img = new Image();
-      const url = URL.createObjectURL(file);
-
-      img.onload = () => {
-        URL.revokeObjectURL(url);
-        resolve(true);
-      };
-
-      img.onerror = () => {
-        URL.revokeObjectURL(url);
-        resolve(false);
-      };
-
-      // Set a timeout to avoid hanging
-      setTimeout(() => {
-        URL.revokeObjectURL(url);
-        resolve(false);
-      }, 5000);
-
-      img.src = url;
-    });
+    return verifyImageIntegrityUtil(file);
   }
 
   static async optimizeImage(
@@ -1320,69 +1257,27 @@ export class ImageProcessor {
     });
   }
 
-  static getFileType(format: 'webp' | 'jpeg' | 'png' | 'avif'): string {
-    const mimeTypes = {
-      webp: 'image/webp',
-      jpeg: 'image/jpeg',
-      png: 'image/png',
-      avif: 'image/avif',
-    };
-    return mimeTypes[format];
+  static getFileType(format: ImageFormat): string {
+    return getFileTypeUtil(format);
   }
 
-  static getFormatFromMimeType(mimeType: string): 'webp' | 'jpeg' | 'png' | 'avif' {
-    if (mimeType.includes('avif')) return 'avif';
-    if (mimeType.includes('webp')) return 'webp';
-    if (mimeType.includes('jpeg') || mimeType.includes('jpg')) return 'jpeg';
-    if (mimeType.includes('png')) return 'png';
-    return 'jpeg'; // default fallback
+  static getFormatFromMimeType(mimeType: string): ImageFormat {
+    return getFormatFromMimeTypeUtil(mimeType);
   }
 
   /**
    * Sanitizes a filename for Google Merchant Center compatibility
-   * Removes special characters, accents, converts to lowercase, and normalizes hyphens
-   * @param filename The filename to sanitize (without extension)
-   * @returns Sanitized filename safe for Google Merchant
    */
   static sanitizeFilename(filename: string): string {
-    return filename
-      // Convert to lowercase
-      .toLowerCase()
-      // Remove accents (normalize and remove diacritics)
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      // Convert en-dash/em-dash to normal hyphen
-      .replace(/[\u2013\u2014]/g, '-')
-      // Replace spaces with hyphens
-      .replace(/\s+/g, '-')
-      // Remove special characters (keep only letters, numbers, and hyphens)
-      .replace(/[^a-z0-9-]/g, '')
-      // Remove multiple consecutive hyphens
-      .replace(/-+/g, '-')
-      // Remove hyphens at start and end
-      .replace(/^-+|-+$/g, '')
-      // Fallback if empty
-      || 'image';
+    return sanitizeFilenameUtil(filename);
   }
 
-  static generateFileName(originalName: string, format: 'webp' | 'jpeg' | 'png' | 'avif'): string {
-    const nameWithoutExt = originalName.replace(/\.[^/.]+$/, '');
-    const sanitizedName = this.sanitizeFilename(nameWithoutExt);
-    const extensions = {
-      webp: '.webp',
-      jpeg: '.jpg',
-      png: '.png',
-      avif: '.avif',
-    };
-    return `${sanitizedName}${extensions[format]}`;
+  static generateFileName(originalName: string, format: ImageFormat): string {
+    return generateFileNameUtil(originalName, format);
   }
 
   static formatFileSize(bytes: number): string {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    return formatFileSizeUtil(bytes);
   }
 
   static async downloadFile(file: File, filename?: string): Promise<void> {
@@ -1492,34 +1387,14 @@ export class ImageProcessor {
    * Ensures a filename is unique within a set by appending -1, -2, ...
    */
   static ensureUniqueFilename(filename: string, used: Set<string>): string {
-    if (!used.has(filename)) return filename;
-
-    const lastDot = filename.lastIndexOf('.');
-    const base = lastDot > 0 ? filename.slice(0, lastDot) : filename;
-    const ext = lastDot > 0 ? filename.slice(lastDot) : '';
-
-    let i = 1;
-    let candidate = `${base}-${i}${ext}`;
-    while (used.has(candidate)) {
-      i += 1;
-      candidate = `${base}-${i}${ext}`;
-    }
-    return candidate;
+    return ensureUniqueFilenameUtil(filename, used);
   }
 
   /**
    * Gets file extension from format
-   * @param format Image format
-   * @returns File extension with dot
    */
-  static getExtensionFromFormat(format: 'webp' | 'jpeg' | 'png' | 'avif'): string {
-    const extensions = {
-      webp: '.webp',
-      jpeg: '.jpg',
-      png: '.png',
-      avif: '.avif',
-    };
-    return extensions[format];
+  static getExtensionFromFormat(format: ImageFormat): string {
+    return getExtensionFromFormatUtil(format);
   }
 
   /**
@@ -1536,6 +1411,15 @@ export class ImageProcessor {
     }
     if (processedImage.optimizedUrl && processedImage.optimizedUrl !== processedImage.originalUrl) {
       URL.revokeObjectURL(processedImage.optimizedUrl);
+    }
+    const snapshot = processedImage.preCropSnapshot;
+    if (snapshot) {
+      if (snapshot.originalUrl) {
+        URL.revokeObjectURL(snapshot.originalUrl);
+      }
+      if (snapshot.optimizedUrl && snapshot.optimizedUrl !== snapshot.originalUrl) {
+        URL.revokeObjectURL(snapshot.optimizedUrl);
+      }
     }
   }
 

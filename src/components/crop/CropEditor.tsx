@@ -1730,8 +1730,8 @@ export default function CropEditor({
               </span>
             )}
           </div>
-          <button onClick={onClose} className="text-neutral-400 hover:text-white">
-            <X className="w-5 h-5" />
+          <button onClick={onClose} aria-label="Fechar" className="text-neutral-400 hover:text-white">
+            <X className="w-5 h-5" aria-hidden="true" />
           </button>
         </div>
 

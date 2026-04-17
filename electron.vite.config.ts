@@ -61,6 +61,10 @@ export default defineConfig({
       'import.meta.env.VITE_APP_VERSION': JSON.stringify(version),
       'import.meta.env.VITE_BUILD_TIMESTAMP': JSON.stringify(buildTimestamp),
       'import.meta.env.VITE_BUILD_HASH': JSON.stringify(buildHash)
+    },
+    // Strip console.log/console.debug in production; keep warn/error.
+    esbuild: {
+      pure: ['console.log', 'console.debug']
     }
   }
 })

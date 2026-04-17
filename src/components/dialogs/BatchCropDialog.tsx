@@ -747,9 +747,10 @@ export default function BatchCropDialog({
           <button
             onClick={onClose}
             disabled={isApplying}
+            aria-label="Fechar"
             className="text-neutral-400 hover:text-white disabled:opacity-50"
           >
-            <X className="w-5 h-5" />
+            <X className="w-5 h-5" aria-hidden="true" />
           </button>
         </div>
 

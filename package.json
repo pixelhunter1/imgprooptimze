@@ -21,16 +21,20 @@
     "version:minor": "node scripts/auto-version.js minor",
     "version:major": "node scripts/auto-version.js major",
     "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "preview": "vite preview",
     "electron:dev": "electron-vite dev",
     "electron:build": "electron-vite build",
     "electron:preview": "electron-vite preview",
     "electron:dist": "npm run electron:prepare:win && electron-vite build && electron-builder",
-    "electron:dist:mac": "electron-vite build && electron-builder --mac",
     "electron:prepare:win": "node scripts/prepare-sharp.js win32 x64",
+    "electron:prepare:mac": "node scripts/prepare-sharp.js darwin x64 arm64",
+    "electron:prepare:linux": "node scripts/prepare-sharp.js linux x64 arm64",
+    "electron:dist:mac": "npm run electron:prepare:mac && electron-vite build && electron-builder --mac",
     "electron:dist:win": "npm run electron:prepare:win && electron-vite build && electron-builder --win --x64",
-    "electron:dist:linux": "electron-vite build && electron-builder --linux",
-    "electron:dist:all": "npm run electron:prepare:win && electron-vite build && electron-builder --mac --win --linux"
+    "electron:dist:linux": "npm run electron:prepare:linux && electron-vite build && electron-builder --linux",
+    "electron:dist:all": "npm run electron:prepare:win && npm run electron:prepare:mac && npm run electron:prepare:linux && electron-vite build && electron-builder --mac --win --linux"
   },
   "dependencies": {
     "@base-ui-components/react": "^1.0.0-beta.2",
@@ -47,6 +51,8 @@
     "browser-image-compression": "^2.0.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "electron-log": "^5.4.3",
+    "electron-updater": "^6.8.3",
     "jszip": "^3.10.1",
     "lucide-react": "^0.542.0",
     "piexifjs": "^1.0.6",
@@ -59,6 +65,10 @@
     "tailwindcss-animate": "^1.0.7"
   },
   "optionalDependencies": {
+    "@img/sharp-darwin-arm64": "0.34.5",
+    "@img/sharp-darwin-x64": "0.34.5",
+    "@img/sharp-linux-arm64": "0.34.5",
+    "@img/sharp-linux-x64": "0.34.5",
     "@img/sharp-win32-x64": "0.34.5"
   },
   "devDependencies": {
@@ -68,6 +78,7 @@
     "@types/react": "^19.1.10",
     "@types/react-dom": "^19.1.7",
     "@vitejs/plugin-react": "^5.0.0",
+    "@vitest/ui": "^4.1.4",
     "electron": "^39.2.4",
     "electron-builder": "^26.0.12",
     "electron-vite": "^4.0.1",
@@ -75,8 +86,10 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^16.3.0",
+    "jsdom": "^29.0.2",
     "typescript": "~5.8.3",
     "typescript-eslint": "^8.39.1",
-    "vite": "^7.1.2"
+    "vite": "^7.1.2",
+    "vitest": "^4.1.4"
   }
 }

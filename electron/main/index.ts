@@ -4,8 +4,36 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { writeFile } from 'fs/promises'
 import sharp from 'sharp'
 import { createMenu } from './menu'
+import { initAutoUpdater } from './updater'
 
 let mainWindow: BrowserWindow | null = null
+
+const MAX_INPUT_BYTES = 500 * 1024 * 1024
+const MAX_OUTPUT_BYTES = 2 * 1024 * 1024 * 1024
+const ALLOWED_FORMATS = new Set(['webp', 'jpeg', 'png', 'avif'])
+
+function assertArrayBuffer(value: unknown, label: string, maxBytes: number): ArrayBuffer {
+  if (!(value instanceof ArrayBuffer)) {
+    throw new Error(`${label} must be an ArrayBuffer`)
+  }
+  if (value.byteLength === 0) {
+    throw new Error(`${label} is empty`)
+  }
+  if (value.byteLength > maxBytes) {
+    throw new Error(`${label} exceeds maximum size of ${Math.round(maxBytes / 1024 / 1024)} MB`)
+  }
+  return value
+}
+
+function assertSafeFileName(name: unknown): string {
+  if (typeof name !== 'string' || name.length === 0 || name.length > 255) {
+    throw new Error('Invalid file name')
+  }
+  if (name.includes('/') || name.includes('\\') || name.includes('\0')) {
+    throw new Error('File name contains invalid characters')
+  }
+  return name
+}
 
 type OptimizeImageRequest = {
   buffer: ArrayBuffer
@@ -46,6 +74,8 @@ function getTargetMimeType(format: OptimizeImageRequest['options']['format']): s
       return 'image/webp'
     case 'avif':
       return 'image/avif'
+    default:
+      throw new Error(`Unsupported format: ${format}`)
   }
 }
 
@@ -148,7 +178,7 @@ async function encodeWithSharp(
           compressionLevel: options.pngCompressionLevel ?? 6,
           progressive: false,
           adaptiveFiltering: true,
-          palette: options.quality < 1.0,
+          palette: options.quality < 0.7,
           quality: Math.max(60, quality)
         })
         break
@@ -190,7 +220,7 @@ function createWindow(): void {
     titleBarStyle: 'default',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false,
+      sandbox: true,
       contextIsolation: true,
       nodeIntegration: false
     }
@@ -215,7 +245,17 @@ function createWindow(): void {
 
 // IPC Handlers for native file operations
 ipcMain.handle('save-file', async (_event, buffer: ArrayBuffer, defaultName: string) => {
-  const result = await dialog.showSaveDialog(mainWindow!, {
+  const parentWindow = mainWindow ?? BrowserWindow.getFocusedWindow()
+  if (!parentWindow) {
+    return { success: false, error: 'No window available' }
+  }
+  try {
+    assertArrayBuffer(buffer, 'File buffer', MAX_OUTPUT_BYTES)
+    defaultName = assertSafeFileName(defaultName)
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : String(error) }
+  }
+  const result = await dialog.showSaveDialog(parentWindow, {
     title: 'Guardar Imagem',
     defaultPath: defaultName,
     filters: [
@@ -238,7 +278,17 @@ ipcMain.handle('save-file', async (_event, buffer: ArrayBuffer, defaultName: str
 })
 
 ipcMain.handle('save-zip', async (_event, buffer: ArrayBuffer, defaultName: string) => {
-  const result = await dialog.showSaveDialog(mainWindow!, {
+  const parentWindow = mainWindow ?? BrowserWindow.getFocusedWindow()
+  if (!parentWindow) {
+    return { success: false, error: 'No window available' }
+  }
+  try {
+    assertArrayBuffer(buffer, 'ZIP buffer', MAX_OUTPUT_BYTES)
+    defaultName = assertSafeFileName(defaultName)
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : String(error) }
+  }
+  const result = await dialog.showSaveDialog(parentWindow, {
     title: 'Guardar ZIP',
     defaultPath: defaultName,
     filters: [
@@ -262,6 +312,24 @@ ipcMain.handle('save-zip', async (_event, buffer: ArrayBuffer, defaultName: stri
 
 ipcMain.handle('optimize-image', async (_event, payload: OptimizeImageRequest): Promise<OptimizeImageResponse> => {
   try {
+    if (!payload || typeof payload !== 'object') {
+      throw new Error('Invalid payload')
+    }
+    assertArrayBuffer(payload.buffer, 'Image buffer', MAX_INPUT_BYTES)
+    if (!payload.options || !ALLOWED_FORMATS.has(payload.options.format)) {
+      throw new Error(`Unsupported format: ${payload.options?.format}`)
+    }
+    if (typeof payload.options.quality !== 'number' || payload.options.quality <= 0 || payload.options.quality > 1) {
+      throw new Error('Quality must be in (0, 1]')
+    }
+    if (
+      payload.options.maxWidthOrHeight !== undefined &&
+      (!Number.isFinite(payload.options.maxWidthOrHeight) ||
+        payload.options.maxWidthOrHeight <= 0 ||
+        payload.options.maxWidthOrHeight > 32000)
+    ) {
+      throw new Error('maxWidthOrHeight out of range')
+    }
     const inputBuffer = Buffer.from(payload.buffer)
     const result = await encodeWithSharp(inputBuffer, payload.options)
 
@@ -298,6 +366,7 @@ app.whenReady().then(() => {
 
   createWindow()
   createMenu()
+  initAutoUpdater()
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the

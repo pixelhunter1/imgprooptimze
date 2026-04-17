@@ -42,9 +42,10 @@ export default function ResetProjectDialog({
             <button
               onClick={onClose}
               disabled={isResetting}
+              aria-label="Fechar"
               className="p-1 text-neutral-500 hover:text-white rounded hover:bg-neutral-800"
             >
-              <X className="h-4 w-4" />
+              <X className="h-4 w-4" aria-hidden="true" />
             </button>
           </div>
 

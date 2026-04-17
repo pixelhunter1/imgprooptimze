@@ -75,9 +75,10 @@ export default function BrowserCompatibilityAlert({ onDismiss, className }: Brow
         size="sm"
         mode="icon"
         onClick={handleDismiss}
+        aria-label="Dispensar aviso"
         className="absolute top-2 right-2 text-amber-600 hover:text-amber-800"
       >
-        <X className="h-4 w-4" />
+        <X className="h-4 w-4" aria-hidden="true" />
       </Button>
     </Alert>
   );

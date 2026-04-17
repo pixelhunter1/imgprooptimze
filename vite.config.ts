@@ -32,6 +32,11 @@ export default defineConfig({
   worker: {
     format: 'es',
   },
+  // Drop console.log/console.debug in production to keep the shipped bundle
+  // quiet. console.warn/console.error are preserved for real problems.
+  esbuild: {
+    pure: ['console.log', 'console.debug']
+  },
   define: {
     // Inject version info at build time
     'import.meta.env.VITE_APP_VERSION': JSON.stringify(version),

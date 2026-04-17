@@ -136,21 +136,52 @@ function App() {
   }, []); // Empty dependency array - only run on mount/unmount
 
   const [optimizationOptions, setOptimizationOptions] = useState<OptimizationOptions>(() => {
-    // Set initial options based on browser capabilities
+    // Browser-derived defaults.
     const browser = detectBrowser();
     const caps = getBrowserCapabilities(browser);
-
-    return {
-      format: caps.recommendedFormat, // Will use WebP if available, then JPEG
-      quality: 0.8, // Default to 80% quality for good balance of size and quality
-      maxWidthOrHeight: undefined, // Resize is off by default and must be enabled explicitly
-      preserveExif: false, // Disabled by default
-      progressiveJpeg: false, // Disabled by default
-      losslessWebP: false, // Disabled by default
-      pngCompressionLevel: 6, // Default PNG compression level
-      maxSizeMB: undefined, // No limit by default
+    const defaults: OptimizationOptions = {
+      format: caps.recommendedFormat,
+      quality: 0.8,
+      maxWidthOrHeight: undefined,
+      preserveExif: false,
+      progressiveJpeg: false,
+      losslessWebP: false,
+      pngCompressionLevel: 6,
+      maxSizeMB: undefined,
     };
+
+    // Restore last-used options from the previous session, if any.
+    try {
+      const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('optimization_options') : null;
+      if (!raw) return defaults;
+      const saved = JSON.parse(raw) as Partial<OptimizationOptions>;
+      const allowedFormats: OptimizationOptions['format'][] = ['webp', 'jpeg', 'png', 'avif'];
+      const format = allowedFormats.includes(saved.format as OptimizationOptions['format'])
+        ? (saved.format as OptimizationOptions['format'])
+        : defaults.format;
+      // Degrade gracefully if the saved format is no longer supported.
+      const finalFormat = format === 'webp' && !caps.canUseWebP ? caps.recommendedFormat : format;
+      return {
+        ...defaults,
+        ...saved,
+        format: finalFormat,
+        quality:
+          typeof saved.quality === 'number' && saved.quality > 0 && saved.quality <= 1
+            ? saved.quality
+            : defaults.quality,
+      };
+    } catch {
+      return defaults;
+    }
   });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('optimization_options', JSON.stringify(optimizationOptions));
+    } catch {
+      // Quota exceeded or storage disabled — silently ignore.
+    }
+  }, [optimizationOptions]);
 
   const handleImagesUploaded = useCallback((images: UploadedImage[]) => {
     setUploadedImages(images);
@@ -208,6 +239,53 @@ function App() {
     setActiveDialog('zip');
   }, []);
 
+  // Keyboard shortcuts: Ctrl/Cmd+O open, Ctrl/Cmd+S download first,
+  // Ctrl/Cmd+Shift+S open ZIP dialog, Escape close active dialog.
+  useEffect(() => {
+    const handler = (e: KeyboardEvent): void => {
+      const mod = e.metaKey || e.ctrlKey;
+      const target = e.target as HTMLElement | null;
+      const inField = target
+        ? ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable
+        : false;
+
+      if (e.key === 'Escape' && activeDialog) {
+        setActiveDialog(null);
+        return;
+      }
+
+      if (inField) return;
+
+      if (mod && !e.shiftKey && e.key.toLowerCase() === 'o') {
+        e.preventDefault();
+        imageUploadRef.current?.openFileDialog();
+        return;
+      }
+
+      if (mod && e.shiftKey && e.key.toLowerCase() === 's') {
+        if (processedImagesRef.current.length > 0) {
+          e.preventDefault();
+          setActiveDialog('zip');
+        }
+        return;
+      }
+
+      if (mod && !e.shiftKey && e.key.toLowerCase() === 's') {
+        const first = processedImagesRef.current[0];
+        if (first) {
+          e.preventDefault();
+          void ImageProcessor.downloadFile(
+            first.optimizedFile,
+            ImageProcessor.getFinalFilename(first)
+          );
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [activeDialog]);
+
   const handleZipDownload = useCallback(async (zipFilename: string) => {
     try {
       await ImageProcessor.downloadAsZip(processedImages, zipFilename);
@@ -236,6 +314,35 @@ function App() {
     await ImageProcessor.downloadFile(image.optimizedFile, finalFilename);
   }, []);
 
+  const handleRestoreOriginal = useCallback((imageId: string) => {
+    setProcessedImages(prev =>
+      prev.map(img => {
+        if (img.id !== imageId || !img.preCropSnapshot) return img;
+        const snapshot = img.preCropSnapshot;
+
+        // Revoke the URLs of the cropped version we're replacing.
+        if (img.originalUrl) {
+          try { URL.revokeObjectURL(img.originalUrl); } catch { /* ignore */ }
+        }
+        if (img.optimizedUrl && img.optimizedUrl !== img.originalUrl) {
+          try { URL.revokeObjectURL(img.optimizedUrl); } catch { /* ignore */ }
+        }
+
+        return {
+          ...img,
+          originalFile: snapshot.originalFile,
+          originalUrl: snapshot.originalUrl,
+          originalSize: snapshot.originalSize,
+          optimizedFile: snapshot.optimizedFile,
+          optimizedUrl: snapshot.optimizedUrl,
+          optimizedSize: snapshot.optimizedSize,
+          compressionRatio: snapshot.compressionRatio,
+          preCropSnapshot: undefined,
+        };
+      })
+    );
+  }, []);
+
   const handleRemoveImage = useCallback((imageId: string) => {
     // Find the image to clean up its URLs
     const imageToRemove = processedImages.find(img => img.id === imageId);
@@ -260,19 +367,18 @@ function App() {
     // Get the optimization options used for this image (or use current global options as fallback)
     const optionsToUse = imageToUpdate.optimizationOptions || optimizationOptions;
 
-    // Revoke old URLs to prevent memory leak
-    if (imageToUpdate.optimizedUrl) {
-      URL.revokeObjectURL(imageToUpdate.optimizedUrl);
-    }
-    if (imageToUpdate.originalUrl) {
-      URL.revokeObjectURL(imageToUpdate.originalUrl);
-    }
-    // Also revoke the temporary cropped URL since we'll create a new one after optimization
-    URL.revokeObjectURL(croppedUrl);
-
     try {
       // Re-optimize the cropped image with the same settings
       const reOptimized = await ImageProcessor.optimizeImage(croppedFile, optionsToUse);
+
+      // Revoke old URLs now that we have replacements
+      if (imageToUpdate.optimizedUrl) {
+        URL.revokeObjectURL(imageToUpdate.optimizedUrl);
+      }
+      if (imageToUpdate.originalUrl) {
+        URL.revokeObjectURL(imageToUpdate.originalUrl);
+      }
+      URL.revokeObjectURL(croppedUrl);
 
       setProcessedImages(prev =>
         prev.map(img => {
@@ -297,20 +403,32 @@ function App() {
       );
     } catch (error) {
       console.error('Failed to re-optimize cropped image:', error);
-      // Fallback: just use the cropped image without optimization
-      const newCroppedUrl = URL.createObjectURL(croppedFile);
+      // Revoke old URLs before replacing them with the fallback
+      if (imageToUpdate.optimizedUrl) {
+        URL.revokeObjectURL(imageToUpdate.optimizedUrl);
+      }
+      if (imageToUpdate.originalUrl) {
+        URL.revokeObjectURL(imageToUpdate.originalUrl);
+      }
+      URL.revokeObjectURL(croppedUrl);
+
+      // Fallback: use the cropped image both as original and optimized. Create
+      // two distinct blob URLs so cleanup can revoke each independently.
+      const fallbackOriginalUrl = URL.createObjectURL(croppedFile);
+      const fallbackOptimizedUrl = URL.createObjectURL(croppedFile);
       setProcessedImages(prev =>
         prev.map(img => {
           if (img.id === imageId) {
             return {
               ...img,
               originalFile: croppedFile,
-              originalUrl: newCroppedUrl,
+              originalUrl: fallbackOriginalUrl,
               originalSize: croppedFile.size,
               optimizedFile: croppedFile,
-              optimizedUrl: newCroppedUrl,
+              optimizedUrl: fallbackOptimizedUrl,
               optimizedSize: croppedFile.size,
               compressionRatio: 0,
+              optimizationOptions: optionsToUse,
             };
           }
           return img;
@@ -365,7 +483,7 @@ function App() {
         onProgress(i + 1, total);
       }
 
-      const imageToUpdate = processedImages.find(img => img.id === imageId);
+      const imageToUpdate = processedImagesRef.current.find(img => img.id === imageId);
       if (!imageToUpdate) {
         failed++;
         errors.push(`Image ${imageId}: image no longer exists in current state`);
@@ -410,13 +528,25 @@ function App() {
           `Re-optimization for ${imageToUpdate.originalFile.name}`
         );
 
-        // Revoke old URLs
-        if (imageToUpdate.optimizedUrl) {
-          URL.revokeObjectURL(imageToUpdate.optimizedUrl);
+        // Preserve the pre-crop files so the user can restore them later.
+        // Any existing snapshot is discarded (one level of undo, its URLs
+        // revoked here to avoid leaks).
+        if (imageToUpdate.preCropSnapshot) {
+          URL.revokeObjectURL(imageToUpdate.preCropSnapshot.originalUrl);
+          if (imageToUpdate.preCropSnapshot.optimizedUrl !== imageToUpdate.preCropSnapshot.originalUrl) {
+            URL.revokeObjectURL(imageToUpdate.preCropSnapshot.optimizedUrl);
+          }
         }
-        if (imageToUpdate.originalUrl) {
-          URL.revokeObjectURL(imageToUpdate.originalUrl);
-        }
+
+        const snapshot: ProcessedImage['preCropSnapshot'] = {
+          originalFile: imageToUpdate.originalFile,
+          originalSize: imageToUpdate.originalSize,
+          originalUrl: imageToUpdate.originalUrl,
+          optimizedFile: imageToUpdate.optimizedFile,
+          optimizedSize: imageToUpdate.optimizedSize,
+          optimizedUrl: imageToUpdate.optimizedUrl,
+          compressionRatio: imageToUpdate.compressionRatio,
+        };
 
         // Update the image in state
         setProcessedImages(prev =>
@@ -432,6 +562,7 @@ function App() {
                 optimizedSize: reOptimized.optimizedSize,
                 compressionRatio: reOptimized.compressionRatio,
                 optimizationOptions: optionsToUse,
+                preCropSnapshot: snapshot,
               };
             }
             return img;
@@ -461,7 +592,7 @@ function App() {
     }
 
     return { processed, failed, errors };
-  }, [processedImages, optimizationOptions]);
+  }, [optimizationOptions]);
 
   const handleResetProject = useCallback(() => {
     // Clean up blob URLs from processed images to prevent memory leaks
@@ -609,6 +740,7 @@ function App() {
                     onRename={handleRenameImage}
                     onRemove={handleRemoveImage}
                     onCrop={handleCropImage}
+                    onRestoreOriginal={handleRestoreOriginal}
                   />
                 ))}
               </div>

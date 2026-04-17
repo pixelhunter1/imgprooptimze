@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Download, Zap, Edit2, X, Maximize2, Crop } from 'lucide-react';
+import { Download, Zap, Edit2, X, Maximize2, Crop, Undo2 } from 'lucide-react';
 import ImageComparison from './ImageComparison';
 import Modal from '@/components/ui/modal';
 import { type ProcessedImage, ImageProcessor } from '@/lib/imageProcessor';
@@ -14,6 +14,7 @@ interface ImagePreviewProps {
   onRename: (id: string, newFilename: string) => void;
   onRemove?: (id: string) => void;
   onCrop?: (id: string, croppedFile: File, croppedUrl: string) => void;
+  onRestoreOriginal?: (id: string) => void;
   isProcessing?: boolean;
   processingProgress?: number;
 }
@@ -24,6 +25,7 @@ export default function ImagePreview({
   onRename,
   onRemove,
   onCrop,
+  onRestoreOriginal,
   isProcessing = false,
   processingProgress = 0,
 }: ImagePreviewProps) {
@@ -187,6 +189,20 @@ export default function ImagePreview({
                   <Crop className="h-3.5 w-3.5" />
                 </button>
               )}
+              {/* Restore Original (shown only if there's a pre-crop snapshot) */}
+              {onRestoreOriginal && processedImage.preCropSnapshot && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRestoreOriginal(processedImage.id);
+                  }}
+                  aria-label="Restaurar original"
+                  className="h-7 w-7 rounded bg-neutral-800 hover:bg-amber-600 text-neutral-300 hover:text-white flex items-center justify-center"
+                  title="Restaurar original"
+                >
+                  <Undo2 className="h-3.5 w-3.5" aria-hidden="true" />
+                </button>
+              )}
               {/* Remove Button */}
               {onRemove && (
                 <button
@@ -194,10 +210,11 @@ export default function ImagePreview({
                     e.stopPropagation();
                     onRemove(processedImage.id);
                   }}
+                  aria-label="Remover imagem"
                   className="h-7 w-7 rounded bg-neutral-800 hover:bg-red-600 text-neutral-300 hover:text-white flex items-center justify-center"
                   title="Remove image"
                 >
-                  <X className="h-3.5 w-3.5" />
+                  <X className="h-3.5 w-3.5" aria-hidden="true" />
                 </button>
               )}
             </div>

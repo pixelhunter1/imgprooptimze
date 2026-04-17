@@ -150,9 +150,10 @@ export default function InstallButton() {
                 size="sm"
                 variant="outline"
                 onClick={handleDismissBanner}
+                aria-label="Dispensar"
                 className="px-2"
               >
-                <X className="h-3 w-3" />
+                <X className="h-3 w-3" aria-hidden="true" />
               </Button>
             </div>
           </div>

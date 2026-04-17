@@ -29,6 +29,7 @@ interface ImageUploadProps {
 export interface ImageUploadRef {
   resetUpload: () => void;
   removeImageByName: (fileName: string) => void;
+  openFileDialog: () => void;
 }
 
 const ImageUpload = forwardRef<ImageUploadRef, ImageUploadProps>(({
@@ -47,6 +48,9 @@ const ImageUpload = forwardRef<ImageUploadRef, ImageUploadProps>(({
 
   // Keep track of all blob URLs created for cleanup
   const blobUrlsRef = useRef<Set<string>>(new Set());
+  // Ref to the latest openFileDialog (defined later in this component) so
+  // useImperativeHandle can expose it without a TDZ dependency.
+  const openFileDialogRef = useRef<(() => void) | null>(null);
 
   // Cleanup all blob URLs on page unload only (NOT on StrictMode remount)
   useEffect(() => {
@@ -110,6 +114,9 @@ const ImageUpload = forwardRef<ImageUploadRef, ImageUploadProps>(({
         // Notify parent
         onImagesChange?.(updatedImages);
       }
+    },
+    openFileDialog: () => {
+      openFileDialogRef.current?.();
     }
   }), [images, onImagesChange]);
 
@@ -324,6 +331,9 @@ const ImageUpload = forwardRef<ImageUploadRef, ImageUploadProps>(({
     };
     input.click();
   }, [accept, addImages]);
+
+  // Keep the ref in sync so useImperativeHandle can call the latest version.
+  openFileDialogRef.current = openFileDialog;
 
   const formatBytes = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes';
